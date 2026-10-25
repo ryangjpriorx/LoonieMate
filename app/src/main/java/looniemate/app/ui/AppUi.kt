@@ -1,0 +1,180 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
+package looniemate.app.ui
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Receipt
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.ShoppingCart
+import androidx.compose.material.icons.rounded.Today
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import looniemate.app.MainViewModel
+import looniemate.app.ui.screens.BillsScreen
+import looniemate.app.ui.screens.MonthScreen
+import looniemate.app.ui.screens.MoreScreen
+import looniemate.app.ui.screens.SpendingScreen
+import looniemate.app.ui.screens.TodayScreen
+import looniemate.app.ui.sheets.Sheets
+import looniemate.app.ui.theme.LocalExtra
+import looniemate.app.ui.theme.LocalFx
+import looniemate.engine.Fmt
+import looniemate.engine.diffDays
+import looniemate.engine.ymAdd
+
+enum class Tab(val label: String, val icon: ImageVector) {
+    Today("Today", Icons.Rounded.Today), Month("Month", Icons.Rounded.CalendarMonth), Bills("Bills", Icons.Rounded.Receipt),
+    Spending("Spending", Icons.Rounded.ShoppingCart), More("Settings", Icons.Rounded.Settings)
+}
+
+/** Which sheet is open, if any. */
+sealed class Sheet {
+    class Log(val oneTime: Boolean = false) : Sheet()
+    class Bill(val id: String?, val group: String) : Sheet()
+    class Adjust(val ym: String, val id: String, val defer: Boolean) : Sheet()
+    class Transfer(val kind: String, val amount: Double?) : Sheet()
+    object Export : Sheet()
+    object Import : Sheet()
+}
+
+@Composable
+fun LoonieMateApp(vm: MainViewModel) {
+    var tab by rememberSaveable { mutableStateOf(Tab.Today) }
+    var sheet by remember { mutableStateOf<Sheet?>(null) }
+    val snackbar = remember { SnackbarHostState() }
+    val today by vm.today.collectAsStateWithLifecycle()
+    val ymSel by vm.ym.collectAsStateWithLifecycle()
+    val todayModel by vm.todayModel.collectAsStateWithLifecycle()
+    val lastBackup by vm.prefs.lastBackupFlow.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        vm.snack.collect { u ->
+            val r = snackbar.showSnackbar(u.message, actionLabel = if (u.paths.isNotEmpty()) "Undo" else null, duration = SnackbarDuration.Short)
+            if (r == SnackbarResult.ActionPerformed) vm.undo(u)
+        }
+    }
+    BackHandler(enabled = tab != Tab.Today) { tab = Tab.Today }
+
+    val open: (Sheet) -> Unit = { sheet = it }
+    val monthTabs = tab == Tab.Month || tab == Tab.Bills || tab == Tab.Spending
+    val shownYm = ymSel ?: vm.shownYm()
+
+    Scaffold(
+        topBar = {
+            Column {
+                CenterAlignedTopAppBar(
+                    title = {
+                        if (monthTabs) Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { vm.ym.value = ymAdd(shownYm, -1) }) { Icon(Icons.Rounded.ChevronLeft, "Previous month") }
+                            TextButton(onClick = { vm.ym.value = null }) { Text(Fmt.monthName(shownYm), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                            IconButton(onClick = { vm.ym.value = ymAdd(shownYm, 1) }) { Icon(Icons.Rounded.ChevronRight, "Next month") }
+                        } else Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(if (tab == Tab.More) "Settings" else todayModel?.title ?: "LoonieMate", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            if (tab == Tab.Today) { val days = lastBackup?.let { diffDays(it.take(10), today) }
+                                Text("Saved on this phone · " + when (days) { null -> "not backed up yet"; 0 -> "backed up today"; 1 -> "backed up yesterday"; else -> "backed up $days days ago" },
+                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                )
+                AccentLine()
+            }
+        },
+        bottomBar = {
+            NavigationBar {
+                Tab.entries.forEach { t ->
+                    NavigationBarItem(selected = tab == t, onClick = { tab = t }, icon = { Icon(t.icon, null) }, label = { Text(t.label) })
+                }
+            }
+        },
+        floatingActionButton = {
+            when (tab) {
+                Tab.Today, Tab.Month, Tab.Spending -> ExtendedFloatingActionButton(onClick = { open(Sheet.Log()) }, icon = { Icon(Icons.Rounded.Add, null) }, text = { Text("Log spending") })
+                Tab.Bills -> ExtendedFloatingActionButton(onClick = { open(Sheet.Bill(null, vm.prefs.group)) }, icon = { Icon(Icons.Rounded.Add, null) }, text = { Text("Add bill") })
+                else -> {}
+            }
+        },
+        snackbarHost = { SnackbarHost(snackbar) },
+    ) { pad ->
+        val content = PaddingValues(start = 16.dp, end = 16.dp, top = pad.calculateTopPadding() + 12.dp, bottom = pad.calculateBottomPadding() + 96.dp)
+        Box(Modifier.fillMaxSize()) {
+            if (LocalFx.current) AnimatedContent(tab, transitionSpec = {
+                val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
+                (fadeIn() + slideInHorizontally { it / 12 * dir }) togetherWith (fadeOut() + slideOutHorizontally { -it / 12 * dir })
+            }, label = "tab") { t -> Screen(t, vm, content, open) { tab = it } }
+            else Screen(tab, vm, content, open) { tab = it }
+        }
+    }
+    sheet?.let { s -> Sheets(s, vm, onDismiss = { sheet = null }, open = open) }
+}
+
+@Composable
+private fun Screen(t: Tab, vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go: (Tab) -> Unit) {
+    when (t) {
+        Tab.Today -> TodayScreen(vm, pad, open, go)
+        Tab.Month -> MonthScreen(vm, pad, open)
+        Tab.Bills -> BillsScreen(vm, pad, open)
+        Tab.Spending -> SpendingScreen(vm, pad, open)
+        Tab.More -> MoreScreen(vm, pad, open)
+    }
+}
+
+/** The thin colour line under the top bar; it slowly shifts colour when Visual effects is on. */
+@Composable
+private fun AccentLine() {
+    val cs = MaterialTheme.colorScheme; val x = LocalExtra.current
+    val colors = listOf(cs.primary, cs.tertiary, x.baby, x.pets, cs.primary)
+    if (LocalFx.current) {
+        val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "line")
+        val shift by t.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(14000, easing = androidx.compose.animation.core.LinearEasing)), label = "shift")
+        Box(Modifier.fillMaxWidth().height(3.dp).background(Brush.horizontalGradient(colors, startX = -2000f * shift, endX = 3000f - 2000f * shift, tileMode = androidx.compose.ui.graphics.TileMode.Mirror)))
+    } else Box(Modifier.fillMaxWidth().height(3.dp).background(Brush.horizontalGradient(colors)))
+}

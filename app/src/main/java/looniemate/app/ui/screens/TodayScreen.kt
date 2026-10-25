@@ -1,0 +1,242 @@
+@file:OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
+
+package looniemate.app.ui.screens
+
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.Receipt
+import androidx.compose.material.icons.rounded.Restaurant
+import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import looniemate.app.MainViewModel
+import looniemate.app.update.Updater
+import looniemate.app.ui.EmptyNote
+import looniemate.app.ui.GrowBar
+import looniemate.app.ui.Money
+import looniemate.app.ui.SectionCard
+import looniemate.app.ui.Sheet
+import looniemate.app.ui.StatusBadge
+import looniemate.app.ui.Tab
+import looniemate.app.ui.enter
+import looniemate.app.ui.toneColors
+import looniemate.app.ui.theme.LocalExtra
+import looniemate.app.ui.theme.Numbers
+import looniemate.engine.Fmt
+import looniemate.engine.Views
+import looniemate.engine.n
+import looniemate.engine.s
+
+@Composable
+fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go: (Tab) -> Unit) {
+    val m by vm.todayModel.collectAsStateWithLifecycle()
+    val upd by vm.updater.state.collectAsStateWithLifecycle()
+    val model = m ?: return
+    val s = vm.settings()
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item {
+            Row(Modifier.fillMaxWidth().enter(0), verticalAlignment = Alignment.Bottom) {
+                Column(Modifier.weight(1f)) {
+                    Text(Fmt.weekday(model.today).uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                    Text(Fmt.longDate(model.today), style = MaterialTheme.typography.displaySmall)
+                }
+                if (!model.isNew) StatusBadge(model.status.tone, model.status.label)
+            }
+        }
+        item { UpdateBanner(upd, vm, go) }
+        items(model.reminders.size) { i -> ReminderCard(model.reminders[i], vm, open, i) }
+        if (model.isNew) { item { WelcomeCard(open) }; return@LazyColumn }
+
+        item {
+            val n = model.todo.size
+            SectionCard(if (n > 0) "To do today · $n" else "Nothing to do today", Icons.Rounded.Receipt, if (n > 0) "amber" else "green", index = 1) {
+                if (n > 0) model.todo.forEachIndexed { i, e -> EventRow(e, s, vm, divider = i > 0) }
+                else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    val x = LocalExtra.current
+                    Box(Modifier.size(46.dp).clip(CircleShape).background(Brush.linearGradient(listOf(x.good, x.pets))).enter(2), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.surface) }
+                    Column { Text("You're all caught up.", fontWeight = FontWeight.Bold)
+                        val nx = model.next.firstOrNull()
+                        Text(if (nx != null) "Next: " + nextText(nx) + " on " + Fmt.dLabel(nx.s("date")) + "." else "Nothing else this week.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+                if (model.incoming.isNotEmpty()) { Spacer(Modifier.height(6.dp)); model.incoming.forEach { e -> EventRow(e, s, vm) } }
+            }
+        }
+        item {
+            val fp = model.food; val (fg, _) = toneColors(model.foodTone)
+            SectionCard("Food money", Icons.Rounded.Restaurant, "green", trailing = if (fp.n("half") == 1.0) "1st–15th" else "16th–end", index = 2) {
+                FlowRow(verticalArrangement = Arrangement.Center, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Money(fp.n("left"), MaterialTheme.typography.headlineLarge, countUp = true, color = if (fp.n("left") < 0) fg else MaterialTheme.colorScheme.onSurface)
+                    Text("left · about ${Fmt.money(fp.n("perDay"))} a day for ${fp.n("daysLeft").toInt()} day${if (fp.n("daysLeft").toInt() > 1) "s" else ""}",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterVertically))
+                }
+                Spacer(Modifier.height(10.dp))
+                val allow = fp.n("allow")
+                GrowBar(if (allow > 0) (fp.n("spent") / allow).toFloat() else 0f, fg, marker = if (allow > 0) (fp.n("expected") / allow).toFloat() else null)
+                Spacer(Modifier.height(6.dp))
+                Text("${Fmt.money(fp.n("spent"))} of ${Fmt.money(allow)} spent · the line shows where you'd be at ${Fmt.money(fp.n("target"))} a day", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        item {
+            SectionCard("Log spending", Icons.Rounded.AccountBalanceWallet, "amber", trailing = "One tap logs it for today", index = 3) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    model.quick.forEach { q -> QuickButton(q.label, Fmt.money(q.amount), q.fav) { vm.quickLog(q) } }
+                    QuickButton("Something else", "", true, more = true) { open(Sheet.Log()) }
+                }
+                if (model.quick.isEmpty()) Text("Things you log often will show up here as one-tap buttons. You can also tick \"Add a quick button\" when logging.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+            }
+        }
+        if (model.debts.isNotEmpty()) item { DebtCard(model.debts, 4) { go(Tab.Bills) } }
+        if (model.next.isNotEmpty()) item {
+            SectionCard("Next few days", Icons.Rounded.CalendarMonth, index = 5) {
+                model.next.forEachIndexed { i, e -> EventRow(e, s, vm, showDate = true, compact = true, divider = i > 0) }
+            }
+        }
+    }
+}
+
+private fun nextText(e: looniemate.engine.Obj): String = when (e.s("kind")) {
+    "move" -> "move ${Fmt.money(e.n("amount"))} to ${e.s("to")}"; "in" -> e.s("name") + " comes in"; else -> e.s("name") + " " + Fmt.money(e.n("amount")) }
+
+@Composable
+fun QuickButton(label: String, amount: String, fav: Boolean, more: Boolean = false, onClick: () -> Unit) {
+    val x = LocalExtra.current; val cs = MaterialTheme.colorScheme
+    val bg = if (more) cs.surfaceContainerHighest else if (fav) x.goodBg else cs.surfaceContainer
+    Surface(onClick = onClick, shape = MaterialTheme.shapes.medium, color = bg, modifier = Modifier.width(148.dp)) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            if (more) Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.AutoAwesome, null, tint = cs.primary, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                Text(label, color = cs.primary, fontWeight = FontWeight.SemiBold) }
+            else { Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Text(amount, style = MaterialTheme.typography.titleMedium.merge(Numbers), fontWeight = FontWeight.Bold) }
+        }
+    }
+}
+
+/** Debt payoff: a ring for each debt, what's left, when it'll be done, and the next payment. */
+@Composable
+fun DebtCard(debts: List<Views.Debt>, index: Int, onOpen: () -> Unit) {
+    val left = debts.sumOf { it.info.n("remaining") }; val paid = debts.sumOf { it.info.n("paid") }
+    SectionCard("Debt payoff", Icons.Rounded.Flag, "sky", trailing = Fmt.money(left) + " left" + (if (debts.size > 1) " across ${debts.size}" else ""), index = index) {
+        debts.forEachIndexed { i, d ->
+            if (i > 0) androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+            Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(onClick = onOpen).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                looniemate.app.ui.ProgressRing(d.pct)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(d.name, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f, fill = false)); d.milestone?.let { looniemate.app.ui.Pill(it.second, it.first) } }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Money(d.info.n("remaining"), MaterialTheme.typography.titleMedium, weight = FontWeight.SemiBold, countUp = true)
+                        Text(" left" + (d.info.s("finish").takeIf { it.isNotEmpty() }?.let { " · done " + Fmt.monthYearShort(it) } ?: ""), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    val next = d.next
+                    Text(if (next != null) "Next ${Fmt.money(d.amount)} on ${Fmt.dShort(next)}" + (if (d.info.s("finish").isNotEmpty()) " · ${d.info.n("payments").toInt()} to go" else "") else if (d.info.n("remaining") <= 0.004) "${Fmt.money(d.info.n("paid"))} paid off" else "",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        if (debts.size > 1) {
+            Spacer(Modifier.height(8.dp))
+            looniemate.app.ui.LineRow("Paid so far", "${Fmt.money(paid)} of ${Fmt.money(paid + left)}")
+            Spacer(Modifier.height(4.dp))
+            GrowBar(if (paid + left > 0) (paid / (paid + left)).toFloat() else 0f, LocalExtra.current.good)
+        }
+    }
+}
+
+@Composable
+fun ReminderCard(r: Views.Reminder, vm: MainViewModel, open: (Sheet) -> Unit, index: Int) {
+    val (fg, bg) = toneColors(r.tone); var more by remember { mutableStateOf(false) }; val ctx = LocalContext.current
+    Card(Modifier.fillMaxWidth().enter(index).animateContentSize(), colors = CardDefaults.cardColors(containerColor = bg), shape = MaterialTheme.shapes.medium) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(r.title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            if (r.body.isNotEmpty()) Text(r.body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (r.details.isNotEmpty()) {
+                Row(Modifier.clickable { more = !more }, verticalAlignment = Alignment.CenterVertically) {
+                    Text(r.detailsTitle, style = MaterialTheme.typography.labelLarge, color = fg); Icon(if (more) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint = fg) }
+                if (more) r.details.forEach { l -> Text("• " + l.text, style = MaterialTheme.typography.bodySmall,
+                    color = if (l.url != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = if (l.url != null) Modifier.clickable { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(l.url))) } else Modifier) }
+            }
+            if (r.button != null) Row { Spacer(Modifier.weight(1f))
+                if (r.action == "backup") Button(onClick = { open(Sheet.Export) }) { Text(r.button) } else FilledTonalButton(onClick = { vm.reminderAction(r) }) { Text(r.button) } }
+        }
+    }
+}
+
+@Composable
+fun UpdateBanner(st: Updater.State, vm: MainViewModel, go: (Tab) -> Unit) {
+    val r = when (st) { is Updater.State.Available -> st.r; is Updater.State.Ready -> st.r; else -> null } ?: return
+    OutlinedCard(Modifier.fillMaxWidth().enter(0)) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            looniemate.app.ui.IconBadge(Icons.Rounded.SystemUpdate, "accent")
+            Column(Modifier.weight(1f)) { Text("LoonieMate ${r.versionName} is ready", fontWeight = FontWeight.Bold)
+                Text("See what's new and install it from Settings.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            TextButton(onClick = { go(Tab.More) }) { Text("Update") }
+        }
+    }
+}
+
+@Composable
+private fun WelcomeCard(open: (Sheet) -> Unit) {
+    SectionCard("Welcome to LoonieMate", Icons.Rounded.AutoAwesome, "amber") {
+        Text("LoonieMate plans every paycheck, tells you when to move money between accounts, protects child benefits, and helps when a month comes up short. Everything stays on this phone.",
+            style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(10.dp))
+        Text("Already using the web version? Export an encrypted backup there and bring it over here. Setting up accounts, income and benefits in the app is coming in the next update; for now you can add bills and log spending here.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Button(onClick = { open(Sheet.Import) }) { Text("Import a backup") }
+            FilledTonalButton(onClick = { open(Sheet.Bill(null, "adults")) }) { Text("Add a bill") } }
+    }
+}
+
+@Composable
+fun EmptyIfNone(list: List<Any>, text: String) { if (list.isEmpty()) EmptyNote(text) }

@@ -1,0 +1,45 @@
+name: Build
+
+# Every change: check the app's engine against the web version, run the tests, and build a test copy of the app.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Work out the web version's answers
+        run: node parity/gen.js
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Check the app engine matches the web version
+        run: ./gradlew :engine:test --stacktrace
+
+      - name: Build a test copy of the app
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LoonieMate-test-build
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14

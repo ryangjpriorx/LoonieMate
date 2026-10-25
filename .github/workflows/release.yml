@@ -1,0 +1,88 @@
+name: Release
+
+# Pushing a tag like v0.2.0 builds a signed LoonieMate and publishes it on the Releases page.
+# Phones running LoonieMate find it there and offer the update.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to (re)publish, like v0.1.0
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Version from the tag
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          VERSION_NAME="${TAG#v}"
+          IFS=. read -r MA MI PA <<< "${VERSION_NAME%%-*}"
+          VERSION_CODE=$(( ${MA:-0} * 10000 + ${MI:-0} * 100 + ${PA:-0} ))
+          if [ "$VERSION_CODE" -le 0 ]; then echo "::error::Tags must look like v1.2.3"; exit 1; fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "LoonieMate $VERSION_NAME (version code $VERSION_CODE)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node parity/gen.js
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unlock the signing key
+        env:
+          SIGNING_PASSPHRASE: ${{ secrets.SIGNING_PASSPHRASE }}
+        run: |
+          if [ -z "$SIGNING_PASSPHRASE" ]; then echo "::error::Add the SIGNING_PASSPHRASE secret (Settings → Secrets and variables → Actions) so releases can be signed."; exit 1; fi
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in signing/release.jks.enc -out "$RUNNER_TEMP/release.jks" -pass env:SIGNING_PASSPHRASE
+          echo "SIGNING_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Test and build
+        env:
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_PASSPHRASE }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_PASSPHRASE }}
+          SIGNING_KEY_ALIAS: looniemate
+        run: ./gradlew :engine:test :app:assembleRelease --stacktrace
+
+      - name: Package the release
+        run: |
+          APK="LoonieMate-$VERSION_NAME.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$APK"
+          SHA=$(sha256sum "$APK" | cut -d' ' -f1)
+          SIZE=$(stat -c %s "$APK")
+          NOTES_FILE="docs/releases/$TAG.md"
+          if [ -f "$NOTES_FILE" ]; then cp "$NOTES_FILE" notes.md; else git log -1 --pretty=%B > notes.md; fi
+          export APK SHA SIZE
+          node -e '
+            const fs=require("fs");const e=process.env;
+            fs.writeFileSync("update.json",JSON.stringify({versionCode:+e.VERSION_CODE,versionName:e.VERSION_NAME,apk:e.APK,
+              url:`https://github.com/${e.GITHUB_REPOSITORY}/releases/download/${e.TAG}/${e.APK}`,sha256:e.SHA,size:+e.SIZE,minSdk:26,
+              notes:fs.readFileSync("notes.md","utf8").trim()},null,2));' 
+          cat update.json
+          echo "APK=$APK" >> "$GITHUB_ENV"
+        env:
+          APK: LoonieMate-${{ env.VERSION_NAME }}.apk
+
+      - name: Publish on the Releases page
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete "$TAG" --yes 2>/dev/null || true
+          gh release create "$TAG" "$APK" update.json --title "LoonieMate $VERSION_NAME" --notes-file notes.md --latest
