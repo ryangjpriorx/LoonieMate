@@ -85,6 +85,8 @@ class ScreensTest {
         /* these sit further down a scrolling list, so they're drawn only when they're on screen */
         tab("More")
         if (runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("test-reminder")) }.isSuccess) shot("$theme-More-reminders")
+        tab("Today"); tab("More")
+        rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("sync-create")); settle(); shot("$theme-More-sync")
         tab("Today"); tab("More"); if (runCatching { rule.onNodeWithTag("add-income").performScrollTo().performClick() }.isSuccess) { shot("$theme-sheet-income", sheet = true); back() }
         tab("Month")
         rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("month-income")); settle()
