@@ -175,7 +175,7 @@ fun LoonieMateApp(vm: MainViewModel) {
     LaunchedEffect(todayModel?.isNew) { if (todayModel?.isNew == true && !vm.prefs.a11yAsked && stack.isEmpty()) open(Sheet.Access()) }
     /* after Reset LoonieMate: back to Today, where first-time setup starts again */
     val resets by vm.resets.collectAsStateWithLifecycle()
-    LaunchedEffect(resets) { if (resets > 0) { tab = Tab.Today; stack.forEachIndexed { i, s -> holder.removeState(keyOf(s, i + 1)) }; stack = emptyList() } }
+    LaunchedEffect(resets) { if (resets > 0) tab = Tab.Today }
     LaunchedEffect(openUpdate) { openUpdate?.let { w -> vm.openUpdate.value = null; open(Sheet.Update); vm.openedForUpdate(w == "install") } }
 
     val big = bigText()
