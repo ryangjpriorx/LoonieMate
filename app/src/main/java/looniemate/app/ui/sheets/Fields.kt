@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import looniemate.app.ui.theme.Numbers
 import looniemate.engine.Fmt
@@ -91,4 +92,31 @@ fun SelectField(value: String, options: List<Pair<String, String>>, onChange0: (
             options.forEach { (k, l) -> DropdownMenuItem(text = { Text(l) }, onClick = { onChange(k); open = false }) }
         }
     }
+}
+
+/**
+ * Several amounts asked at once where blank simply means $0 (account balances). Nobody has to type 0 into each one:
+ * if any are blank, one box asks about all of them together. docs/plans/pages-and-blanks.md, stage 2.
+ */
+class BlankCheck {
+    internal var count by mutableStateOf(0)
+    internal var go by mutableStateOf<(() -> Unit)?>(null)
+    /** Runs [then] straight away when nothing is blank, otherwise after "Count as $0.00". */
+    fun run(blanks: Int, then: () -> Unit) { if (blanks <= 0) then() else { count = blanks; go = then } }
+}
+
+/** Fills each blank with 0 (what's sent on once the person agrees). */
+fun blanksAsZero(typed: Map<String, String>, ids: List<String>): Map<String, String> = ids.associateWith { id -> (typed[id] ?: "").ifBlank { "0" } }
+
+@Composable
+fun rememberBlankCheck(): BlankCheck { val c = remember { BlankCheck() }
+    c.go?.let { then ->
+        val n = c.count; val one = n == 1
+        androidx.compose.material3.AlertDialog(onDismissRequest = { c.go = null }, properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false),
+            title = { Text(if (one) "Count the blank amount as \$0.00?" else "Count the blank amounts as \$0.00?") },
+            text = { Text(if (one) "You left 1 amount blank. Count it as \$0.00?" else "You left $n amounts blank. Count them as \$0.00?") },
+            confirmButton = { TextButton(onClick = { c.go = null; then() }, modifier = Modifier.testTag("blank-zero")) { Text("Count as \$0.00") } },
+            dismissButton = { TextButton(onClick = { c.go = null }) { Text("Go back") } })
+    }
+    return c
 }

@@ -31,9 +31,9 @@ before the next.
 - [x] **Stage 0**: this plan.
 - [x] **Stage 1**: the page container (`ui/sheets/Sheets.kt`): full-screen, top bar with ✕, back handling, the
   "Leave without saving?" check, saved state across rotation; every sheet moved onto it.
-- [ ] **Stage 2**: blank-means-$0 with the single confirmation box (getting on track balances, balance check, food so
+- [x] **Stage 2**: blank-means-$0 with the single confirmation box (getting on track balances, balance check, food so
   far); getting on track remembers its step.
-- [ ] **Stage 3**: web dialogs stop closing on an outside click. Then release.
+- [x] **Stage 3**: web dialogs stop closing on an outside click. Then release.
 
 ## Notes for picking up
 
@@ -48,3 +48,9 @@ before the next.
   page in (instant with Less motion). Rotation: the activity handles orientation and size changes itself
   (`android:configChanges`), so nothing is rebuilt. `ScreensTest` checks the "Leave without saving?" flow and that
   back steps back in getting on track.
+- Stage 2 (done): `Fields.kt`: `BlankCheck` / `rememberBlankCheck()` (one "Count as $0.00" box for all blank amounts)
+  and `blanksAsZero`; used by the balances step of getting on track and by Check my balances. Food so far already
+  treated blank as nothing to log. A savings fund's starting balance may be left blank (no question, single field).
+  Getting on track remembers its step for the day (`MainViewModel.catchUpAt` / `catchUpResume`).
+- Stage 3 (done): web `tryCloseSheet()` for × and Esc (a `confirm` when something was typed, tracked by the sheet's
+  `input` events); clicks outside the form do nothing; the web balance check asks once (`confirm`) to count blanks as $0.

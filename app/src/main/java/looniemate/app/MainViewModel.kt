@@ -296,7 +296,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Saves a savings fund. A null key adds a new one. Returns an error message, or null when it worked. */
     fun saveFund(key: String?, name: String, account: String, start: String, goal: String): String? {
-        val st0 = Views.parseMoney(start); if (st0 == null || st0.isNaN()) return "Enter the balance at the start (0 if none)."
+        val st0 = Views.parseMoney(start) ?: 0.0; if (st0.isNaN()) return "Enter the balance at the start in dollars, or leave it blank for none."
         val core = key == "emergency" || key == "child"
         val g = if (key == "child") { val p = goal.trim().toDoubleOrNull()?.let { Math.round(it).toInt() }; if (p == null || p !in 0..100) return "Enter a share from 0 to 100."; p.toDouble() }
             else Views.parseMoney(goal).let { if (it == null) 0.0 else if (it.isNaN() || it < 0) return "Enter a goal in dollars, or leave it blank." else it }
@@ -405,6 +405,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun skipOnboarding() { prefs.onboarded = true; refreshTodayTick.value++ }
     val refreshTodayTick = MutableStateFlow(0)
 
+    /** Where getting on track was left today (date to step), so closing it partway and coming back picks up there. */
+    var catchUpAt: Pair<String, Int>? = null
+    /** The step to open getting on track on: where it was left today, or the first. */
+    fun catchUpResume(): Int = catchUpAt?.takeIf { it.first == today.value }?.second ?: 0
+
     fun startCatchUp(first: Boolean) { if (first) { val ym = ymOf(today.value); if (settings().s("trackFrom") > "$ym-01") saveSettings(J.obj("trackFrom" to "$ym-01")) } }
 
     /** The window the steps look back over: the same one Today's overdue list and Where you stand use (21 days, since tracking began). */
@@ -419,7 +424,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         change(if (first) "You're all set from today" else "Back on track from today", listOf("settings/main", "months/$ym")) {
             if (first) saveSettings(J.obj("trackFrom" to "$ym-01"))
             patchMonth(ym, J.obj("starting" to true)) }
-        prefs.onboarded = true }
+        prefs.onboarded = true; catchUpAt = null }
 
     /** An undecided item was paid, or turned into a date or a payment plan. */
     fun catchUpResolve(id: String, message: String = "") = change(message, listOf("settings/main")) {

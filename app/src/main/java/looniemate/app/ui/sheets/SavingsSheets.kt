@@ -43,7 +43,7 @@ fun FundSheet(vm: MainViewModel, key: String?, close: () -> Unit) {
     if (!core) TextFieldRow(name, { name = it.take(40) }, "Fund", placeholder = "Vet fund")
     val accts = listOf("" to "Not set") + Core.accountsOf(s).filter { it.s("type") == "savings" }.map { it.s("id") to it.s("name") }
     SelectField(account, accts, { account = it }, "Kept in", hint = if (accts.size == 1) "Add a savings account in Settings → Accounts to pick one." else null)
-    MoneyField(start, { start = it }, "Balance at the start", hint = "What was already saved when you started using LoonieMate.")
+    MoneyField(start, { start = it }, "Balance at the start", hint = "What was already saved when you started using LoonieMate. Leave blank if none.")
     if (key == "child") TextFieldRow(goal, { v -> goal = v.filter { it.isDigit() }.take(3) }, "Usual share of the Child Benefit to Emergency Savings (%)", number = true,
         hint = "You can change it month by month on the Savings tab.")
     else MoneyField(goal, { goal = it }, if (key == "emergency") "Goal" else "Goal (optional)")

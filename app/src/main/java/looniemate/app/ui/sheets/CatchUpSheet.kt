@@ -50,11 +50,11 @@ import looniemate.engine.*
  */
 @Composable
 fun CatchUpSheet(vm: MainViewModel, first: Boolean, close: () -> Unit) {
-    var step by remember { mutableIntStateOf(0) }
+    var step by remember { mutableIntStateOf(vm.catchUpResume()) }
     androidx.compose.runtime.LaunchedEffect(Unit) { vm.startCatchUp(first) }
     /* each step saves as it goes, so moving on means nothing typed is at risk; back goes a step back first */
     val page = LocalPage.current
-    androidx.compose.runtime.LaunchedEffect(step) { page?.saved() }
+    androidx.compose.runtime.LaunchedEffect(step) { page?.saved(); vm.catchUpAt = vm.today.value to step }
     androidx.activity.compose.BackHandler(enabled = step > 0) { step-- }
     val titles = listOf("What's in your accounts right now?", "This month so far", "Anything you're behind on?", "Food so far", "Where you stand")
     Text("Step ${step + 1} of ${titles.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -78,12 +78,14 @@ private fun Hint3(t: String) = Text(t, style = MaterialTheme.typography.bodySmal
 private fun BalancesStep(vm: MainViewModel, next: () -> Unit) {
     val A = Core.accountsOf(vm.settings())
     val typed = remember { mutableStateMapOf<String, String>() }; var err by remember { mutableStateOf<String?>(null) }
-    Text("Open your banking apps and type in what each account holds right now. Count cash on hand too. This is your starting point; nothing before today needs to be filled in.",
+    val blanks = rememberBlankCheck()
+    Text("Open your banking apps and type in what each account holds right now. Count cash on hand too. Leave an account blank if it's empty. This is your starting point; nothing before today needs to be filled in.",
         style = MaterialTheme.typography.bodyMedium)
     if (A.isEmpty()) { EmptyNote("Add your accounts in Settings first."); return }
     A.forEach { a -> MoneyField(typed[a.s("id")] ?: "", { typed[a.s("id")] = it; err = null }, a.s("name") + if (a.s("type") == "savings") " (savings)" else "") }
     ErrorText(err)
-    Button(onClick = { val (r, e) = vm.compareBalances(typed.toMap()); if (r == null) err = e else { vm.saveCheckin(r, false); next() } },
+    Button(onClick = { val ids = A.map { it.s("id") }
+            blanks.run(ids.count { (typed[it] ?: "").isBlank() }) { val (r, e) = vm.compareBalances(blanksAsZero(typed, ids)); if (r == null) err = e else { vm.saveCheckin(r, false); next() } } },
         Modifier.fillMaxWidth().testTag("cu-next")) { Text("Next") }
 }
 

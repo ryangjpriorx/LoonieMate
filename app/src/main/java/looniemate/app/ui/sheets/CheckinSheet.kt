@@ -44,10 +44,11 @@ fun CheckinSheet(vm: MainViewModel, close: () -> Unit) {
     val typed = remember { mutableStateMapOf<String, String>() }
     var result by remember { mutableStateOf<MainViewModel.CheckResult?>(null) }
     var err by remember { mutableStateOf<String?>(null) }
+    val blanks = rememberBlankCheck()
 
     SheetTitle("Check my balances")
     if (A.isEmpty()) { EmptyNote("Add your accounts in Settings first."); return }
-    Text("Open your banking apps and type in what each account holds right now. Count cash on hand too.", style = MaterialTheme.typography.bodyMedium)
+    Text("Open your banking apps and type in what each account holds right now. Count cash on hand too. Leave an account blank if it's empty.", style = MaterialTheme.typography.bodyMedium)
     val groups = listOf("Everyday accounts" to A.filter { it.s("type") != "savings" }, "Savings accounts" to A.filter { it.s("type") == "savings" })
     groups.filter { it.second.isNotEmpty() }.forEach { (title, list) ->
         Text(title, fontWeight = FontWeight.SemiBold)
@@ -55,7 +56,8 @@ fun CheckinSheet(vm: MainViewModel, close: () -> Unit) {
             MoneyField(typed[id] ?: "", { typed[id] = it; result = null; err = null }, a.s("name"), hint = if (last != null && last != J.Null) "Last time: ${Fmt.money(num(last))}" else null) }
     }
     ErrorText(err)
-    if (result == null) Button(onClick = { val (r, e) = vm.compareBalances(typed.toMap()); result = r; err = e }, modifier = Modifier.testTag("compare")) { Text("Compare with the plan") }
+    if (result == null) Button(onClick = { val ids = A.map { it.s("id") }
+        blanks.run(ids.count { (typed[it] ?: "").isBlank() }) { val (r, e) = vm.compareBalances(blanksAsZero(typed, ids)); result = r; err = e } }, modifier = Modifier.testTag("compare")) { Text("Compare with the plan") }
     AnimatedVisibility(result != null) { result?.let { r -> Result(r, vm, close) } }
 }
 

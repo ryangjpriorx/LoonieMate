@@ -1517,7 +1517,7 @@ function checkinSheet(){
   const field=a=>`<div class="field"><label for="ck-${esc(a.id)}">${esc(a.name)}</label><div class="money"><input id="ck-${esc(a.id)}" data-ck="${esc(a.id)}" inputmode="decimal" placeholder="0.00"></div>${prev&&prev.bal&&prev.bal[a.id]!=null?`<span class="hint">Last time: ${fmt(prev.bal[a.id])}</span>`:''}</div>`;
   openSheet(`<div class="sheet-h"><h2 id="sheet-title">Check my balances</h2><button class="x" data-act="sheet-close" aria-label="Close">×</button></div>
    <form class="form" id="ckForm" novalidate>
-    ${A.length?`<p class="muted">Open your banking apps and type in what each account holds right now. Count cash on hand too.</p>
+    ${A.length?`<p class="muted">Open your banking apps and type in what each account holds right now. Count cash on hand too. Leave an account blank if it's empty.</p>
     <h3>Everyday accounts</h3><div class="fgrid">${day.map(field).join('')}</div>
     ${sav.length?`<h3>Savings accounts</h3><div class="fgrid">${sav.map(field).join('')}</div>`:''}
     <p class="err" id="ck-err" hidden></p><button class="btn primary" type="submit" id="ck-go">Compare with the plan</button>`:'<div class="empty">Add your accounts in Settings first.</div>'}
@@ -2055,8 +2055,11 @@ function vSettings(){
 
 /* ---------- sheets ---------- */
 const overlay=document.getElementById('overlay'),sheet=document.getElementById('sheet');
-function openSheet(html,focusId){sheet.innerHTML=html;overlay.hidden=false;document.getElementById('fab').hidden=true;setTimeout(()=>{const el=focusId&&document.getElementById(focusId);if(el)el.focus()},30)}
+function openSheet(html,focusId){sheet.innerHTML=html;delete sheet.dataset.edited;overlay.hidden=false;document.getElementById('fab').hidden=true;setTimeout(()=>{const el=focusId&&document.getElementById(focusId);if(el)el.focus()},30)}
 function closeSheet(){overlay.hidden=true;sheet.innerHTML='';S.sheet=null;render()}
+/* closing on purpose: the × or Esc. Asks first if something was typed (docs/plans/pages-and-blanks.md) */
+function tryCloseSheet(){if(sheet.dataset.edited&&!confirm("Leave without saving?\n\nWhat you typed here won't be kept."))return;closeSheet()}
+sheet.addEventListener('input',()=>{sheet.dataset.edited='1'});
 const opts=(arr,sel)=>arr.map(a=>{const[k,l]=Array.isArray(a)?a:[a,a];return`<option value="${esc(k)}" ${k===sel?'selected':''}>${esc(l)}</option>`}).join('');
 function logSheet(oneTime){
   const t=todayStr(),y=addDays(t,-1);
@@ -2354,7 +2357,7 @@ document.addEventListener('click',async ev=>{
   if(a==='del-quick'){const list=(settings().quick||[]).filter((x,i)=>i!==+d.i);await saveSettings({quick:list});toast('Quick button removed');return}
   if(a==='ovmode'){S.ovMode=d.mode;try{localStorage.setItem('rs-ovmode',d.mode)}catch(e){}S.lastKey=null;render();return}
   if(a==='log-oneoff'){logSheet(true);return}
-  if(a==='sheet-close'){closeSheet();return}
+  if(a==='sheet-close'){tryCloseSheet();return}
   if(a==='setdate'){const el=document.getElementById('f-date');if(el)el.value=d.d;return}
   if(a==='add-bill'){billSheet(null,d.group);return}
   if(a==='edit-bill'){billSheet(d.id);return}
@@ -2396,8 +2399,8 @@ document.addEventListener('click',async ev=>{
     for(const [id,b] of Object.entries(S.bills))if(b&&b.example)await write('bills/'+id,()=>backend.del('bills/'+id));
     toast('Examples cleared.');return}
 });
-overlay.addEventListener('click',e=>{if(e.target===overlay)closeSheet()});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!overlay.hidden)closeSheet()});
+/* a click outside the form does nothing: it used to close it and lose what was typed */
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!overlay.hidden){e.preventDefault();tryCloseSheet()}});
 sheet.addEventListener('input',e=>{if(e.target.closest&&(e.target.closest('#debt-box')||['b-amt','b-day','b-anchor'].includes(e.target.id)))debtPreview();const id=e.target.id;const pre=id.slice(0,1);if(!/^[dsc]-(range|amt)$/.test(id))return;
   if(id.endsWith('range'))sliderUpdate(pre,e.target.value);else{const v=parseMoney(e.target.value);if(v!=null&&!Number.isNaN(v))sliderUpdate(pre,v,true)}});
 sheet.addEventListener('change',e=>{const t=e.target;
@@ -2486,7 +2489,10 @@ sheet.addEventListener('submit',async e=>{
       :`<button type="button" class="btn primary" data-act="do-import">Use this backup on this phone</button>`}`;
     return}
   if(form.id==='ckForm'){const today=todayStr(),s=settings(),A=C.accountsOf(s),bal={};
-    for(const a of A){const v=parseMoney(document.getElementById('ck-'+a.id).value);if(v==null)return showErr('ck-err',`Enter the balance for ${a.name} (0 if empty).`);if(Number.isNaN(v))return showErr('ck-err',`${a.name}: enter a dollar amount.`);bal[a.id]=v}
+    /* blank means $0: one question for all the blank ones, never one each */
+    const blanks=A.filter(a=>parseMoney(document.getElementById('ck-'+a.id).value)==null).length;
+    if(blanks&&!confirm(blanks===1?'You left 1 amount blank. Count it as $0.00?':`You left ${blanks} amounts blank. Count them as $0.00?`))return;
+    for(const a of A){const v=parseMoney(document.getElementById('ck-'+a.id).value);if(Number.isNaN(v))return showErr('ck-err',`${a.name}: enter a dollar amount.`);bal[a.id]=v==null?0:v}
     document.getElementById('ck-err').hidden=true;
     const day=round2(C.sum(A.filter(a=>a.type!=='savings').map(a=>bal[a.id]))),sav=round2(C.sum(A.filter(a=>a.type==='savings').map(a=>bal[a.id])));
     const prev=Object.values(S.checkins||{}).filter(x=>x&&isDate(x.date)&&x.date<today).sort((a,b)=>a.date<b.date?1:-1)[0]||null;
