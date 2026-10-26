@@ -270,7 +270,7 @@ earlier or an e-Transfer to whoever is being paid if they take one).
 Each stage from 2 on does the Android app first, then the web version, unless it says otherwise.
 
 - [x] **Stage 0**: this plan.
-- [ ] **Stage 1**: getting-on-track-fixes.md, both stages (engine, then the Android steps). Release 0.14.0.
+- [x] **Stage 1**: getting-on-track-fixes.md, both stages (engine, then the Android steps). Released in 0.14.0.
 - [ ] **Stage 2**: engine, web first then Kotlin, parity tested: Take out cash (dates, one trip a day, food in cash,
   ATM limits with days or a second account, rounding to the ATM's bills, tellers, round-up to avoid coins), and
   `Views.todo(st, today)`: one list of every To do item with its kind, so both versions build To do the same way.
