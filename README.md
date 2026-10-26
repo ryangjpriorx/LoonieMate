@@ -70,6 +70,7 @@ It was built for a family living on social assistance and benefits, where a late
 - **Food money** for this half of the month, with what you can spend per day and a marker showing where you should be by now.
 - **One-tap spending buttons** for the things you buy often. LoonieMate suggests them from what you log.
 - **Debt payoff rings** with milestones: a quarter done, halfway there, almost done.
+- **Start from today** *(Android)*: starting partway through a month, or after a rough patch? Five quick steps take what's in your accounts now, what's paid, what you're behind on and food so far, then show every payday and bill until the next payday, the first day money runs short, and ways to cover it. That month has no savings target.
 - **Reminders that don't nag** *(Android)*: only on days something needs doing, at times you pick. Tap **Paid** or **Moved it** right on the notification, get a heads-up a day or two before an automatic payment, and nothing is sent when nothing is due.
 - A status badge that says, in plain words, whether the month is **on track**, needs a **heads up**, or **needs attention**, and why.
 
@@ -149,6 +150,7 @@ It does everything the Android app does, without the extra visuals. Your budget 
 | Food, Savings, Income and benefits, Accounts | ✅ | ✅ |
 | Balance checks | ✅ | ✅ |
 | Google Drive sync | 🔜 | — |
+| Start from today and get back on track | ✅ | — |
 | Reminders and update notifications | ✅ | — |
 | Home-screen widget | 🔜 | — |
 

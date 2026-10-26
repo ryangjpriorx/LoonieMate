@@ -4,7 +4,7 @@ The plan agreed on 2026-10-26. Most people start using LoonieMate partway throug
 spent, some bills are paid, some paycheques are in, and they may be behind on things. This finds where they actually
 stand today so the plan matches reality from day one.
 **Queued after docs/plans/reminders-and-updates.md.** Work in small stages; each is committed, built and tested on
-GitHub before the next. **To pick up again: find the first unticked stage below and start there.**
+GitHub before the next. **All stages done; released in 0.4.0.** Next: docs/plans/accessibility.md.
 
 ## Decisions
 
@@ -55,7 +55,7 @@ Tracking starts today (`settings.trackFrom`), so nothing earlier shows as overdu
 - [x] **Stage 4**: Android "Where you stand" (step 6) with the fixes.
 - [x] **Stage 5**: onboarding wiring: runs after first-time setup, sets `trackFrom` to today and marks the starting
   month; the starting-month status card.
-- [ ] **Stage 6**: Settings: "Need a fresh start?" card with **Get back on track** (low in Settings), and
+- [x] **Stage 6**: Settings: "Need a fresh start?" card with **Get back on track** (low in Settings), and
   **Redo first-time setup** at the very bottom. Then release.
 
 ## Notes for picking up
