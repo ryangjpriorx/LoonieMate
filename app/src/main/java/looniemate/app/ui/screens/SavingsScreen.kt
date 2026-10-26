@@ -67,16 +67,15 @@ import looniemate.engine.SavingsViews
 import looniemate.engine.*
 
 @Composable
-fun SavingsScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
+fun SavingsScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, state: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
     val sm by vm.savingsModel.collectAsStateWithLifecycle()
     val m = sm ?: return
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { SavingsCard(m, open) }
         if (m.kids && !m.s["clb"].t("hide")) item { ClbCard(m, vm) }
         if (!m.programs.isEmpty) item { ProgramsCard(m.programs) }
         item { ProjectionCard(m) }
         item { FundsCard(m, vm, open) }
-        item { FamilyIncomeCard(m, vm) }
     }
 }
 
@@ -220,7 +219,9 @@ private fun FundsCard(m: SavingsModel, vm: MainViewModel, open: (Sheet) -> Unit)
     SectionCard("Savings funds", Icons.Rounded.Tune, "rose", index = 4) {
         m.funds.forEachIndexed { i, fv -> val f = fv.f; val k = f.s("key"); val goal = if (k == "emergency") m.s.n("emergencyGoal") else f.n("goal")
             androidx.compose.foundation.layout.Box(Modifier.testTag("fund-$i")) {
-                ClickRow({ open(Sheet.Fund(k)) }) {
+                looniemate.app.ui.MenuRow(listOf(looniemate.app.ui.MenuItem("Record a transfer") { open(Sheet.Transfer(k, null)) },
+                    looniemate.app.ui.MenuItem(if (k == "child") "Take money out" else "Use money from it") { if (k == "child") open(Sheet.Transfer(k, null)) else open(Sheet.UseFund(k)) },
+                    looniemate.app.ui.MenuItem("Change") { open(Sheet.Fund(k)) }), onClick = { open(Sheet.Fund(k)) }, clickLabel = "Change", vertical = 8.dp) {
                     IconBadge(Icons.Rounded.Savings, if (k == "child") "baby" else if (k == "emergency") "accent" else "pets", 32.dp)
                     Column(Modifier.weight(1f)) {
                         Text(f.s("name"), fontWeight = FontWeight.SemiBold)
@@ -242,14 +243,3 @@ private fun FundsCard(m: SavingsModel, vm: MainViewModel, open: (Sheet) -> Unit)
     }
 }
 
-@Composable
-private fun FamilyIncomeCard(m: SavingsModel, vm: MainViewModel) {
-    val cur = m.s["familyIncome"].let { if (it == null || it == J.Null) "" else Json.stringify(it).trim('"') }
-    var v by remember(cur) { mutableStateOf(cur) }; var err by remember { mutableStateOf<String?>(null) }
-    SectionCard("Family income for savings programs", Icons.Rounded.Groups, "accent", index = 5) {
-        TextFieldRow(v, { t -> v = t.filter { it.isDigit() }.take(7); err = null }, "Family net income last year (optional)", number = true,
-            hint = "From your tax returns (line 23600, both partners added). Used to estimate RDSP and RESP government money.")
-        if (err != null) Text(err!!, color = toneColors("bad").first)
-        if (v != cur) Button(onClick = { err = vm.setFamilyIncome(v) }) { Text("Save") }
-    }
-}

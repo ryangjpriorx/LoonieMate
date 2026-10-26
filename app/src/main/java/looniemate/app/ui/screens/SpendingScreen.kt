@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.TableChart
 import androidx.compose.foundation.background
@@ -149,18 +151,19 @@ private fun ShareCard(vm: MainViewModel) {
 }
 
 @Composable
-fun SpendingScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
+fun SpendingScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, state: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
     val sm by vm.spendingModel.collectAsStateWithLifecycle()
     val m = sm ?: return
     val people = vm.settings()["people"]
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { looniemate.app.ui.MonthSwitcher(vm) }
         item { CategoryCard(m.ym, m.byCat, 0) }
         item { SelfSpendingCard(m, vm, open) }
         item {
             SectionCard("Everything logged in ${Fmt.monthOnly(m.ym)}", Icons.Rounded.FormatListBulleted, "amber", trailing = Fmt.money(m.total - m.oneTimeTotal), index = 2) {
                 if (m.entries.isEmpty()) EmptyNote("Nothing logged for this month yet.")
                 var last = ""
-                m.entries.forEach { e -> val d = e.s("date"); if (d != last) { last = d; DayHeader(Fmt.dLabel(d)) }; ExpenseRow(e, m.locked) { vm.deleteExpense(e) } }
+                m.entries.forEach { e -> val d = e.s("date"); if (d != last) { last = d; DayHeader(Fmt.dLabel(d)) }; ExpenseRow(e, m.locked, vm) }
                 Spacer(Modifier.height(6.dp))
                 Text("Groceries and takeout come out of the food allowance. Everything else lowers this month's amount for savings.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -170,7 +173,7 @@ fun SpendingScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit)
                 Text("Things outside the regular budget: a car seat, a vet visit, a birthday. Add future ones ahead of time and they show up in Coming up.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(10.dp))
                 if (m.oneTime.isEmpty()) EmptyNote("No one-time expenses this month.")
-                m.oneTime.forEach { e -> ExpenseRow(e, m.locked) { vm.deleteExpense(e) } }
+                m.oneTime.forEach { e -> ExpenseRow(e, m.locked, vm) }
                 LineRow("Total this month", Fmt.money(m.oneTimeTotal), total = true)
                 Spacer(Modifier.height(8.dp))
                 FilledTonalButton(onClick = { open(Sheet.Log(oneTime = true)) }, enabled = !m.locked) { Text("Add a one-time expense") }
@@ -181,21 +184,28 @@ fun SpendingScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit)
     }
 }
 
+/**
+ * One logged expense. A tap or a long press gives its menu: log it again today, make it a quick button, or delete it
+ * (there's no bin on every row any more, so a shaky tap can't delete one). Screen readers get the same as actions.
+ */
 @Composable
-fun ExpenseRow(e: Obj, locked: Boolean, onDelete: () -> Unit) {
+fun ExpenseRow(e: Obj, locked: Boolean, vm: MainViewModel) {
     val x = LocalExtra.current
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     val spoken = listOf(Labels.expLabel(e), Fmt.money(e.n("amount")), Fmt.dLabel(e.s("date")), e.s("note").takeIf { e.s("category") != "oneoff" } ?: "", e.s("who")).filter { it.isNotBlank() }.joinToString(", ")
-    Row(Modifier.fillMaxWidth().padding(vertical = looniemate.app.ui.rowPad(6.dp)).clearAndSetSemantics { contentDescription = spoken
-            if (!locked) customActions = listOf(CustomAccessibilityAction("Delete") { onDelete(); true }) },
-        verticalAlignment = Alignment.CenterVertically) {
-        Dot(if (Core.FOOD.contains(e.s("category"))) x.good else if (e.s("category") == "oneoff") x.group(e.s("group")) else MaterialTheme.colorScheme.primary)
-        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+    val one = e.s("category") == "oneoff"
+    val menu = if (locked) emptyList() else buildList {
+        if (!one) { add(looniemate.app.ui.MenuItem("Log it again today", Icons.Rounded.Replay) { vm.logAgain(e) })
+            add(looniemate.app.ui.MenuItem("Make it a quick button", Icons.Rounded.Bolt) { vm.addQuick(e.s("category"), e.n("amount"), e.s("note")) }) }
+        add(looniemate.app.ui.MenuItem("Delete", Icons.Rounded.Delete, danger = true) { vm.deleteExpense(e) })
+    }
+    looniemate.app.ui.MenuRow(menu, spoken = spoken, vertical = 6.dp) {
+        Dot(if (Core.FOOD.contains(e.s("category"))) x.good else if (one) x.group(e.s("group")) else MaterialTheme.colorScheme.primary)
+        Column(Modifier.weight(1f)) {
             Text(Labels.expLabel(e), fontWeight = FontWeight.SemiBold)
-            val meta = listOf(if (e.s("category") != "oneoff") e.s("note") else Fmt.dLabel(e.s("date")), e.s("who"), if (e.s("category") == "oneoff") Labels.OGROUPS[e.s("group")] ?: "" else "").filter { it.isNotEmpty() }
+            val meta = listOf(if (!one) e.s("note") else Fmt.dLabel(e.s("date")), e.s("who"), if (one) Labels.OGROUPS[e.s("group")] ?: "" else "").filter { it.isNotEmpty() }
             if (meta.isNotEmpty()) Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text(Fmt.money(e.n("amount")), style = MaterialTheme.typography.bodyLarge.merge(Numbers))
-        if (!locked) IconButton(onClick = onDelete) { Icon(Icons.Rounded.Delete, "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }

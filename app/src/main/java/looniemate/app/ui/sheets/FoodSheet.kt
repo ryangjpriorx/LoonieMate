@@ -75,7 +75,7 @@ fun FoodSheet(vm: MainViewModel, ym: String, close: () -> Unit, open: (Sheet) ->
     Column {
         if (food.isEmpty()) EmptyNote("No groceries or takeout logged this month yet.")
         var last = ""
-        food.forEach { e -> val d = e.s("date"); if (d != last) { last = d; DayHeader(Fmt.relDay(d, today)) }; ExpenseRow(e, locked) { vm.deleteExpense(e) } }
+        food.forEach { e -> val d = e.s("date"); if (d != last) { last = d; DayHeader(Fmt.relDay(d, today)) }; ExpenseRow(e, locked, vm) }
         LineRow("Food total", Fmt.money(c.n("foodH1") + c.n("foodH2")), total = true)
     }
     if (!locked) FilledTonalButton(onClick = { open(Sheet.Log(category = "groceries")) }) { Text("+ Log food") }
@@ -102,11 +102,11 @@ private fun Half(label: String, allow: Double, spent: Double, now: Boolean, modi
 
 /** Share of leftover money for food, and the monthly minimum, with a preview of what the month would get. */
 @Composable
-private fun FoodSettings(vm: MainViewModel, ym: String, s: Obj) {
+fun FoodSettings(vm: MainViewModel, ym: String, s: Obj, bare: Boolean = false) {
     val pct0 = s.n("foodPct").let { Math.round(it).toString() }; val min0 = money2(s.n("foodMin"))
     var pct by rememberSaveable(pct0) { mutableStateOf(pct0) }; var min by rememberSaveable(min0) { mutableStateOf(min0) }
     var err by rememberSaveable { mutableStateOf<String?>(null) }
-    Text("Food budget", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    if (!bare) Text("Food budget", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Text("Each month, food gets a share of the money left after fixed bills. It's split in two: one half for the 1st–15th and one for the 16th–end. Whatever food doesn't get goes to Emergency Savings.",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     TextFieldRow(pct, { v -> pct = v.filter { it.isDigit() }.take(3); err = null }, "Share of leftover money for food (%)", hint = "40% is a starting point. Raise it if food runs short.", number = true)

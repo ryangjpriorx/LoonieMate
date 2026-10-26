@@ -65,12 +65,12 @@ import looniemate.engine.t
 import looniemate.engine.*
 
 @Composable
-fun BillsScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
+fun BillsScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, state: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
     val bm by vm.billsModel.collectAsStateWithLifecycle()
     val m = bm ?: return
     var group by rememberSaveable { mutableStateOf(vm.prefs.group) }
     val s = vm.settings()
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (m.debts.isNotEmpty()) item { PayingOffCard(m.debts) }
         item {
             Row(Modifier.enter(1), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -97,7 +97,7 @@ fun BillsScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     val rows = m.rows[group].orEmpty()
                     if (rows.isEmpty()) { Spacer(Modifier.height(8.dp)); EmptyNote("No ${g.label.lowercase()} bills yet. Add the ones that repeat, like ${if (group == "baby") "diapers and wipes" else if (group == "pets") "pet food and litter" else "rent and phone plans"}.") }
-                    rows.forEachIndexed { i, r -> if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)); BillLine(r, m.ym, s) { open(Sheet.Bill(r.id, group)) } }
+                    rows.forEachIndexed { i, r -> if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)); BillLine(r, m.ym, s, billMenu(r, m.ym, vm, open)) { open(Sheet.Bill(r.id, group)) } }
                     LineRow("${g.label} total for ${Fmt.monthName(m.ym)}", Fmt.money(m.totals[group] ?: 0.0), total = true)
                     Spacer(Modifier.height(8.dp))
                 }
@@ -110,10 +110,19 @@ fun BillsScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
     }
 }
 
+/** A bill's long-press menu on the Bills tab: pay part later or give it up this month (when it can be), pause it, change it. */
+fun billMenu(r: BillRow, ym: String, vm: MainViewModel, open: (Sheet) -> Unit): List<looniemate.app.ui.MenuItem> = buildList {
+    val b = r.bill; val paused = b["active"].isFalse(); val on = r.line != null && !paused
+    if (on && b.t("deferrable") && r.line?.t("deferredTo") != true) add(looniemate.app.ui.MenuItem("Pay part later this month…") { open(Sheet.Adjust(ym, r.id, true)) })
+    if (on && b["essential"].isFalse() && r.line?.t("skipped") != true) add(looniemate.app.ui.MenuItem("Give up this month…") { open(Sheet.Adjust(ym, r.id, false)) })
+    add(looniemate.app.ui.MenuItem(if (paused) "Turn it back on" else "Pause it") { vm.pauseBill(r.id, !paused) })
+    add(looniemate.app.ui.MenuItem("Change") { open(Sheet.Bill(r.id, b.or("group", "adults"))) })
+}
+
 @Composable
-private fun BillLine(r: BillRow, ym: String, s: looniemate.engine.J, onClick: () -> Unit) {
+private fun BillLine(r: BillRow, ym: String, s: looniemate.engine.J, menu: List<looniemate.app.ui.MenuItem>, onClick: () -> Unit) {
     val b = r.bill; val p = r.line; val mon = Fmt.monthShort(ym)
-    Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(onClick = onClick).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    looniemate.app.ui.MenuRow(menu, onClick = onClick, clickLabel = "Change", vertical = 6.dp) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(b.or("name", "Bill"), fontWeight = FontWeight.Bold)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

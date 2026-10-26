@@ -86,12 +86,19 @@ class ScreensTest {
     /* Settings opens from the gear in the top bar, which isn't there while Settings is already open */
     private fun tab(name: String) { if (rule.onAllNodesWithTag("tab-$name").fetchSemanticsNodes().isNotEmpty()) { rule.onNodeWithTag("tab-$name").performClick(); settle() } }
     private fun back() { rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }; settle() }
-    /** Closes the open page with its ✕, answering "Leave" if it asks. */
+    /** Closes every open page with its ✕ (pages stack: Settings → Accounts → an account), answering "Leave" if one asks. */
     private fun closePage() {
-        if (rule.onAllNodesWithTag("page-close").fetchSemanticsNodes().isEmpty()) return
-        rule.onNodeWithTag("page-close").performClick(); settle()
-        if (rule.onAllNodesWithTag("leave-go").fetchSemanticsNodes().isNotEmpty()) { rule.onNodeWithTag("leave-go").performClick(); settle() }
+        repeat(5) {
+            if (rule.onAllNodesWithTag("page-close").fetchSemanticsNodes().isEmpty()) return
+            rule.onNodeWithTag("page-close").performClick(); settle()
+            if (rule.onAllNodesWithTag("leave-go").fetchSemanticsNodes().isNotEmpty()) { rule.onNodeWithTag("leave-go").performClick(); settle() }
+        }
         if (rule.onAllNodesWithTag("page").fetchSemanticsNodes().isNotEmpty()) problems.add("a page didn't close")
+    }
+    /** Opens a Settings page from its row on the Settings list. */
+    private fun settingsPage(tag: String) {
+        tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag(tag)); settle()
+        rule.onNodeWithTag(tag).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle()
     }
 
     private fun tour(theme: String, dark: Boolean) {
@@ -109,10 +116,12 @@ class ScreensTest {
         rule.onNodeWithTag("fab").performClick(); settle(); back()
         if (rule.onAllNodesWithTag("page").fetchSemanticsNodes().isNotEmpty()) { problems.add("$theme: an untouched page didn't close on back"); closePage() }
         tab("Bills"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-bill", sheet = true); closePage()
-        tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("account-0")); settle()
-        rule.onNodeWithTag("account-0").performClick(); shot("$theme-sheet-account", sheet = true); closePage()
-        tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("food-settings")); settle()
-        rule.onNodeWithTag("food-settings").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); shot("$theme-sheet-food", sheet = true); closePage()
+        settingsPage("set-accounts"); shot("$theme-More-accounts", sheet = true)
+        rule.onNodeWithTag("account-0").performScrollTo().performClick(); settle(); shot("$theme-sheet-account", sheet = true)
+        /* closing the account goes back to the Accounts page, not out of Settings */
+        rule.onNodeWithTag("page-close").performClick(); settle(); if (rule.onAllNodesWithTag("add-account").fetchSemanticsNodes().isEmpty()) problems.add("$theme: closing an account didn't go back to Accounts")
+        closePage()
+        settingsPage("food-settings"); shot("$theme-sheet-food", sheet = true); closePage()
         /* Personal Expenses: the card on the Spending tab (logging one item with a tap), the list page, and the card on Today */
         tab("Spending"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("self-edit")); settle()
         shot("$theme-Spending-self")
@@ -126,11 +135,10 @@ class ScreensTest {
         tab("Today"); if (runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("self-open")) }.isSuccess) shot("$theme-Today-self")
         else problems.add("$theme: no Personal Expenses card on Today")
         /* these sit further down a scrolling list, so they're drawn only when they're on screen */
-        tab("More")
-        if (runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("test-reminder")) }.isSuccess) shot("$theme-More-reminders")
-        tab("Today"); tab("More")
-        rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("sync-create")); settle(); shot("$theme-More-sync")
-        tab("Today"); tab("More"); if (runCatching { rule.onNodeWithTag("add-income").performScrollTo().performClick() }.isSuccess) { shot("$theme-sheet-income", sheet = true); closePage() }
+        settingsPage("set-reminders"); shot("$theme-More-reminders", sheet = true); closePage()
+        settingsPage("set-sync"); if (rule.onAllNodesWithTag("sync-create").fetchSemanticsNodes().isEmpty()) problems.add("$theme: no sync page"); shot("$theme-More-sync", sheet = true); closePage()
+        settingsPage("set-income"); shot("$theme-More-income", sheet = true)
+        if (runCatching { rule.onNodeWithTag("add-income").performScrollTo().performClick() }.isSuccess) { settle(); shot("$theme-sheet-income", sheet = true) }; closePage()
         tab("Month")
         rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("month-income")); settle()
         rule.onNodeWithTag("month-income").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle()
@@ -150,8 +158,7 @@ class ScreensTest {
         back(); if (rule.onAllNodesWithTag("cu-change").fetchSemanticsNodes().isEmpty()) problems.add("$theme: back didn't go to the previous step")
         closePage()
         /* balance check: only the first account typed in; the rest count as $0 after one question */
-        tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("checkin-more")); settle()
-        rule.onNodeWithTag("checkin-more").performClick(); settle()
+        settingsPage("set-accounts"); rule.onNodeWithTag("checkin-more").performScrollTo().performClick(); settle()
         rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[0].performScrollTo().performTextInput("100")
         rule.onNodeWithTag("compare").performScrollTo().performClick(); settle()
         if (rule.onAllNodesWithTag("blank-zero").fetchSemanticsNodes().isEmpty()) problems.add("$theme: blank balances didn't ask once to count them as $0")
@@ -180,9 +187,8 @@ class ScreensTest {
         assertTrue("Who paid lists the people", rule.onAllNodesWithText("Alex").fetchSemanticsNodes().isNotEmpty())
         closePage()
         /* the test household has one saved quick button; it can be removed */
-        tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("quick-del-0")); settle()
-        shot("More-quick")
-        rule.onNodeWithTag("quick-del-0").performClick(); settle()
+        settingsPage("set-quick"); shot("More-quick", sheet = true)
+        rule.onNodeWithTag("quick-del-0").performScrollTo().performClick(); settle()
         assertTrue("the quick button is gone", vm.settings()["quick"].arr().isEmpty())
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
@@ -191,11 +197,11 @@ class ScreensTest {
     @Test fun assistanceAndEi() {
         seed(dark = false, effects = false)
         val vm = androidx.lifecycle.ViewModelProvider(rule.activity)[MainViewModel::class.java]
-        tab("More"); rule.onNodeWithTag("income-i-odsp").performScrollTo().performClick(); settle(); shot("sheet-odsp", sheet = true)
+        settingsPage("set-income"); rule.onNodeWithTag("income-i-odsp").performScrollTo().performClick(); settle(); shot("sheet-odsp", sheet = true)
         assertTrue("no lag question", rule.onAllNodesWithText("Which payment a month's pay reduces").fetchSemanticsNodes().isEmpty())
         assertTrue("the rule as a sentence", rule.onAllNodes(androidx.compose.ui.test.hasText("lowers the", substring = true)).fetchSemanticsNodes().isNotEmpty())
         closePage()
-        tab("Today"); tab("More"); rule.onNodeWithTag("add-ei").performScrollTo().performClick(); settle()
+        settingsPage("set-income"); rule.onNodeWithTag("add-ei").performScrollTo().performClick(); settle()
         rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[1].performScrollTo().performTextInput("455")
         shot("sheet-ei", sheet = true)
         rule.onNodeWithText("Add").performScrollTo().performClick(); settle()

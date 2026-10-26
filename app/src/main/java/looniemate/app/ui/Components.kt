@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -86,25 +87,41 @@ fun toneColors(tone: String): Pair<Color, Color> {
     }
 }
 
-/* ---------- motion (only when Visual effects is on) ---------- */
+/* ---------- motion: quick but smooth, and only when Less motion is off (docs/plans/overhaul.md) ---------- */
 
-/** Fades and lifts something into place, a little later for each item in a list. */
+/** How long things take. Nothing in the app animates for longer than [MAX] (a test checks it). */
+object Motion {
+    const val TAB = 150; const val PAGE = 220; const val ENTER = 180; const val CHANGE = 300; const val FOLD = 200; const val MAX = 400
+}
+
+/** Which screen is drawing, so cards fade in only the first time each screen is shown in a session. */
+val LocalScreen = androidx.compose.runtime.staticCompositionLocalOf { "" }
+object SeenScreens { val keys = mutableSetOf<String>() }
+
+/** Fades something into place the first time its screen is shown, a little later for each of the first few cards. */
 @Composable
 fun Modifier.enter(index: Int = 0): Modifier {
     if (!LocalFx.current) return this
+    val key = LocalScreen.current
+    val first = remember { key.isEmpty() || key !in SeenScreens.keys }
+    if (!first) return this
     val a = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { delay(40L * index.coerceAtMost(10)); a.animateTo(1f, tween(420, easing = FastOutSlowInEasing)) }
-    return this.graphicsLayer { alpha = a.value; translationY = (1f - a.value) * 24f }
+    LaunchedEffect(Unit) { delay(20L * index.coerceIn(0, 5)); a.animateTo(1f, tween(Motion.ENTER, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) }
+    return this.graphicsLayer { alpha = a.value; translationY = (1f - a.value) * 12f }
 }
 
-/** A number that counts up the first time it appears. */
+/** A number that glides to its new value when it changes (a tick, a log); shown as it is the first time. */
 @Composable
 fun rememberCountUp(target: Double): Double {
     if (!LocalFx.current) return target
-    val a = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { a.animateTo(1f, tween(750, easing = FastOutSlowInEasing)) }
-    return if (a.value >= 1f) target else target * a.value
+    val from = remember { doubleArrayOf(target, target) }; val p = remember { Animatable(1f) }
+    LaunchedEffect(target) { if (target != from[1]) { from[0] = from[0] + (from[1] - from[0]) * p.value; from[1] = target; p.snapTo(0f); p.animateTo(1f, tween(Motion.CHANGE, easing = FastOutSlowInEasing)) } }
+    return if (p.value >= 1f) target else from[0] + (from[1] - from[0]) * p.value
 }
+
+/** A fraction that glides when it changes, and starts where it is (no growing in from zero). */
+@Composable
+private fun glide(f: Float): Float = if (LocalFx.current) androidx.compose.animation.core.animateFloatAsState(f, tween(Motion.CHANGE, easing = FastOutSlowInEasing), label = "glide").value else f
 
 @Composable
 fun Money(value: Double, style: TextStyle = MaterialTheme.typography.bodyLarge, color: Color = Color.Unspecified, modifier: Modifier = Modifier, countUp: Boolean = false, weight: FontWeight? = null) {
@@ -166,35 +183,30 @@ fun Pill(text: String, tone: String = "") {
     }
 }
 
-/** The status badge: a coloured dot that gently pulses when something needs attention. */
+/** The status badge: an icon, a word and a colour, so it never depends on colour alone. It stays still. */
 @Composable
 fun StatusBadge(tone: String, label: String, big: Boolean = false) {
     val (fg, bg) = when (tone) { "plan" -> toneColors("accent"); else -> toneColors(tone) }
-    val pulse = if (LocalFx.current && (tone == "bad" || tone == "warn")) {
-        val t = rememberInfiniteTransition(label = "pulse")
-        t.animateFloat(1f, 0.35f, infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Reverse), label = "a").value
-    } else 1f
     Surface(color = bg, shape = CircleShape) {
         Row(Modifier.padding(horizontal = if (big) 14.dp else 10.dp, vertical = if (big) 8.dp else 5.dp), verticalAlignment = Alignment.CenterVertically) {
             /* an icon as well as the colour and the word, so status never depends on colour alone */
             Icon(when (tone) { "good" -> Icons.Rounded.CheckCircle; "warn" -> Icons.Rounded.Warning; "bad" -> Icons.Rounded.Error; else -> Icons.Rounded.Info }, null,
-                tint = fg, modifier = Modifier.size(if (big) 18.dp else 15.dp).graphicsLayer { alpha = pulse })
+                tint = fg, modifier = Modifier.size(if (big) 18.dp else 15.dp))
             Spacer(Modifier.width(6.dp))
             Text(label, style = if (big) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge, color = fg, fontWeight = FontWeight.Bold)
         }
     }
 }
 
-/** A rounded progress bar that grows into place; an optional marker shows where you should be by now. */
+/** A rounded progress bar that glides when it changes; an optional marker shows where you should be by now. */
 @Composable
 fun GrowBar(fraction: Float, color: Color, modifier: Modifier = Modifier, marker: Float? = null, height: Dp = 10.dp, track: Color = MaterialTheme.colorScheme.surfaceContainerHighest) {
-    val fx = LocalFx.current; val a = remember { Animatable(if (fx) 0f else 1f) }
-    LaunchedEffect(fx) { if (fx) a.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) else a.snapTo(1f) }
+    val shown = glide(fraction.coerceIn(0f, 1f))
     val ink = MaterialTheme.colorScheme.onSurface
     Canvas(modifier.fillMaxWidth().height(height)) {
         val r = CornerRadius(size.height / 2, size.height / 2)
         drawRoundRect(track, cornerRadius = r)
-        val w = size.width * fraction.coerceIn(0f, 1f) * a.value
+        val w = size.width * shown
         if (w > 0f) drawRoundRect(Brush.horizontalGradient(listOf(color, lerp(color, Color.White, 0.18f))), size = Size(maxOf(w, size.height), size.height), cornerRadius = r)
         if (marker != null) { val x = size.width * marker.coerceIn(0f, 1f); drawRect(ink.copy(alpha = 0.55f), topLeft = Offset(x - 1.5f, -3f), size = Size(3f, size.height + 6f)) }
     }
@@ -204,13 +216,12 @@ fun GrowBar(fraction: Float, color: Color, modifier: Modifier = Modifier, marker
 @Composable
 fun ProgressRing(percent: Double, modifier: Modifier = Modifier, size: Dp = 58.dp) {
     val x = LocalExtra.current; val track = MaterialTheme.colorScheme.surfaceContainerHighest
-    val fx = LocalFx.current; val a = remember { Animatable(if (fx) 0f else 1f) }
-    LaunchedEffect(fx) { if (fx) { delay(150); a.animateTo(1f, tween(1100, easing = FastOutSlowInEasing)) } else a.snapTo(1f) }
+    val shown = glide((percent / 100).toFloat().coerceIn(0f, 1f))
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(size)) {
             val sw = 6.dp.toPx(); val d = this.size.minDimension - sw; val tl = Offset(sw / 2, sw / 2)
             drawArc(track, 0f, 360f, false, topLeft = tl, size = Size(d, d), style = Stroke(sw))
-            val sweep = (360f * (percent / 100).toFloat().coerceIn(0f, 1f)) * a.value
+            val sweep = 360f * shown
             if (sweep > 0f) drawArc(Brush.sweepGradient(listOf(x.good, x.pets, x.good)), -90f, sweep, false, topLeft = tl, size = Size(d, d), style = Stroke(sw, cap = StrokeCap.Round))
         }
         Text("${percent.toInt()}%", style = MaterialTheme.typography.labelMedium.merge(Numbers), fontWeight = FontWeight.Bold)
@@ -280,3 +291,35 @@ fun ClickRow(onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
     Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(onClick = onClick).padding(vertical = rowPad(8.dp), horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), content = content)
 }
+
+/** A settings card on its own page: just the content, since the page's top bar already has the title. Elsewhere, the card. */
+@Composable
+fun CardOrBare(
+    bare: Boolean, title: String, icon: ImageVector, tone: String = "accent", modifier: Modifier = Modifier, trailing: String? = null,
+    trailingContent: (@Composable RowScope.() -> Unit)? = null, index: Int = 0, content: @Composable ColumnScope.() -> Unit,
+) {
+    if (bare) Column(modifier.fillMaxWidth()) {
+        if (trailing != null) Text(trailing, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp))
+        content() }
+    else SectionCard(title, icon, tone, modifier, trailing, trailingContent, index, content)
+}
+
+/** One row on the Settings list: an icon, the page's name and a one-line summary of what's set. Opens the page. */
+@Composable
+fun SettingsRow(icon: ImageVector, tone: String, title: String, summary: String, tag: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).clickable(onClick = onClick).testTag(tag).padding(vertical = rowPad(10.dp), horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        IconBadge(icon, tone, 38.dp)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            if (summary.isNotEmpty()) Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        Icon(androidx.compose.material.icons.Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** A group heading on a list page. */
+@Composable
+fun GroupHeading(t: String) = Text(t, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
+    modifier = Modifier.padding(start = 8.dp, top = 8.dp, bottom = 2.dp).semantics { heading() })
+

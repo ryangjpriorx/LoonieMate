@@ -54,7 +54,7 @@ fun checkTimes(times: List<Int>): String? {
  * for automatic payments, and a test notification. This phone only. Stage 6 of docs/plans/reminders-and-updates.md.
  */
 @Composable
-fun RemindersCard(vm: MainViewModel) {
+fun RemindersCard(vm: MainViewModel, bare: Boolean = false) {
     val ctx = LocalContext.current; val p = vm.prefs; val h24 = DateFormat.is24HourFormat(ctx)
     fun parse(s: String) = s.split(',').mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }
     var on by remember { mutableStateOf(p.remindersOn) }
@@ -76,7 +76,7 @@ fun RemindersCard(vm: MainViewModel) {
         TimePickerDialog(ctx, { _, h, mi -> set(list.toMutableList().also { it[i] = h * 60 + mi }) }, m / 60, m % 60, h24).show()
     }
 
-    SectionCard("Reminders", Icons.Rounded.NotificationsActive, "accent", trailing = "Only this phone", index = 0) {
+    looniemate.app.ui.CardOrBare(bare, "Reminders", Icons.Rounded.NotificationsActive, "accent", trailing = "Only this phone") {
         SwitchRow("Remind me about bills and money moves", "Only when something needs doing. Nothing is sent on days with nothing due.", on) {
             on = it; p.remindersOn = it; ReminderAlarm.schedule(ctx) }
         if (on) {

@@ -55,7 +55,7 @@ fun AccessSheet(vm: MainViewModel, close: () -> Unit) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) { Text("Example", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f)); StatusBadge("warn", "Heads-up") }
             EventRow(J.obj("kind" to "bill", "name" to "Hydro", "amount" to 84.0, "date" to vm.today.value, "ym" to ymOf(vm.today.value), "key" to "preview",
-                "group" to "adults", "method" to "Pre-authorized debit (PAD)", "paid" to false), vm.settings(), vm, compact = true, divider = false)
+                "group" to "adults", "method" to "Pre-authorized debit (PAD)", "paid" to false), vm.settings(), vm, compact = true, divider = false, interactive = false)
         }
     }
     Text("Bigger text", fontWeight = FontWeight.SemiBold)

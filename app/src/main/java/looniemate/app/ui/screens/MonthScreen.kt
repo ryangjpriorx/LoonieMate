@@ -63,11 +63,12 @@ import looniemate.engine.t
 import looniemate.engine.*
 
 @Composable
-fun MonthScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
+fun MonthScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, state: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
     val mm by vm.monthModel.collectAsStateWithLifecycle()
     val m = mm ?: return
     val s = vm.settings(); val c = m.c
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { looniemate.app.ui.MonthSwitcher(vm) }
         if (m.examples) item {
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 /* the note on its own line, so it never gets squeezed at large text sizes */
@@ -82,7 +83,7 @@ fun MonthScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
         item { Tiles(m, open) }
         item {
             SectionCard("Coming up", Icons.Rounded.CalendarMonth, trailing = "To " + Fmt.dShort(MainViewModel.plusDays(m.today, m.days)), index = 3) {
-                if (m.up.isEmpty()) EmptyNote("Nothing due in the next few days.") else EventList(m.up, m.today, s, vm)
+                if (m.up.isEmpty()) EmptyNote("Nothing due in the next few days.") else EventList(m.up, m.today, s, vm, open)
             }
         }
         item { PlanCard(m, open) }

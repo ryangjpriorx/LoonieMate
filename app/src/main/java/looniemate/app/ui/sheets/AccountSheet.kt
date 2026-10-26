@@ -37,6 +37,7 @@ import looniemate.engine.s
 import looniemate.engine.str
 import looniemate.engine.arr
 import looniemate.engine.*
+import looniemate.engine.Views
 
 /** Add or change one account: its name, type, and what it's for (or, for savings, what kind). */
 @Composable
@@ -51,6 +52,12 @@ fun AccountSheet(vm: MainViewModel, id: String?, close: () -> Unit) {
     val purposes = rememberSaveable(saver = stringListSaver()) { mutableStateListOf<String>().apply {
         if (a != null) addAll(a["purposes"].arr().map { str(it) }) else if (Core.acctFor(s, "main") == null) add("main") } }
     var err by rememberSaveable { mutableStateOf<String?>(null) }; var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    /* taking out cash (docs/plans/overhaul.md): the ATM's daily limit and bills, tellers, and what to do over the limit */
+    var limit by rememberSaveable { mutableStateOf(a?.get("atmLimit")?.let { v -> if (num(v) > 0) money2(num(v)) else "" } ?: "") }
+    var notes by rememberSaveable { mutableStateOf(a?.get("atmNotes")?.let { v -> num(v).toInt().takeIf { it == 5 || it == 10 }?.toString() } ?: "20") }
+    var tellers by rememberSaveable { mutableStateOf(a?.get("tellers") != looniemate.engine.J.B(false)) }
+    var over by rememberSaveable { mutableStateOf(a?.s("atmOver") ?: "") }
+    var also by rememberSaveable { mutableStateOf(a?.s("atmAlso") ?: "") }; val pg = LocalPage.current
     val used = if (id != null) Accounts.billsUsing(s, vm.repo.docs.value.filterKeys { it.startsWith("bills/") }.values, id) else 0
 
     SheetTitle(if (a != null) "Edit account" else "Add an account")
@@ -86,10 +93,28 @@ fun AccountSheet(vm: MainViewModel, id: String?, close: () -> Unit) {
         }
     }
 
+    if (type == "chequing" || type == "prepaid") {
+        Text("Taking out cash", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+        Hint("For bills paid in cash and cash for food. LoonieMate plans each trip to the ATM around what this account's ATM can do.")
+        MoneyField(limit, { limit = it; err = null }, "Daily ATM limit (optional)", hint = "Check your banking app; it's often \$500 or \$1,000. Blank means no limit.")
+        SelectField(notes, listOf("20" to "\$20 bills", "10" to "\$10s and \$20s", "5" to "\$5s and up"), { notes = it }, "Bills the ATM gives out")
+        looniemate.app.ui.screens.SwitchRow("Branches with tellers", "Turn off for an online bank like Simplii or Tangerine, so LoonieMate tells you when you'll need coins.", tellers) { pg?.mark(); tellers = it }
+        if (Views.parseMoney(limit)?.let { it > 0 } == true) {
+            Text("When the cash is more than the limit", fontWeight = FontWeight.SemiBold)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(over != "split", { pg?.mark(); over = "days" }, label = { Text("Go back each day") })
+                FilterChip(over == "split", { pg?.mark(); over = "split" }, label = { Text("Use another account too") }) }
+            val choices = others.filter { it.s("type") == "chequing" || it.s("type") == "prepaid" }.map { it.s("id") to it.s("name") }
+            if (over == "split") { if (choices.isEmpty()) Hint("Add another chequing account or prepaid card first.") else SelectField(also, listOf("" to "Pick an account") + choices, { also = it; err = null }, "Take the rest from") }
+            else Hint("LoonieMate spreads the cash over the days before it's needed.")
+        }
+    }
+
     if (id != null) Hint(if (used > 0) "Used by $used bill${if (used > 1) "s" else ""}." else "Not used by any bills.")
     ErrorText(err)
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Button(onClick = { err = vm.saveAccount(id, name, type, kind, purposes.toList()); if (err == null) close() }, modifier = Modifier.testTag("save-account")) {
+        Button(onClick = { err = vm.saveAccount(id, name, type, kind, purposes.toList(),
+            if (type == "chequing" || type == "prepaid") MainViewModel.AtmSettings(limit, notes, tellers, if (Views.parseMoney(limit)?.let { it > 0 } == true) over.ifEmpty { "days" } else "", also) else null); if (err == null) close() }, modifier = Modifier.testTag("save-account")) {
             Text(if (a != null) "Save account" else "Add account") }
         Spacer(Modifier.weight(1f))
         if (a != null && id != null) {

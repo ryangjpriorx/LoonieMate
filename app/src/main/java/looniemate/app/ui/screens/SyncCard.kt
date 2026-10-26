@@ -46,7 +46,7 @@ fun syncedAgo(at: Long, now: Long = System.currentTimeMillis()): String {
 
 /** Settings → Sync between phones (docs/plans/sync.md, stage 3). */
 @Composable
-fun SyncCard(vm: MainViewModel) {
+fun SyncCard(vm: MainViewModel, bare: Boolean = false) {
     val sm = vm.sync; val st by sm.state.collectAsStateWithLifecycle(); val scope = rememberCoroutineScope()
     var pending by remember { mutableStateOf<Pair<Uri, Boolean>?>(null) }   // the chosen file, and whether it's new
     var pw by remember { mutableStateOf("") }; var pw2 by remember { mutableStateOf("") }
@@ -56,7 +56,7 @@ fun SyncCard(vm: MainViewModel) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     fun run(block: suspend () -> String?) { busy = true; err = null; scope.launch { err = block(); busy = false; if (err == null) { pending = null; pw = ""; pw2 = "" } } }
 
-    SectionCard("Sync between phones", Icons.Rounded.CloudSync, "sky", index = 1) {
+    looniemate.app.ui.CardOrBare(bare, "Sync between phones", Icons.Rounded.CloudSync, "sky") {
         val p = pending
         when {
             p != null -> {

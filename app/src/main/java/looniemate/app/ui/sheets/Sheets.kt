@@ -66,14 +66,14 @@ import looniemate.engine.*
 
 /** The open form, shown as a full-screen page (see Page.kt). */
 @Composable
-fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet) -> Unit) {
+fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet) -> Unit, replace: (Sheet) -> Unit = open) {
     val close: () -> Unit = onDismiss
     /* a new page for each form, so one form's typing or scroll never carries into the next (setup chains forms) */
     /* closing "Make LoonieMate easier to use?" during first-time setup carries on to getting on track, like Skip (N7) */
-    val onClose: () -> Unit = (sheet as? Sheet.Access)?.next?.let { n -> { open(n) } } ?: onDismiss
+    val onClose: () -> Unit = (sheet as? Sheet.Access)?.next?.let { n -> { replace(n) } } ?: onDismiss
     key(sheet) { Page(onClose = onClose) {
             when (sheet) {
-                is Sheet.Log -> LogSheet(vm, sheet.oneTime, close, sheet.category)
+                is Sheet.Log -> LogSheet(vm, sheet.oneTime, close, sheet.category, sheet.note)
                 is Sheet.Food -> FoodSheet(vm, sheet.ym, close, open)
                 is Sheet.Bill -> BillSheet(vm, sheet.id, sheet.group, close)
                 is Sheet.Adjust -> AdjustSheet(vm, sheet, close)
@@ -87,7 +87,7 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
                 is Sheet.Credit -> CreditSheet(vm, sheet.id, sheet.type, close)
                 is Sheet.MonthIncome -> MonthIncomeSheet(vm, sheet.ym, close)
                 is Sheet.CatchUp -> CatchUpSheet(vm, sheet.first, close)
-                is Sheet.Access -> AccessSheet(vm) { val n = sheet.next; if (n != null) open(n) else close() }
+                is Sheet.Access -> AccessSheet(vm) { val n = sheet.next; if (n != null) replace(n) else close() }
                 is Sheet.Update -> { SheetTitle("Update LoonieMate")
                     val st by vm.updater.state.collectAsStateWithLifecycle(); looniemate.app.ui.screens.UpdatePanel(st, vm, inSheet = true) }
                 is Sheet.Self -> SelfSheet(vm, close, open)
@@ -95,6 +95,7 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
                 is Sheet.Reset -> ResetSheet(vm, close, open)
                 is Sheet.Household -> HouseholdSheet(vm, close)
                 is Sheet.Import -> ImportSheet(vm, close)
+                is Sheet.Settings -> looniemate.app.ui.screens.SettingsPage(vm, sheet.section, open)
             }
     } }
 }
@@ -104,10 +105,10 @@ fun ErrorText(e: String?) { if (e != null) Text(e, color = toneColors("bad").fir
 
 /* ---------- log spending: three quick steps ---------- */
 @Composable
-private fun LogSheet(vm: MainViewModel, oneTime: Boolean, close: () -> Unit, category: String = "") {
+private fun LogSheet(vm: MainViewModel, oneTime: Boolean, close: () -> Unit, category: String = "", note0: String = "") {
     val today = vm.today.value; val s = vm.settings(); val people = s.strList("people").filter { it.isNotBlank() }
     var amt by rememberSaveable { mutableStateOf("") }; var cat by rememberSaveable { mutableStateOf(category) }; var date by rememberSaveable { mutableStateOf(today) }
-    var note by rememberSaveable { mutableStateOf("") }; var who by rememberSaveable { mutableStateOf("") }; var fav by rememberSaveable { mutableStateOf(false) }
+    var note by rememberSaveable { mutableStateOf(note0) }; var who by rememberSaveable { mutableStateOf("") }; var fav by rememberSaveable { mutableStateOf(false) }
     var group by rememberSaveable { mutableStateOf("household") }; var err by rememberSaveable { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { try { focus.requestFocus() } catch (_: Exception) {} }

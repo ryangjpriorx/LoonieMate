@@ -7,6 +7,9 @@ import android.net.Uri
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -82,12 +85,12 @@ import looniemate.engine.s
 import looniemate.engine.*
 
 @Composable
-fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go: (Tab) -> Unit) {
+fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go: (Tab) -> Unit, state: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
     val m by vm.todayModel.collectAsStateWithLifecycle()
     val upd by vm.updater.state.collectAsStateWithLifecycle()
     val model = m ?: return
     val s = vm.settings()
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Row(Modifier.fillMaxWidth().enter(0), verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
@@ -110,7 +113,7 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
         item {
             val n = model.todo.size
             SectionCard(if (n > 0) "To do today · $n" else "Nothing to do today", Icons.Rounded.Receipt, if (n > 0) "amber" else "green", index = 1) {
-                if (n > 0) model.todo.forEachIndexed { i, e -> EventRow(e, s, vm, divider = i > 0) }
+                if (n > 0) model.todo.forEachIndexed { i, e -> EventRow(e, s, vm, divider = i > 0, open = open) }
                 else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     val x = LocalExtra.current
                     Box(Modifier.size(46.dp).clip(CircleShape).background(Brush.linearGradient(listOf(x.good, x.pets))).enter(2), contentAlignment = Alignment.Center) {
@@ -119,7 +122,7 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
                         val nx = model.next.firstOrNull()
                         Text(if (nx != null) "Next: " + nextText(nx) + " on " + Fmt.dLabel(nx.s("date")) + "." else "Nothing else this week.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
-                if (model.incoming.isNotEmpty()) { Spacer(Modifier.height(6.dp)); model.incoming.forEach { e -> EventRow(e, s, vm) } }
+                if (model.incoming.isNotEmpty()) { Spacer(Modifier.height(6.dp)); model.incoming.forEach { e -> EventRow(e, s, vm, open = open) } }
             }
         }
         item {
@@ -155,7 +158,7 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
         item {
             SectionCard("Log spending", Icons.Rounded.AccountBalanceWallet, "amber", trailing = "One tap logs it for today", index = 3) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    model.quick.forEach { q -> QuickButton(q.label, Fmt.money(q.amount), q.fav) { vm.quickLog(q) } }
+                    model.quick.forEach { q -> QuickButton(q.label, Fmt.money(q.amount), q.fav, menu = quickMenu(q, vm, open)) { vm.quickLog(q) } }
                     QuickButton("Something else", "", true, more = true) { open(Sheet.Log()) }
                 }
                 if (model.quick.isEmpty()) Text("Things you log often will show up here as one-tap buttons. You can also tick \"Add a quick button\" when logging.",
@@ -165,7 +168,7 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
         if (model.debts.isNotEmpty()) item { DebtCard(model.debts, 4) { go(Tab.Bills) } }
         if (model.next.isNotEmpty()) item {
             SectionCard("Next few days", Icons.Rounded.CalendarMonth, index = 5) {
-                model.next.forEachIndexed { i, e -> EventRow(e, s, vm, showDate = true, compact = true, divider = i > 0) }
+                model.next.forEachIndexed { i, e -> EventRow(e, s, vm, showDate = true, compact = true, divider = i > 0, open = open) }
             }
         }
     }
@@ -174,18 +177,35 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
 private fun nextText(e: looniemate.engine.Obj): String = when (e.s("kind")) {
     "move" -> "move ${Fmt.money(e.n("amount"))} to ${e.s("to")}"; "in" -> e.s("name") + " comes in"; else -> e.s("name") + " " + Fmt.money(e.n("amount")) }
 
+/** A one-tap spending button. A long press gives [menu]: log a different amount, save or remove it. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun QuickButton(label: String, amount: String, fav: Boolean, more: Boolean = false, onClick: () -> Unit) {
-    val x = LocalExtra.current; val cs = MaterialTheme.colorScheme
+fun QuickButton(label: String, amount: String, fav: Boolean, more: Boolean = false, menu: List<looniemate.app.ui.MenuItem> = emptyList(), onClick: () -> Unit) {
+    val x = LocalExtra.current; val cs = MaterialTheme.colorScheme; var open by remember { mutableStateOf(false) }
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val bg = if (more) cs.surfaceContainerHighest else if (fav) x.goodBg else cs.surfaceContainer
-    Surface(onClick = onClick, shape = MaterialTheme.shapes.medium, color = bg, modifier = Modifier.width(148.dp)) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-            if (more) Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.AutoAwesome, null, tint = cs.primary, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
-                Text(label, color = cs.primary, fontWeight = FontWeight.SemiBold) }
-            else { Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                Text(amount, style = MaterialTheme.typography.titleMedium.merge(Numbers), fontWeight = FontWeight.Bold) }
+    Box {
+        Surface(shape = MaterialTheme.shapes.medium, color = bg, modifier = Modifier.width(148.dp).clip(MaterialTheme.shapes.medium)
+            .combinedClickable(onClick = onClick, onLongClickLabel = if (menu.isEmpty()) null else "More options",
+                onLongClick = if (menu.isEmpty()) null else ({ haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); open = true }))
+            .semantics { customActions = menu.map { m -> androidx.compose.ui.semantics.CustomAccessibilityAction(m.label) { m.onClick(); true } } }) {
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                if (more) Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.AutoAwesome, null, tint = cs.primary, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                    Text(label, color = cs.primary, fontWeight = FontWeight.SemiBold) }
+                else { Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text(amount, style = MaterialTheme.typography.titleMedium.merge(Numbers), fontWeight = FontWeight.Bold) }
+            }
         }
+        androidx.compose.material3.DropdownMenu(open, { open = false }) { menu.forEach { m ->
+            androidx.compose.material3.DropdownMenuItem(text = { Text(m.label, color = if (m.danger) toneColors("bad").first else cs.onSurface) }, onClick = { open = false; m.onClick() }) } }
     }
+}
+
+/** The long-press menu for a quick button on Today. */
+fun quickMenu(q: Views.Quick, vm: MainViewModel, open: (Sheet) -> Unit): List<looniemate.app.ui.MenuItem> = buildList {
+    add(looniemate.app.ui.MenuItem("Log a different amount…") { open(Sheet.Log(category = q.category, note = q.note)) })
+    if (q.fav) add(looniemate.app.ui.MenuItem("Remove this button", danger = true) { vm.removeQuick(q) })
+    else add(looniemate.app.ui.MenuItem("Keep it as a quick button") { vm.addQuick(q.category, q.amount, q.note) })
 }
 
 /** Debt payoff: a ring for each debt, what's left, when it'll be done, and the next payment. */

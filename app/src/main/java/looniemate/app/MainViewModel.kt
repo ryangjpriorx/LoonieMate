@@ -121,13 +121,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         .mapLatest { (d, t, y) -> buildMonth(d, t, y) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val billsModel: StateFlow<BillsModel?> = combine(repo.docs, today, ym) { d, t, y -> Triple(d, t, y) }
-        .mapLatest { (d, t, y) -> buildBills(d, t, y) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+        .mapLatest { (d, t, _) -> buildBills(d, t, null) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val spendingModel: StateFlow<SpendingModel?> = combine(repo.docs, today, ym) { d, t, y -> Triple(d, t, y) }
         .mapLatest { (d, t, y) -> buildSpending(d, t, y) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val savingsModel: StateFlow<SavingsModel?> = combine(repo.docs, today, ym) { d, t, y -> Triple(d, t, y) }
-        .mapLatest { (d, t, y) -> buildSavings(d, t, y) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+        .mapLatest { (d, t, _) -> buildSavings(d, t, null) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private fun buildSavings(d: Map<String, J>, t: String, y: String?): SavingsModel {
         val st = store(d, t); val s = st.settings; val ym = y ?: defaultYm(t, s); val c = Core.monthCalc(ym, st, t)
@@ -285,11 +285,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /* ---------- accounts (settings.accounts, the same list the web version's Accounts tab edits) ---------- */
 
     /** Saves an account. Returns an error message, or null when it worked. */
-    fun saveAccount(id: String?, name: String, type: String, kind: String, purposes: List<String>): String? {
+    /** What the account's ATM can do (docs/plans/overhaul.md, cash and the ATM). Blank limit = no limit. */
+    class AtmSettings(val limit: String, val notes: String, val tellers: Boolean, val over: String, val also: String)
+
+    fun saveAccount(id: String?, name: String, type: String, kind: String, purposes: List<String>, atm: AtmSettings? = null): String? {
         if (name.isBlank()) return "Give the account a name."
         val s = settings()
         if (Core.accountsOf(s).any { it.s("id") != id && it.s("name").equals(name.trim(), ignoreCase = true) }) return "You already have an account called ${name.trim()}."
-        val list = Accounts.saved(s, id ?: ("a" + repo.newId()), name, type, kind, purposes)
+        val aid = id ?: ("a" + repo.newId())
+        val lim = atm?.limit?.let { Views.parseMoney(it) }
+        if (atm != null && atm.limit.isNotBlank() && (lim == null || lim.isNaN() || lim < 0)) return "Enter the daily ATM limit in dollars, or leave it blank."
+        if (atm != null && atm.over == "split" && atm.also.isEmpty()) return "Pick the other account to take the rest of the cash from."
+        val list = Accounts.saved(s, aid, name, type, kind, purposes)
+        if (atm != null) (list.find { it is Obj && it.s("id") == aid } as? Obj)?.let { o ->
+            if (lim != null && lim > 0) o["atmLimit"] = J.N(lim) else o.map.remove("atmLimit")
+            o["atmNotes"] = J.N(atm.notes.toDoubleOrNull() ?: 20.0); o["tellers"] = J.B(atm.tellers)
+            if (atm.over.isNotEmpty()) o["atmOver"] = J.S(atm.over) else o.map.remove("atmOver")
+            if (atm.over == "split") o["atmAlso"] = J.S(atm.also) else o.map.remove("atmAlso") }
         change(if (id != null) "Saved ${name.trim()}" else "Added ${name.trim()}", listOf("settings/main")) { saveSettings(J.obj("accounts" to list)) }
         return null
     }
@@ -556,7 +568,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * Saves the household page. [people] is typed as names separated by commas (as on the web). Returns an error message,
      * or null when it worked.
      */
-    fun saveHousehold(name: String, people: String, province: String, showAllProv: Boolean, startYm: String, trackFrom: String, babyDue: String): String? {
+    fun saveHousehold(name: String, people: String, province: String, showAllProv: Boolean, startYm: String, trackFrom: String, babyDue: String, familyIncome: String? = null): String? {
         if (Labels.PROVINCES.none { it.first == province }) return "Pick your province or territory."
         if (!isYm(startYm)) return "Pick the first month of the plan."
         if (!isDate(trackFrom)) return "Pick the date to start tracking bills from."
@@ -564,7 +576,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val ppl = people.split(',').map { it.trim().take(20) }.filter { it.isNotEmpty() }.distinct().take(10)
         change("Household saved", listOf("settings/main")) {
             saveSettings(J.obj("householdName" to name.trim().take(40), "people" to ppl, "province" to province, "showAllProv" to showAllProv,
-                "startYm" to startYm, "trackFrom" to trackFrom, "babyDue" to babyDue.trim())) }
+                "startYm" to startYm, "trackFrom" to trackFrom, "babyDue" to babyDue.trim()))
+            if (familyIncome != null) saveSettings(J.obj("familyIncome" to (familyIncome.toIntOrNull()?.let { maxOf(0, it) } ?: ""))) }
         return null
     }
 
@@ -586,6 +599,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun removeQuick(index: Int) { val list = settings()["quick"].arr().map { it.copy() }.toMutableList(); if (index !in list.indices) return
         val q = list.removeAt(index)
         change("Removed the ${Views.Quick(q.s("category"), q.n("amount"), q.s("note"), true).label} button", listOf("settings/main")) { saveSettings(J.obj("quick" to list)) } }
+
+/* ---------- what the long-press menus do (docs/plans/overhaul.md) ---------- */
+
+    /** Saves a quick button (the same amount, type and note), unless there's one like it already. */
+    fun addQuick(category: String, amount: Double, note: String) { val list = settings()["quick"].arr().map { it.copy() }.toMutableList()
+        if (list.any { it.s("category") == category && round2(it.n("amount")) == round2(amount) && it.s("note") == note.trim() }) { say("That quick button is already on Today."); return }
+        list.add(J.obj("category" to category, "amount" to round2(amount), "note" to note.trim()))
+        change("Added a quick button", listOf("settings/main")) { saveSettings(J.obj("quick" to list.takeLast(8))) } }
+
+    /** Removes a saved quick button by what it is (from its long-press menu on Today). */
+    fun removeQuick(q: Views.Quick) { val i = settings()["quick"].arr().indexOfFirst { it.s("category") == q.category && round2(it.n("amount")) == round2(q.amount) && it.s("note") == q.note }
+        if (i >= 0) removeQuick(i) }
+
+    /** Logs the same spending again, for today. */
+    fun logAgain(e: Obj) { val err = logExpense(e.n("amount"), e.s("category"), today.value, e.s("note"), e.s("who"), false, e.or("group", "household"), false); if (err != null) say(err) }
+
+    /** Pauses a bill (it stops counting in the budget) or starts it again. */
+    fun pauseBill(id: String, paused: Boolean) { val p = "bills/$id"; val b = repo.get(p)?.copy() as? Obj ?: return
+        b["active"] = J.B(!paused); change(if (paused) "Paused ${b.s("name")}" else "${b.s("name")} is back on", listOf(p)) { repo.set(p, b) } }
 
 /* ---------- Personal Expenses (docs/plans/personal-expenses.md): a list of things bought for yourself ---------- */
 

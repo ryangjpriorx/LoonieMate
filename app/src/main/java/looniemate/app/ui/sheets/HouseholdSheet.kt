@@ -42,6 +42,7 @@ fun HouseholdSheet(vm: MainViewModel, close: () -> Unit) {
     var startYm by rememberSaveable { mutableStateOf(if (isYm(s["startYm"])) s.s("startYm") else ymOf(today)) }
     var trackFrom by rememberSaveable { mutableStateOf(if (isDate(s["trackFrom"])) s.s("trackFrom") else today) }
     var babyDue by rememberSaveable { mutableStateOf(s.s("babyDue")) }
+    var income by rememberSaveable { mutableStateOf(s["familyIncome"].let { if (it == null || it == looniemate.engine.J.Null) "" else looniemate.engine.str(it) }) }
     var err by rememberSaveable { mutableStateOf<String?>(null) }
 
     SheetTitle("Household and province")
@@ -68,8 +69,12 @@ fun HouseholdSheet(vm: MainViewModel, close: () -> Unit) {
     DateField(trackFrom, { trackFrom = it; err = null }, "Start tracking bills from", hint = "Bills before this date never show as past due.")
     DateField(babyDue, { babyDue = it; err = null }, "Baby's due date (optional)", hint = "Expecting? Kids bills without their own start date begin on this date.", clearable = true)
 
+    Text("Savings programs", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+    TextFieldRow(income, { t -> income = t.filter { it.isDigit() }.take(7); err = null }, "Family net income last year (optional)", number = true,
+        hint = "From your tax returns (line 23600, both partners added). Used to estimate RDSP and RESP government money on the Savings tab.")
+
     ErrorText(err)
-    Button(onClick = { err = vm.saveHousehold(name, people, province, showAll, startYm, trackFrom, babyDue); if (err == null) close() },
+    Button(onClick = { err = vm.saveHousehold(name, people, province, showAll, startYm, trackFrom, babyDue, income); if (err == null) close() },
         modifier = Modifier.fillMaxWidth().testTag("hh-save")) { Text("Save") }
 }
 
