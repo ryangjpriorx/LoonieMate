@@ -95,6 +95,7 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
                 is Sheet.Credit -> CreditSheet(vm, sheet.id, sheet.type, close)
                 is Sheet.MonthIncome -> MonthIncomeSheet(vm, sheet.ym, close)
                 is Sheet.CatchUp -> CatchUpSheet(vm, sheet.first, close)
+                is Sheet.Access -> AccessSheet(vm) { val n = sheet.next; if (n != null) open(n) else close() }
                 is Sheet.Update -> { SheetTitle("Update LoonieMate")
                     val st by vm.updater.state.collectAsStateWithLifecycle(); looniemate.app.ui.screens.UpdatePanel(st, vm, inSheet = true) }
                 is Sheet.Export -> ExportSheet(vm, close)

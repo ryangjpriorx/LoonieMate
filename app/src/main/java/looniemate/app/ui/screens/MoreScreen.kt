@@ -164,7 +164,7 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
         item {
             Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("For testing", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { vm.prefs.onboarded = false; open(Sheet.CatchUp(first = true)) }, modifier = Modifier.testTag("redo-setup")) {
+                TextButton(onClick = { vm.prefs.onboarded = false; vm.prefs.a11yAsked = false; open(Sheet.Access(next = Sheet.CatchUp(first = true))) }, modifier = Modifier.testTag("redo-setup")) {
                     Text("Redo first-time setup", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }

@@ -98,6 +98,8 @@ sealed class Sheet {
     class MonthIncome(val ym: String) : Sheet()
     object Update : Sheet()
     class CatchUp(val first: Boolean) : Sheet()
+    /** Make LoonieMate easier to use? [next] opens afterwards (first-time setup goes on to the getting-on-track steps). */
+    class Access(val next: Sheet? = null) : Sheet()
     object Export : Sheet()
     object Import : Sheet()
 }
@@ -123,6 +125,8 @@ fun LoonieMateApp(vm: MainViewModel) {
     }
     BackHandler(enabled = tab != Tab.Today) { tab = Tab.Today }
     val openUpdate by vm.openUpdate.collectAsStateWithLifecycle()
+    /* first launch with an empty budget: the accessibility choices come first (docs/plans/accessibility.md) */
+    LaunchedEffect(todayModel?.isNew) { if (todayModel?.isNew == true && !vm.prefs.a11yAsked && sheet == null) sheet = Sheet.Access() }
     LaunchedEffect(openUpdate) { openUpdate?.let { w -> vm.openUpdate.value = null; sheet = Sheet.Update; vm.openedForUpdate(w == "install") } }
 
     val open: (Sheet) -> Unit = { sheet = it }

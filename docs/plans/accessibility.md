@@ -82,7 +82,7 @@ Work in small stages; each is committed, built and tested on GitHub before the n
 - [x] **Stage 4**: Stronger contrast and Colour-blind friendly colours for every theme, light and dark, with the
   contrast test extended to 7:1 for Stronger contrast.
 - [x] **Stage 5**: More time and Bigger buttons.
-- [ ] **Stage 6**: reading the phone's settings, the setup screen as the first step of first-time setup, and the
+- [x] **Stage 6**: reading the phone's settings, the setup screen as the first step of first-time setup, and the
   one-time Today card for people already using the app.
 - [ ] **Stage 7**: web version: the always-on fixes (labels, focus outlines, keyboard use, status words), an
   Accessibility card in its settings with the same switches, and following `prefers-reduced-motion`,
@@ -90,6 +90,11 @@ Work in small stages; each is committed, built and tested on GitHub before the n
 
 ## Notes for picking up
 
+- Stage 6 (done): `data/PhoneHints.kt` reads font scale ≥ 1.3, `fontWeightAdjustment` (Android 12+), `UiModeManager.contrast`
+  (Android 14+), the colour-correction secure setting, animator scale 0, and TalkBack (touch exploration). High-text-contrast
+  isn't a public setting, so it's not read. `ui/sheets/AccessSheet.kt` (applies matches on open; the app itself is the
+  preview, plus a sample row). Opens automatically on first launch with an empty budget (`AppUi.kt`); "Redo first-time
+  setup" opens it, then the getting-on-track steps (`Sheet.Access(next)`); `AccessCard` on Today for existing users.
 - Stage 5 (done): More time: the snackbar in `AppUi.kt` is Indefinite with a close button. Bigger buttons:
   `LocalMinimumInteractiveComponentSize` 56 dp in `LoonieTheme`, `rowPad()` in Components.kt (+8 dp on `ClickRow`,
   `EventRow`, `ExpenseRow`), `DoneButton` 44 dp tall.

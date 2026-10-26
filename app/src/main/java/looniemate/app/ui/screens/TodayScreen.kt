@@ -102,6 +102,7 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
         item { NotificationsCard(vm) }
         item { LateRemindersCard(vm) }
         if (model.readyToStart) item { StartHereCard(vm, open) }
+        item { AccessCard(vm, open) }
 
         item {
             val n = model.todo.size
@@ -333,6 +334,27 @@ private fun StartHereCard(vm: MainViewModel, open: (Sheet) -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(onClick = { open(Sheet.CatchUp(first = true)) }, modifier = Modifier.testTag("start-here")) { Text("Start") }
             TextButton(onClick = { vm.skipOnboarding() }) { Text("Not now") }
+        }
+    }
+}
+
+/**
+ * For people already using the app: offered once, and only when the phone's own settings suggest it would help
+ * (large text, TalkBack, colour correction…). docs/plans/accessibility.md, stage 6.
+ */
+@Composable
+private fun AccessCard(vm: MainViewModel, open: (Sheet) -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val hints = androidx.compose.runtime.remember { looniemate.app.data.PhoneHints.read(ctx) }
+    var hidden by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(vm.prefs.a11yAsked) }
+    if (hidden || hints.isEmpty()) return
+    SectionCard("Make LoonieMate easier to use?", Icons.Rounded.AutoAwesome, "accent", index = 1) {
+        Text(hints.values.joinToString(" ") + " LoonieMate can match it: bigger or bolder text, stronger contrast, more time and more.",
+            style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Button(onClick = { hidden = true; open(Sheet.Access()) }) { Text("Choose") }
+            TextButton(onClick = { vm.prefs.a11yAsked = true; hidden = true }) { Text("Not now") }
         }
     }
 }
