@@ -19,7 +19,7 @@ Work is done in small stages; each one is committed, built and tested on GitHub 
 - [x] **Stage 5a**: reminder scheduling: alarms at the configured times (AlarmManager `setAndAllowWhileIdle`, no exact-alarm
   permission), rescheduled after BOOT_COMPLETED and MY_PACKAGE_REPLACED; when one fires, build `Reminders.digest` and post
   one plain notification (summary + lines, tap opens Today). Default config until Stage 6 adds settings.
-- [ ] **Stage 5b**: the bundled notification (summary + one silent row per item) with **Paid / Moved it / Got it /
+- [x] **Stage 5b**: the bundled notification (summary + one silent row per item) with **Paid / Moved it / Got it /
   Remind me later** and Undo, sharing the tick code with Today; lock-screen privacy; unlock required for the buttons.
 - [ ] **Stage 6**: Reminders settings card (times, how often, weekend times, heads-up days, test notification).
 - [ ] **Stage 7**: late-reminder detection and the battery-settings help card.
@@ -47,6 +47,11 @@ Work is done in small stages; each one is committed, built and tested on GitHub 
   `reminderDueAt` / `reminderFiredAt` for Stage 7 and `reminderShown` ("day|slot|slots"). `MainViewModel.change` and
   `undo` call `refreshShown`. Tests: `app/src/test/.../ReminderAlarmTest.kt`. For 5b, replace the single InboxStyle
   notification in `ReminderAlarm.post` with a group (summary id 1 + child per item) and action receivers.
+- Stage 5b: the bundle is built in `ReminderAlarm.post` (summary id 1 alerts, rows are silent, ids from `childId(key)`);
+  buttons go to `ReminderReceiver` → `ReminderAlarm.onAction` (DONE, UNDO, LATER, LATER_FIRE, GOTIT, FORGET), all
+  `setAuthenticationRequired(true)`. Remind me later is **In 1 hour / In 3 hours** (Android allows three buttons, so
+  "a chosen time" was left out). State in `Prefs`: `reminderGotIt`, `reminderSnoozed`, `reminderUndo`,
+  `reminderChildren`. Ticks are shared through `data/Ticks.kt`.
 - **Released in 0.2.1**: stages 1 to 3b (update checks and notifications). Reminders are in the app but switched off
   by default (`Prefs.remindersOn` defaults to false) and the Today card talks about updates only. In Stage 6, flip the
   default to true and reword `NotificationsCard` in `ui/screens/TodayScreen.kt` to mention reminders again. The next release goes out after Stage 8 (or sooner if you ask).

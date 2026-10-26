@@ -89,6 +89,7 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
         item { AccountsCard(vm, open) }
         item { IncomeCard(vm, open) }
         item { FoodCard(vm, open) }
+        item { RemindersCard(vm) }
         item {
             SectionCard("Appearance", Icons.Rounded.Palette, trailing = "Only this phone", index = 0) {
                 Text("Light or dark", fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(6.dp))

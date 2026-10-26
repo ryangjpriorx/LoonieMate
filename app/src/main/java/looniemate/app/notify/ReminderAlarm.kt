@@ -165,6 +165,17 @@ object ReminderAlarm {
         nm.notify(ID, summary.build())
     }
 
+    /** "Send a test notification" in Settings: shows what a reminder looks like. Returns false when notifications are off. */
+    @SuppressLint("MissingPermission")
+    fun test(ctx: Context): Boolean {
+        if (Notifs.needsPermission() && ContextCompat.checkSelfPermission(ctx, Notifs.PERMISSION) != PackageManager.PERMISSION_GRANTED) return false
+        if (!Notifs.enabled(ctx)) return false
+        NotificationManagerCompat.from(ctx).notify(3, NotificationCompat.Builder(ctx, Notifs.REMINDERS).setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setContentTitle("This is a LoonieMate reminder").setContentText("On a real one, each bill and money move gets its own Paid or Moved it button.")
+            .setContentIntent(openApp(ctx)).setAutoCancel(true).build())
+        return true
+    }
+
     /** A button on a row was pressed. */
     @SuppressLint("MissingPermission")
     fun onAction(ctx: Context, i: Intent) {
