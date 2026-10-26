@@ -34,7 +34,7 @@ import looniemate.engine.*
  */
 @Composable
 fun HouseholdSheet(vm: MainViewModel, close: () -> Unit) {
-    val s = vm.settings(); val today = vm.today.value
+    val s = vm.settings(); val today = vm.today.value; val pg = LocalPage.current
     var name by rememberSaveable { mutableStateOf(s.s("householdName")) }
     var people by rememberSaveable { mutableStateOf(s.strList("people").joinToString(", ")) }
     var province by rememberSaveable { mutableStateOf(s.or("province", "ON")) }
@@ -54,7 +54,7 @@ fun HouseholdSheet(vm: MainViewModel, close: () -> Unit) {
     Text("Province", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
     SelectField(province, Labels.PROVINCES, { province = it; err = null }, "Province or territory",
         hint = "Sets the bank holidays that move paydays and bills, and which benefits and assistance programs you can add.")
-    SwitchRow("Show programs from all provinces", "For households that live in one province and get help from another.", showAll) { page()?.mark(); showAll = it }
+    SwitchRow("Show programs from all provinces", "For households that live in one province and get help from another.", showAll) { pg?.mark(); showAll = it }
     val year = today.take(4).toInt()
     val hols = (Core.holidaysOf(year, province) + Core.holidaysOf(year + 1, province)).filter { it.bank && it.date >= today }.take(4)
     if (hols.isNotEmpty()) Column {
@@ -73,5 +73,3 @@ fun HouseholdSheet(vm: MainViewModel, close: () -> Unit) {
         modifier = Modifier.fillMaxWidth().testTag("hh-save")) { Text("Save") }
 }
 
-@Composable
-private fun page() = LocalPage.current
