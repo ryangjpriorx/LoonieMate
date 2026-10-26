@@ -118,6 +118,16 @@ class ScreensTest {
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 
+    /** Larger text, bold text and the easier-to-read font together still draw (docs/plans/accessibility.md, stage 3). */
+    @Test fun readableText() {
+        seed(dark = false, effects = false)
+        val vm = androidx.lifecycle.ViewModelProvider(rule.activity)[MainViewModel::class.java]
+        rule.runOnUiThread { vm.prefs.setAccess(Prefs.Access(textSize = 2, bold = true, font = true)) }
+        try { settle(); for (t in listOf("Today", "Savings", "More")) { tab(t); shot("readable-$t") } }
+        finally { rule.runOnUiThread { vm.prefs.setAccess(Prefs.Access()) } }
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
     /** With Visual effects on, the animations run without crashing and settle into place. */
     @Test fun effects() {
         rule.mainClock.autoAdvance = false

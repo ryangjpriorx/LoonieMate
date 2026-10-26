@@ -78,7 +78,7 @@ Work in small stages; each is committed, built and tested on GitHub before the n
 - [x] **Stage 2**: storage and the Accessibility card: `Prefs` keys, an `Access` settings object passed down like
   `LocalFx` (e.g. `LocalAccess`), the card below Appearance with all switches; Less motion moved in and following the
   phone's animation setting live.
-- [ ] **Stage 3**: Bigger text, Bold text and the Easier-to-read font.
+- [x] **Stage 3**: Bigger text, Bold text and the Easier-to-read font.
 - [ ] **Stage 4**: Stronger contrast and Colour-blind friendly colours for every theme, light and dark, with the
   contrast test extended to 7:1 for Stronger contrast.
 - [ ] **Stage 5**: More time and Bigger buttons.
@@ -90,6 +90,11 @@ Work in small stages; each is committed, built and tested on GitHub before the n
 
 ## Notes for picking up
 
+- Stage 3 (done): `res/font/atkinson_{regular,medium,semibold,bold,extrabold}.ttf` (subset with fontTools to Latin,
+  Latin-1, Œœ Ÿ, punctuation, €, arrows, −, •, ✓; from github.com/googlefonts/atkinson-hyperlegible-next),
+  licence in `assets/licenses/AtkinsonHyperlegibleNext-OFL.txt`. `Theme.kt`: `Atkinson`, `TEXT_SCALES`
+  (1, 1.15, 1.3, 1.5 × the phone's own scale via `LocalDensity`), `accessType` (font family; Bold adds 200 to every
+  style's weight). Explicit `fontWeight =` in a few `Text` calls stay as written. Test: `ScreensTest.readableText`.
 - Stage 2 (done): `Prefs.Access` (textSize 0–3, bold, font, contrast, colorBlind, moreTime, bigButtons; keys `a11y*`),
   `Prefs.access` flow, `Prefs.a11yAsked`, `Prefs.phoneNoMotion` (set in `MainActivity.onResume` from
   ANIMATOR_DURATION_SCALE). `LocalAccess` in `Theme.kt`; `LoonieTheme(..., access)`. `AccessibilityCard` in

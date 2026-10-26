@@ -85,6 +85,30 @@ private val AppShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp), small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(18.dp),
     large = RoundedCornerShape(24.dp), extraLarge = RoundedCornerShape(32.dp))
 
+/**
+ * Atkinson Hyperlegible Next (Braille Institute; SIL Open Font License, app/src/main/assets/licenses), trimmed to
+ * the letters English and French need. Used when Easier-to-read font is on.
+ */
+val Atkinson = androidx.compose.ui.text.font.FontFamily(
+    androidx.compose.ui.text.font.Font(looniemate.app.R.font.atkinson_regular, FontWeight.Normal),
+    androidx.compose.ui.text.font.Font(looniemate.app.R.font.atkinson_medium, FontWeight.Medium),
+    androidx.compose.ui.text.font.Font(looniemate.app.R.font.atkinson_semibold, FontWeight.SemiBold),
+    androidx.compose.ui.text.font.Font(looniemate.app.R.font.atkinson_bold, FontWeight.Bold),
+    androidx.compose.ui.text.font.Font(looniemate.app.R.font.atkinson_extrabold, FontWeight.ExtraBold))
+
+/** Bigger text: Normal, Large, Larger, Largest, on top of the phone's own text size. */
+val TEXT_SCALES = listOf(1f, 1.15f, 1.3f, 1.5f)
+
+/** Every text style, with the easier-to-read font and heavier weights when those are switched on. */
+private fun accessType(t: Typography, font: Boolean, bold: Boolean): Typography {
+    fun f(s: TextStyle): TextStyle { var x = s
+        if (font) x = x.copy(fontFamily = Atkinson)
+        if (bold) x = x.copy(fontWeight = FontWeight(minOf(900, (x.fontWeight ?: FontWeight.Normal).weight + 200)))
+        return x }
+    return Typography(f(t.displayLarge), f(t.displayMedium), f(t.displaySmall), f(t.headlineLarge), f(t.headlineMedium), f(t.headlineSmall),
+        f(t.titleLarge), f(t.titleMedium), f(t.titleSmall), f(t.bodyLarge), f(t.bodyMedium), f(t.bodySmall), f(t.labelLarge), f(t.labelMedium), f(t.labelSmall))
+}
+
 private fun appTypography(): Typography {
     val t = Typography()
     return t.copy(
@@ -106,7 +130,10 @@ fun LoonieTheme(themeMode: String, dynamicColor: Boolean, palette: String, effec
     val dark = when (themeMode) { "light" -> false; "dark" -> true; else -> isSystemInDarkTheme() }
     val ctx = LocalContext.current
     val scheme = if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx) } else paletteScheme(palette, dark)
-    CompositionLocalProvider(LocalExtra provides if (dark) DarkExtra else LightExtra, LocalFx provides effects, LocalAccess provides access) {
-        MaterialTheme(colorScheme = scheme, typography = appTypography(), shapes = AppShapes, content = content)
+    val d = androidx.compose.ui.platform.LocalDensity.current
+    val density = androidx.compose.ui.unit.Density(d.density, d.fontScale * TEXT_SCALES[access.textSize.coerceIn(0, 3)])
+    CompositionLocalProvider(LocalExtra provides if (dark) DarkExtra else LightExtra, LocalFx provides effects, LocalAccess provides access,
+        androidx.compose.ui.platform.LocalDensity provides density) {
+        MaterialTheme(colorScheme = scheme, typography = accessType(appTypography(), access.font, access.bold), shapes = AppShapes, content = content)
     }
 }
