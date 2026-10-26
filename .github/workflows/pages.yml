@@ -1,7 +1,8 @@
 name: Web version
 
 # Publishes web/index.html at https://<owner>.github.io/LoonieMate/ so anyone, including iPhone
-# users, can use LoonieMate in a browser. Needs Settings → Pages → Source: "GitHub Actions" (once).
+# users, can use LoonieMate in a browser. Needs Settings → Pages → Source: "GitHub Actions" (once),
+# then any change to web/ (or a manual run under Actions → Web version) publishes it.
 on:
   push:
     branches: [main]
