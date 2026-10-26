@@ -72,7 +72,7 @@ Work in small stages; each is committed, built and tested on GitHub before the n
 ## Stages
 
 - [x] **Stage 0**: this plan.
-- [ ] **Stage 1**: the always-on fixes: TalkBack sentences, actions and headings on Today, Month, Bills, Spending,
+- [x] **Stage 1**: the always-on fixes: TalkBack sentences, actions and headings on Today, Month, Bills, Spending,
   Savings and the sheets; status icons and words; 48 dp targets; layouts at the largest font size; the contrast test
   for the current themes (fix anything it catches). Compose UI tests at font scale 2.0 with accessibility checks on.
 - [ ] **Stage 2**: storage and the Accessibility card: `Prefs` keys, an `Access` settings object passed down like
@@ -89,6 +89,18 @@ Work in small stages; each is committed, built and tested on GitHub before the n
   `prefers-contrast: more` and `forced-colors`. Then release.
 
 ## Notes for picking up
+
+- Stage 1 (done): `ContrastTest` (app unit test) checks every theme, light and dark, at 4.5:1 (text on all surfaces,
+  status and bill-group colours on surfaces, tints and card tops, accents, button text). Light-mode colours were
+  darkened to pass: in `Theme.kt` LightExtra good 1C7240, warn 8C5900, bad B33924, adults 2E65A5, baby AB3A6A,
+  pets 0D7067, sky 1A6999; second accents iris 873EC4, ocean primary 0B6B94 / second 0F7068, forest 2C7136 / 516C1B,
+  sunset B23C0B / AF3465, slate second 566578. **The web version's matching colours still need the same change
+  (Stage 7).** TalkBack: `spokenRow` + custom actions on `EventRow` (Rows.kt) and `ExpenseRow`; headings on
+  `SectionCard`, `DayHeader`, `SheetTitle`; status icons in `StatusBadge`. Large text: `bigText()` in Components.kt
+  (font scale ≥ 1.5) stacks card trailing content, give-up/pay-later buttons, icon-only bottom bar, one-line top bar.
+  `ScreensTest.largestText` draws every tab at font scale 2.0. Material buttons already give 48 dp touch targets; the
+  M3 snackbar already lengthens itself for accessibility services. Compose's built-in accessibility checks need a newer
+  ui-test than BOM 2024.12, so they weren't turned on.
 
 - Starting point (2026-10-26): all text comes from `MaterialTheme.typography` (no fixed `sp` sizes), so it already
   scales with the phone. Colours live in `ui/theme/Theme.kt` (`PALETTES`, `LightExtra` / `DarkExtra` for status and

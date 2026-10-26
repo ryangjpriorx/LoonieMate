@@ -154,10 +154,9 @@ fun LoonieMateApp(vm: MainViewModel) {
         bottomBar = {
             NavigationBar {
                 Tab.entries.filter { it != Tab.More }.forEach { t ->
-                    /* at large text sizes only the selected tab shows its name, on one line; the others are read out by their icon */
+                    /* at large text sizes the names don't fit five across: icons only, each read out by its name */
                     NavigationBarItem(selected = tab == t, onClick = { tab = t }, icon = { Icon(t.icon, if (big) t.label else null) },
-                        label = { Text(t.label, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
-                        alwaysShowLabel = !big, modifier = Modifier.testTag("tab-${t.name}"))
+                        label = if (big) null else ({ Text(t.label, maxLines = 1, softWrap = false) }), modifier = Modifier.testTag("tab-${t.name}"))
                 }
             }
         },
