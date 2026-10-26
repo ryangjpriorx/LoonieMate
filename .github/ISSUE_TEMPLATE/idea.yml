@@ -1,0 +1,15 @@
+name: Idea or request
+description: Something that would make LoonieMate more useful for your family.
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?
+      description: Describe the situation it would help with. Benefits, assistance programs or bills from your province are especially welcome.
+    validations: { required: true }
+  - type: dropdown
+    id: province
+    attributes:
+      label: Province or territory (optional)
+      options: ['', Alberta, British Columbia, Manitoba, New Brunswick, Newfoundland and Labrador, Northwest Territories, Nova Scotia, Nunavut, Ontario, Prince Edward Island, Quebec, Saskatchewan, Yukon]

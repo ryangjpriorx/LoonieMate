@@ -29,6 +29,7 @@
   --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25); color-scheme:dark}
 
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--surface)}
 h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
@@ -1603,8 +1604,11 @@ function buildCsv(kind){
     const T0=st(),td=todayStr();Object.entries(S.bills).filter(([,b])=>b).sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||'')).forEach(([bid,b])=>rows.push([b.name,(GROUPS[b.group]||{}).l||'',CATL[b.category]||'Other',num(b.amount).toFixed(2),(FREQS.find(f=>f[0]===(b.freq||'monthly'))||[])[1]||'',b.freq==='monthly'||!b.freq?'Day '+(b.day||1):(b.anchor||''),acctName(b.account),b.method||'',b.essential===false?'Yes':'',b.deferrable?'Yes':'',b.fund?C.fundOf(s,b.fund).name:'',(()=>{const d=C.debtInfo(T0,bid,td);return d?d.remaining.toFixed(2):''})(),b.active===false?'Paused':'Yes']))}
   return'﻿'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');
 }
+/* outside Claude (for example on GitHub Pages) files download the normal browser way */
+function browserSave(name,blob){if(window.claude)return false;try{const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);return true}catch(e){return false}}
 async function exportCsv(kind){const text=buildCsv(kind),name=`budget-${kind}-${todayStr()}.csv`;
-  try{const dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null;if(dl){await dl.save({filename:name,data:new Blob([text],{type:'text/csv'})});toast('Saved '+name,true);return}}
+  try{const dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null;if(dl){await dl.save({filename:name,data:new Blob([text],{type:'text/csv'})});toast('Saved '+name,true);return}
+    if(browserSave(name,new Blob([text],{type:'text/csv'}))){toast('Saved '+name,true);return}}
   catch(e){if(e&&e.code==='declined')return}
   S.sheet='csv';openSheet(`<div class="sheet-h"><h2 id="sheet-title">${kind==='bills'?'Bills':'Spending'} as a spreadsheet</h2><button class="x" data-act="sheet-close" aria-label="Close">×</button></div>
    <div class="form"><p class="muted">This page can't save files here. Copy the text below and paste it into a spreadsheet or a note.</p><textarea id="csv-text" rows="8" readonly style="width:100%;font-family:var(--f-num);font-size:.75rem">${esc(text.replace('﻿',''))}</textarea>
@@ -2372,7 +2376,8 @@ sheet.addEventListener('submit',async e=>{
     const go=document.getElementById('bk-go');go.disabled=true;go.textContent='Locking…';document.getElementById('bk-err').hidden=true;
     let text;try{text=await encryptBackup(backupPayload(),pw)}catch(e){go.disabled=false;go.textContent='Lock and export';return showErr('bk-err',"Couldn't lock the backup. Try again.")}
     const name='budget-backup-'+todayStr()+'.json';let saved=false;
-    try{const dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null;if(dl){await dl.save({filename:name,data:new Blob([text],{type:'application/json'})});saved=true}}
+    try{const dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null;if(dl){await dl.save({filename:name,data:new Blob([text],{type:'application/json'})});saved=true}
+      else if(browserSave(name,new Blob([text],{type:'application/json'})))saved=true}
     catch(e){if(e&&e.code==='declined'){go.disabled=false;go.textContent='Lock and export';return showErr('bk-err','Export cancelled.')}}
     if(saved){setMeta({lastBackup:new Date().toISOString()});closeSheet();toast('Backup saved. Keep the password safe.');return}
     /* this view can't save files: give the locked text to copy instead */

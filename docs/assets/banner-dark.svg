@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 380" width="1280" height="380">
+<defs><linearGradient id="navy" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2F3E8F"/><stop offset="1" stop-color="#17204A"/></linearGradient>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0F1320"/><stop offset="1" stop-color="#1B1F45"/></linearGradient>
+<radialGradient id="glow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#9C97FF" stop-opacity="0.35"/><stop offset="1" stop-color="#9C97FF" stop-opacity="0"/></radialGradient>
+<linearGradient id="line" x1="0" x2="1"><stop offset="0" stop-color="#4740C4"/><stop offset=".35" stop-color="#8A3FC8"/><stop offset=".65" stop-color="#B83E72"/><stop offset="1" stop-color="#0E7A70"/></linearGradient>
+<filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#0B1030" flood-opacity="0.55"/></filter>
+</defs>
+<clipPath id="card"><rect width="1280" height="380" rx="28"/></clipPath>
+<g clip-path="url(#card)">
+<rect width="1280" height="380" fill="url(#bg)"/>
+<circle cx="230" cy="190" r="210" fill="url(#glow)"/>
+<g transform="translate(110,70)" filter="url(#shadow)"><rect width="240" height="240" rx="56" fill="url(#navy)"/><g transform="scale(2.2222)"><path fill="#B8860B" d="M54.00,23.60 L71.08,28.62 L82.74,42.07 L85.28,59.70 L77.88,75.89 L62.90,85.52 L45.10,85.52 L30.12,75.89 L22.72,59.70 L25.26,42.07 L36.92,28.62 Z"/>
+<path fill="#F2C14E" d="M54.00,23.00 L70.76,27.92 L82.20,41.12 L84.68,58.41 L77.43,74.30 L62.73,83.74 L45.27,83.74 L30.57,74.30 L23.32,58.41 L25.80,41.12 L37.24,27.92 Z"/>
+<path fill="none" stroke="#C8962A" stroke-width="1.6" d="M54.00,27.50 L68.33,31.71 L78.11,42.99 L80.23,57.77 L74.03,71.35 L61.47,79.43 L46.53,79.43 L33.97,71.35 L27.77,57.77 L29.89,42.99 L39.67,31.71 Z"/>
+<path fill="#1D2A52" d="M37.5,60.5 C39,55.5 44,53 50.5,53.5 C55,54 58.5,55.5 61.5,55 C62.5,52 62.8,49.2 65.2,47.8 C67.6,46.4 70.4,47.2 71.2,49.2 L75.5,50.4 L71.4,51.6 C70.8,53.6 69.4,55.6 67.6,57.4 C65,60.2 60.5,62 55,62.2 L41,62.2 C39.4,62.2 38,61.6 37.5,60.5 Z"/>
+<circle cx="67.9" cy="49.6" r="0.9" fill="#F2C14E"/>
+<path fill="none" stroke="#1D2A52" stroke-width="1.6" stroke-linecap="round" d="M36,65.6 C40,64.4 44,66.8 48,65.6 C52,64.4 56,66.8 60,65.6 C64,64.4 68,66.8 72,65.6"/></g></g>
+<text x="430" y="150" font-size="84" font-weight="800" letter-spacing="-2" fill="#EEF1F7" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif">LoonieMate</text>
+<text x="432" y="200" font-size="28" fill="#A7B1C2" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif">A budget planner that does the thinking for you,</text>
+<text x="432" y="238" font-size="28" fill="#A7B1C2" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif">built for Canadian families on a tight budget.</text>
+
+
+<rect x="432" y="268" width="221" height="40" rx="20" fill="#262B52" stroke="#3A3F70"/><text x="542" y="294" text-anchor="middle" font-size="17" font-weight="600" fill="#C9C6FF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif">Android · Material You</text><rect x="665" y="268" width="169" height="40" rx="20" fill="#262B52" stroke="#3A3F70"/><text x="750" y="294" text-anchor="middle" font-size="17" font-weight="600" fill="#C9C6FF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif">Web · iPhone too</text><rect x="846" y="268" width="177" height="40" rx="20" fill="#262B52" stroke="#3A3F70"/><text x="934" y="294" text-anchor="middle" font-size="17" font-weight="600" fill="#C9C6FF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif">Encrypted backups</text><rect x="1035" y="268" width="160" height="40" rx="20" fill="#262B52" stroke="#3A3F70"/><text x="1115" y="294" text-anchor="middle" font-size="17" font-weight="600" fill="#C9C6FF" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif">ODSP · OW · CCB</text><rect x="0" y="372" width="1280" height="8" fill="url(#line)"/>
+</g>
+</svg>

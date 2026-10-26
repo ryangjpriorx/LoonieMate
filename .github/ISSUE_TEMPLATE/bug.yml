@@ -1,0 +1,30 @@
+name: Something isn't right
+description: A wrong number, a crash, or something that doesn't work the way it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. **Please don't paste your budget, account names, amounts you'd rather keep private, or a backup file here.** Issues are public.
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where did it happen?
+      options: [Android app, Web version, Both]
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Android, Settings → Updates shows it (like 0.1.0). For the web version, leave this blank.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you see instead? Steps to make it happen again help a lot.
+    validations: { required: true }
+  - type: input
+    id: phone
+    attributes:
+      label: Phone and Android version (if it's the app)
+      placeholder: Galaxy S24 Ultra, Android 15

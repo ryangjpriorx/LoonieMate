@@ -1,0 +1,50 @@
+name: Web version
+
+# Publishes web/index.html at https://<owner>.github.io/LoonieMate/ so anyone, including iPhone
+# users, can use LoonieMate in a browser. Needs Settings → Pages → Source: "GitHub Actions" (once).
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', 'docs/assets/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build the page
+        run: |
+          mkdir -p _site
+          {
+            echo '<!doctype html>'
+            echo '<html lang="en-CA">'
+            echo '<meta charset="utf-8">'
+            echo '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
+            echo '<meta name="description" content="LoonieMate: a free budget planner for Canadian families on a tight budget. No account; your budget stays in your browser.">'
+            echo '<meta name="theme-color" content="#2F3E8F">'
+            echo '<link rel="icon" href="icon.svg" type="image/svg+xml">'
+            echo '<link rel="apple-touch-icon" href="icon.svg">'
+            sed 's#<title>[^<]*</title>#<title>LoonieMate</title>#' web/index.html
+          } > _site/index.html
+          cp docs/assets/icon.svg _site/icon.svg
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
