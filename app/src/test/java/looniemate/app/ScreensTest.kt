@@ -42,7 +42,9 @@ class ScreensTest {
     private fun shot(name: String, sheet: Boolean = false) {
         settle()
         try {
-            val all = windows(); val v = if (sheet) all.last() else all.first()
+            /* this test's own window, or the sheet window opened on top of it (earlier tests' windows can linger) */
+            val decor = rule.activity.window.decorView; val all = windows(); val mine = all.indexOf(decor)
+            val v = if (sheet) all.drop(mine + 1).lastOrNull() ?: error("no sheet window") else decor
             val b = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888)
             rule.runOnUiThread { v.draw(android.graphics.Canvas(b)) }
             File(out, "$name.png").outputStream().use { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
