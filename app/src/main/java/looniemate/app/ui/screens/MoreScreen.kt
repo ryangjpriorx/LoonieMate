@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SystemUpdate
@@ -45,6 +46,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -84,6 +87,7 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
     val ctx = LocalContext.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { AccountsCard(vm, open) }
+        item { IncomeCard(vm, open) }
         item { FoodCard(vm, open) }
         item {
             SectionCard("Appearance", Icons.Rounded.Palette, trailing = "Only this phone", index = 0) {
@@ -133,7 +137,7 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
         }
         item {
             SectionCard("Coming to the app next", Icons.Rounded.Schedule, "amber", index = 3) {
-                Text("Income and benefits are next, then Google Drive sync, reminders and a home screen widget. Until then, change those in the web version and import a backup here.",
+                Text("Google Drive sync, reminders and a home screen widget are next.",
                     style = MaterialTheme.typography.bodyMedium)
             }
         }
@@ -253,4 +257,52 @@ private fun FoodCard(vm: MainViewModel, open: (Sheet) -> Unit) {
         Spacer(Modifier.height(10.dp))
         FilledTonalButton(onClick = { open(Sheet.Food(today.take(7))) }, modifier = Modifier.testTag("food-settings")) { Text("Change food budget") }
     }
+}
+
+/** Paycheques, social assistance and government benefits: what comes in, when, and where it lands. */
+@Composable
+private fun IncomeCard(vm: MainViewModel, open: (Sheet) -> Unit) {
+    val docs by vm.repo.docs.collectAsStateWithLifecycle()
+    val today by vm.today.collectAsStateWithLifecycle()
+    val s = Docs.settings(docs["settings/main"], today)
+    val incomes = Core.incomesOf(s); val assist = incomes.filter { Core.assistOf(it) != null }; val pays = incomes.filter { Core.assistOf(it) == null }
+    fun next(d: List<String>) = d.firstOrNull()?.let { " · next ${Fmt.dShort(it)}" } ?: ""
+    SectionCard("Income and benefits", Icons.Rounded.Payments, "teal", index = 0) {
+        Text("What comes in and when. LoonieMate works out every payday, moving it to the business day before when it lands on a weekend or bank holiday.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+        Head("Social assistance")
+        assist.forEach { x -> val p = Core.ASSIST[Core.assistOf(x)]
+            RowOf("income-${x.s("id")}", x.s("name"), "${p?.short ?: ""} · ${Fmt.money(x.n("amount"))}" + next(IncomeSetup.nextDates(Core.assistSched(x), today, 1))) { open(Sheet.Income(x.s("id"))) } }
+        val progs = IncomeSetup.programs(s)
+        if (progs.isEmpty()) Text("No programs for your province yet. Add it as a regular income.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else { var pick by remember { mutableStateOf(progs.first().key) }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                looniemate.app.ui.sheets.SelectField(pick, progs.map { it.key to it.name }, { pick = it }, "Program", Modifier.weight(1f))
+                OutlinedButton(onClick = { open(Sheet.Income(null, pick)) }) { Text("Add") } } }
+
+        Head("Paycheques and other income")
+        if (pays.isEmpty()) Text("No paycheques yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        pays.forEach { x -> RowOf("income-${x.s("id")}", x.s("name"), "${Fmt.money(x.n("amount"))} · ${IncomeSetup.typeLabel(x["sched"].s("type").ifEmpty { "monthly" })}" + next(IncomeSetup.nextDates(x["sched"], today, 1))) { open(Sheet.Income(x.s("id"))) } }
+        FilledTonalButton(onClick = { open(Sheet.Income(null)) }, modifier = Modifier.testTag("add-income")) { Text("+ Add a paycheque or other income") }
+
+        Head("Government benefits and credits")
+        Core.creditsOf(s).forEach { x -> RowOf("credit-${x.s("id")}", Core.creditName(x), Fmt.money(x.n("amount")) + (if (x.t("protect")) " · protected" else "") +
+            next(IncomeSetup.nextDates(Core.creditSched(x), today, 1, x.s("start").takeIf { isYm(it) }))) { open(Sheet.Credit(x.s("id"))) } }
+        val types = IncomeSetup.creditTypes(s); var pickC by remember { mutableStateOf(types.first().key) }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            looniemate.app.ui.sheets.SelectField(pickC, types.map { it.key to it.name }, { pickC = it }, "Benefit", Modifier.weight(1f))
+            OutlinedButton(onClick = { open(Sheet.Credit(null, pickC)) }) { Text("Add") } }
+    }
+}
+
+@Composable
+private fun Head(t: String) { Spacer(Modifier.height(10.dp)); Text(t, fontWeight = FontWeight.SemiBold) }
+
+@Composable
+private fun RowOf(tag: String, title: String, sub: String, onClick: () -> Unit) {
+    Box(Modifier.testTag(tag)) { ClickRow(onClick) {
+        Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.SemiBold)
+            Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Icon(Icons.Rounded.ChevronRight, "Edit $title", tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
 }

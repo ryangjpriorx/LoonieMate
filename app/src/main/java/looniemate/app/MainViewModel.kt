@@ -220,7 +220,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (!oneTime && category.isEmpty()) return "Pick what it was for."
         if (oneTime && note.isBlank()) return "Give it a short name, like \"Car seat\"."
         if (!isDate(date)) return "Pick a date."
-        val ym = ymOf(date); if (locked(ym)) return "${Fmt.monthName(ym)} is locked. Unlock it in the web version to add to it."
+        val ym = ymOf(date); if (locked(ym)) return "${Fmt.monthName(ym)} is locked. Unlock it on the Month tab to add to it."
         val id = repo.newId(); val path = "months/$ym/expenses/$id"
         val doc = J.obj("date" to date, "amount" to amount, "category" to (if (oneTime) "oneoff" else category), "note" to note.trim(), "oneTime" to oneTime, "created" to System.currentTimeMillis())
         if (oneTime) doc["group"] = J.S(group); if (who.isNotEmpty()) doc["who"] = J.S(who)
@@ -327,6 +327,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val value: Any = if (t.isEmpty()) "" else (t.toDoubleOrNull()?.let { maxOf(0, Math.round(it).toInt()) } ?: return "Enter a whole dollar amount, or leave it blank.")
         change("Saved", listOf("settings/main")) { saveSettings(J.obj("familyIncome" to value)) }; return null
     }
+
+    /* ---------- income and benefits (settings.incomes and settings.credits, as on the web version's Income tab) ---------- */
+
+    fun saveIncome(isNew: Boolean, src: Obj) { val s = settings(); val list = Core.incomesOf(s).map { it.copy() }.toMutableList()
+        val i = list.indexOfFirst { it.s("id") == src.s("id") }; if (i >= 0) list[i] = src else list.add(src)
+        change(if (isNew) "Added ${src.s("name")}" else "Saved ${src.s("name")}", listOf("settings/main")) { saveSettings(J.obj("incomes" to list)) } }
+
+    fun deleteIncome(id: String) { val s = settings(); val name = Core.incomesOf(s).find { it.s("id") == id }?.s("name") ?: "Income"
+        change("Removed $name", listOf("settings/main")) { saveSettings(J.obj("incomes" to Core.incomesOf(s).filter { it.s("id") != id }.map { it.copy() })) } }
+
+    fun saveCredit(isNew: Boolean, cr: Obj) { val s = settings(); val list = Core.creditsOf(s).map { it.copy() }.toMutableList()
+        val i = list.indexOfFirst { it.s("id") == cr.s("id") }; if (i >= 0) list[i] = cr else list.add(cr)
+        change(if (isNew) "Added ${Core.creditName(cr)}" else "Saved ${Core.creditName(cr)}", listOf("settings/main")) { saveSettings(J.obj("credits" to list)) } }
+
+    fun deleteCredit(id: String) { val s = settings(); val cr = Core.creditsOf(s).find { it.s("id") == id }
+        change("Removed ${cr?.let { Core.creditName(it) } ?: "benefit"}", listOf("settings/main")) { saveSettings(J.obj("credits" to Core.creditsOf(s).filter { it.s("id") != id }.map { it.copy() })) } }
+
+    /** One month's own income amounts and dates (months/<ym>.income), which never change the months before it. */
+    fun saveMonthIncome(ym: String, patch: Obj) { if (patch.map.isEmpty()) return
+        change("Saved for ${Fmt.monthName(ym)}", listOf("months/$ym")) { patchMonth(ym, J.obj("income" to patch)) } }
+
+    /** Locks a month with a snapshot of its numbers, the way the web version does. */
+    fun lockMonth(ym: String) { val t = today.value; val c = Core.monthCalc(ym, Docs.toStore(repo.docs.value, t), t)
+        change("${Fmt.monthOnly(ym)} is locked", listOf("months/$ym")) { patchMonth(ym, J.obj("closed" to true, "closedOn" to t, "snapshot" to Core.snapshot(c))) } }
+    fun unlockMonth(ym: String) = change("${Fmt.monthOnly(ym)} is unlocked", listOf("months/$ym")) { patchMonth(ym, J.obj("closed" to false)) }
 
     /* ---------- balance checks (checkins/<date>, the same documents the web version saves) ---------- */
 

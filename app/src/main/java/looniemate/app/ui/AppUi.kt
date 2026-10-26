@@ -93,6 +93,9 @@ sealed class Sheet {
     class Fund(val key: String?) : Sheet()
     class UseFund(val key: String) : Sheet()
     class Ccb(val ym: String) : Sheet()
+    class Income(val id: String?, val assist: String? = null) : Sheet()
+    class Credit(val id: String?, val type: String? = null) : Sheet()
+    class MonthIncome(val ym: String) : Sheet()
     object Export : Sheet()
     object Import : Sheet()
 }

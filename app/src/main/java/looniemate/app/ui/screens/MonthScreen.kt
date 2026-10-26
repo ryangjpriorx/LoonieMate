@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -81,7 +82,7 @@ fun MonthScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
                 if (m.up.isEmpty()) EmptyNote("Nothing due in the next few days.") else EventList(m.up, m.today, s, vm)
             }
         }
-        item { PlanCard(m) }
+        item { PlanCard(m, open) }
         item { CategoryCard(m.ym, m.byCat, 5) }
         if (m.debts.isNotEmpty()) item { DebtCard(m.debts, 6) {} }
         item {
@@ -175,11 +176,11 @@ private fun Tiles(m: MonthModel, open: (Sheet) -> Unit) {
 }
 
 @Composable
-private fun PlanCard(m: MonthModel) {
+private fun PlanCard(m: MonthModel, open: (Sheet) -> Unit) {
     val c = m.c; val x = LocalExtra.current
     SectionCard("Where the money goes", Icons.Rounded.SwapHoriz, "teal", index = 4, trailingContent = {
         if (c.t("closed")) Pill("Locked", "") else if (c["bonusDays"].let { it is looniemate.engine.J.A && it.list.isNotEmpty() }) Pill("Extra payday", "good") }) {
-        if (m.plan.isEmpty()) EmptyNote("No income set up yet. Set it up in the web version and import a backup.")
+        if (m.plan.isEmpty()) EmptyNote("No income set up yet. Add it in Settings → Income and benefits.")
         m.plan.forEach { p ->
             val bg = when (p.kind) { "bonus" -> MaterialTheme.colorScheme.primaryContainer; "ccb" -> x.babyBg; else -> MaterialTheme.colorScheme.surfaceContainer }
             Surface(shape = MaterialTheme.shapes.medium, color = bg, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
@@ -200,6 +201,9 @@ private fun PlanCard(m: MonthModel) {
         val bg = c["byGroup"]
         Text("Adults ${Fmt.money(bg.n("adults"))} · Kids ${Fmt.money(bg.n("baby"))} · Pets ${Fmt.money(bg.n("pets"))}" + (if (c.n("otherSpent") > 0) " · Everyday and one-time spending so far ${Fmt.money(c.n("otherSpent"))}" else ""),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(10.dp))
+        FilledTonalButton(onClick = { open(Sheet.MonthIncome(m.ym)) }, modifier = Modifier.testTag("month-income")) {
+            Text(if (c.t("closed")) "Income and locking" else "Change ${Fmt.monthOnly(m.ym)} income") }
     }
 }
 
