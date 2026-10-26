@@ -123,6 +123,10 @@ fun IconBadge(icon: ImageVector, tone: String = "accent", size: Dp = 36.dp) {
 }
 
 /** A card with a tinted top, an icon badge and a title, used on every screen. */
+/** Row padding, roomier with Bigger buttons on (shaky hands, small screens, one-handed use). */
+@Composable
+fun rowPad(normal: Dp): Dp = if (looniemate.app.ui.theme.LocalAccess.current.bigButtons) normal + 8.dp else normal
+
 /** True at large text sizes (Android's font size at 150% or more): layouts stack instead of squeezing side by side. */
 @Composable
 fun bigText(): Boolean = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.5f
@@ -218,9 +222,10 @@ fun ProgressRing(percent: Double, modifier: Modifier = Modifier, size: Dp = 58.d
 fun DoneButton(done: Boolean, label: String, doneLabel: String, onClick: () -> Unit) {
     val haptic = LocalHapticFeedback.current
     val click = { if (!done) haptic.performHapticFeedback(HapticFeedbackType.LongPress); onClick() }
-    if (done) FilledTonalButton(onClick = click, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp), modifier = Modifier.height(34.dp)) {
+    val h = if (looniemate.app.ui.theme.LocalAccess.current.bigButtons) 44.dp else 34.dp
+    if (done) FilledTonalButton(onClick = click, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp), modifier = Modifier.height(h)) {
         Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text(doneLabel, style = MaterialTheme.typography.labelMedium) }
-    else OutlinedButton(onClick = click, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp), modifier = Modifier.height(34.dp)) {
+    else OutlinedButton(onClick = click, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp), modifier = Modifier.height(h)) {
         Text(label, style = MaterialTheme.typography.labelMedium) }
 }
 
@@ -272,6 +277,6 @@ fun StatTile(label: String, value: Double, note: String, tone: String, modifier:
 
 @Composable
 fun ClickRow(onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(onClick = onClick).padding(vertical = 8.dp, horizontal = 4.dp),
+    Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(onClick = onClick).padding(vertical = rowPad(8.dp), horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), content = content)
 }

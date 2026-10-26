@@ -177,7 +177,9 @@ fun LoonieTheme(themeMode: String, dynamicColor: Boolean, palette: String, effec
     val d = androidx.compose.ui.platform.LocalDensity.current
     val density = androidx.compose.ui.unit.Density(d.density, d.fontScale * TEXT_SCALES[access.textSize.coerceIn(0, 3)])
     CompositionLocalProvider(LocalExtra provides extra, LocalFx provides effects, LocalAccess provides access,
-        androidx.compose.ui.platform.LocalDensity provides density) {
+        androidx.compose.ui.platform.LocalDensity provides density,
+        /* Bigger buttons: every tap target at least 56 dp instead of 48 */
+        androidx.compose.material3.LocalMinimumInteractiveComponentSize provides if (access.bigButtons) 56.dp else 48.dp) {
         MaterialTheme(colorScheme = scheme, typography = accessType(appTypography(), access.font, access.bold), shapes = AppShapes, content = content)
     }
 }

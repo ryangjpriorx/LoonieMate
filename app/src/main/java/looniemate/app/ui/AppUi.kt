@@ -112,9 +112,12 @@ fun LoonieMateApp(vm: MainViewModel) {
     val todayModel by vm.todayModel.collectAsStateWithLifecycle()
     val lastBackup by vm.prefs.lastBackupFlow.collectAsStateWithLifecycle()
 
+    /* More time: messages (and their Undo) stay until closed */
+    val moreTime by androidx.compose.runtime.rememberUpdatedState(looniemate.app.ui.theme.LocalAccess.current.moreTime)
     LaunchedEffect(Unit) {
         vm.snack.collect { u ->
-            val r = snackbar.showSnackbar(u.message, actionLabel = if (u.paths.isNotEmpty()) "Undo" else null, duration = SnackbarDuration.Short)
+            val r = snackbar.showSnackbar(u.message, actionLabel = if (u.paths.isNotEmpty()) "Undo" else null, withDismissAction = moreTime,
+                duration = if (moreTime) SnackbarDuration.Indefinite else SnackbarDuration.Short)
             if (r == SnackbarResult.ActionPerformed) vm.undo(u)
         }
     }

@@ -83,7 +83,7 @@ fun ExpenseRow(e: Obj, locked: Boolean, onDelete: () -> Unit) {
     val x = LocalExtra.current
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     val spoken = listOf(Labels.expLabel(e), Fmt.money(e.n("amount")), Fmt.dLabel(e.s("date")), e.s("note").takeIf { e.s("category") != "oneoff" } ?: "", e.s("who")).filter { it.isNotBlank() }.joinToString(", ")
-    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp).clearAndSetSemantics { contentDescription = spoken
+    Row(Modifier.fillMaxWidth().padding(vertical = looniemate.app.ui.rowPad(6.dp)).clearAndSetSemantics { contentDescription = spoken
             if (!locked) customActions = listOf(CustomAccessibilityAction("Delete") { onDelete(); true }) },
         verticalAlignment = Alignment.CenterVertically) {
         Dot(if (Core.FOOD.contains(e.s("category"))) x.good else if (e.s("category") == "oneoff") x.group(e.s("group")) else MaterialTheme.colorScheme.primary)

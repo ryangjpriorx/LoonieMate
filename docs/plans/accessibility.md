@@ -81,7 +81,7 @@ Work in small stages; each is committed, built and tested on GitHub before the n
 - [x] **Stage 3**: Bigger text, Bold text and the Easier-to-read font.
 - [x] **Stage 4**: Stronger contrast and Colour-blind friendly colours for every theme, light and dark, with the
   contrast test extended to 7:1 for Stronger contrast.
-- [ ] **Stage 5**: More time and Bigger buttons.
+- [x] **Stage 5**: More time and Bigger buttons.
 - [ ] **Stage 6**: reading the phone's settings, the setup screen as the first step of first-time setup, and the
   one-time Today card for people already using the app.
 - [ ] **Stage 7**: web version: the always-on fixes (labels, focus outlines, keyboard use, status words), an
@@ -90,6 +90,9 @@ Work in small stages; each is committed, built and tested on GitHub before the n
 
 ## Notes for picking up
 
+- Stage 5 (done): More time: the snackbar in `AppUi.kt` is Indefinite with a close button. Bigger buttons:
+  `LocalMinimumInteractiveComponentSize` 56 dp in `LoonieTheme`, `rowPad()` in Components.kt (+8 dp on `ClickRow`,
+  `EventRow`, `ExpenseRow`), `DoneButton` 44 dp tall.
 - Stage 4 (done): `themeColors(base, dark, contrast, cb)` in `Theme.kt` builds the scheme and `Extra` for any
   combination: `ensure()` moves a colour toward black (light) or white (dark) until it reaches 4.5:1 (7:1 with
   Stronger contrast) on every surface, tint and card top. Stronger contrast also sets near-black/white text, darker

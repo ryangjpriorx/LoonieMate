@@ -55,7 +55,7 @@ fun EventRow(e: Obj, settings: J, vm: MainViewModel, showDate: Boolean = false, 
         e.s("kind") == "move" -> listOf(CustomAccessibilityAction(if (e.t("done")) "Mark not done" else "Mark done") { vm.toggleMove(e); true })
         else -> emptyList()
     }
-    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp).clearAndSetSemantics { contentDescription = spoken; customActions = actions },
+    Row(Modifier.fillMaxWidth().padding(vertical = looniemate.app.ui.rowPad(10.dp)).clearAndSetSemantics { contentDescription = spoken; customActions = actions },
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         val kind = e.s("kind")
         when (kind) {
