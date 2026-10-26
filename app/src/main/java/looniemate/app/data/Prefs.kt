@@ -62,6 +62,11 @@ class Prefs(context: Context) {
         get() = sp.getLong("notifSnoozeUntil", 0)
         set(v) { sp.edit().putLong("notifSnoozeUntil", v).apply() }
 
+    /** the newest version an "update available" notification has been shown for (once per version) */
+    var notifiedVersion: Int
+        get() = sp.getInt("notifiedVersion", 0)
+        set(v) { sp.edit().putInt("notifiedVersion", v).apply() }
+
     var group: String
         get() = sp.getString("billGroup", "adults")!!
         set(v) { sp.edit().putString("billGroup", v).apply() }

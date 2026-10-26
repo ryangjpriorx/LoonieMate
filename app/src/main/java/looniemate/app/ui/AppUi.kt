@@ -117,6 +117,8 @@ fun LoonieMateApp(vm: MainViewModel) {
         }
     }
     BackHandler(enabled = tab != Tab.Today) { tab = Tab.Today }
+    val openUpdate by vm.openUpdate.collectAsStateWithLifecycle()
+    LaunchedEffect(openUpdate) { if (openUpdate) { tab = Tab.More; vm.openUpdate.value = false } }
 
     val open: (Sheet) -> Unit = { sheet = it }
     val monthTabs = tab == Tab.Month || tab == Tab.Bills || tab == Tab.Spending || tab == Tab.Savings

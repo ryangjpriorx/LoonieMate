@@ -21,6 +21,17 @@ class MainActivity : ComponentActivity() {
             val look by vm.prefs.look.collectAsStateWithLifecycle()
             LoonieTheme(look.themeMode, look.dynamicColor, look.palette, look.effects) { LoonieMateApp(vm) }
         }
+        handleOpen(intent)
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) { super.onNewIntent(intent); setIntent(intent); handleOpen(intent) }
+
+    /** opened from the "update available" notification: go straight to the update */
+    private fun handleOpen(intent: android.content.Intent?) {
+        if (intent?.getStringExtra(looniemate.app.notify.UpdateCheck.EXTRA_OPEN) == looniemate.app.notify.UpdateCheck.OPEN_UPDATE) {
+            intent.removeExtra(looniemate.app.notify.UpdateCheck.EXTRA_OPEN); vm.openUpdate.value = true
+            looniemate.app.notify.UpdateCheck.clear(this)
+        }
     }
 
     override fun onResume() {

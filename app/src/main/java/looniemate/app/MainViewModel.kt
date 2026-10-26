@@ -89,6 +89,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshNotif() { notifOk.value = looniemate.app.notify.Notifs.enabled(getApplication()) }
     fun snoozeNotifCard() { prefs.notifAsked = true; prefs.notifSnoozeUntil = System.currentTimeMillis() + 30L * 86_400_000; refreshNotif(); notifTick.value++ }
     val notifTick = MutableStateFlow(0)
+    /** set when the app was opened from the "update available" notification */
+    val openUpdate = MutableStateFlow(false)
 
     fun refreshDay() { val t = todayStr(); if (t != today.value) today.value = t }
 
