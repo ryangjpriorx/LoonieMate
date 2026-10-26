@@ -112,7 +112,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun isNew(s: J, bills: Map<String, Obj>) = Core.incomesOf(s).isEmpty() && bills.isEmpty() && Core.accountsOf(s).isEmpty()
 
     fun titleFor(s: J): String { val n = s.s("householdName").trim()
-        return if (n.isEmpty()) "Family Budget" else if (n.endsWith("s", ignoreCase = true)) "$n' Budget" else "$n's Budget" }
+        return if (n.isEmpty()) "LoonieMate" else if (n.endsWith("s", ignoreCase = true)) "$n' Budget" else "$n's Budget" }
 
     val todayModel: StateFlow<TodayModel?> = combine(repo.docs, today, prefs.lastBackupFlow) { d, t, lb -> Triple(d, t, lb) }
         .mapLatest { (d, t, lb) -> buildToday(d, t, lb) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)

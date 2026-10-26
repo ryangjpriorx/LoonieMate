@@ -43,8 +43,8 @@ GitHub before the next, and released when a group of fixes is worth updating for
 - [x] **Stage 0**: this plan.
 - [x] **Stage 1**: the audit; findings written below (2026-10-26).
 - [x] **Stage 2**: must-fix batch(es). M1, M2 done; released in 0.9.0.
-- [ ] **Stage 3**: should-fix batches. S1–S6 done; released in 0.9.0. Nice-to-haves still open.
-- [ ] **Stage 4**: polish pass and fresh screenshots. Then release.
+- [x] **Stage 3**: should-fix batches. S1–S6 released in 0.9.0; the nice-to-haves and W gaps done on branch `polish-1-settings`.
+- [x] **Stage 4**: polish pass (branch `polish-1-settings`, not released yet). README screenshots refresh when it's merged to main.
 
 ## Findings
 
@@ -207,3 +207,11 @@ status messages are already checked identical by the parity tests; these are the
   Left as they are, on purpose: the "Sheet" names (renaming every form is churn for no user benefit), the month maths
   inside screens (under 1 ms), the per-payday breakdown written twice (small, and covered by screenshots), and the
   screen tests' fixed waits (reliable so far; worth revisiting only if they get flaky).
+- Step 3, polish (branch `polish-1-settings`): every screen reviewed in light, dark and the largest text size, every
+  form, getting on track, first run, and the web version at phone width (no sideways scrolling, no errors). Fixed: at
+  the largest text size the example-bills note (Month), the Accounts buttons (Settings) and the debt "left of" line
+  (Bills) crushed text into single letters; new button rows wrap (FlowRow). The bill form's title moved to the top
+  bar ("Add a bill for the kids"). "Paycheque" everywhere people read it (was mixed with "paycheck"). A new budget's
+  title is "LoonieMate" on both versions (was "Family Budget"). Web header shows the loon coin icon. README updated
+  (Personal Expenses, Looking back, six steps, iPhone Home Screen advice, feature table). Screens test draws the
+  first-run screens and the Spending history and spreadsheet cards.
