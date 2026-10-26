@@ -121,7 +121,9 @@ early versions), so the legacy keys and old snapshot names aren't read any more.
 ### Web and Android side by side (checked 2026-10-26, after 0.10.0)
 
 **Status:** W1–W4, W8 and W9 are done on branch `polish-1-settings` (built and tested, not released or merged yet);
-the web version's start-up also ran twice (`init()` at the end of the page), now once. Next, step 2: W5–W7 and N1–N10.
+the web version's start-up also ran twice (`init()` at the end of the page), now once. Step 2 is done on the same branch
+too: W5–W7, N1, N3–N5, N7, N10 and the unused imports (N6 was covered by S1; see the notes for what was left as it is).
+Next, step 3: the polish pass.
 
 The first audit covered the risky code (money maths, sync, backups, updater, saving, reminders, web escaping); it was not
 a line-by-line read of every screen, and it didn't compare the two versions feature by feature. This pass did that
@@ -195,3 +197,13 @@ status messages are already checked identical by the parity tests; these are the
   top, `QuickButtonsCard` under Food (`MainViewModel.removeQuick`); "Coming to the app next" removed. Web: `copyLegacy`,
   the `legacy-load` banner and the `rs-budget-local` fallback removed; `init()` runs once. Build workflow: a run on
   another branch publishes its screenshots to `screens-<branch>`. Test: `ScreensTest.householdProvinceAndQuickButtons`.
+- Step 2 (branch `polish-1-settings`): N1 `Backup.MAX_ITERATIONS` / web check (over 10 million rounds isn't a backup).
+  N3 `Core.amt` / web `amt` clamp bill, expense, income and benefit amounts at $0 in both engines (parity: the Quebec
+  household has a negative bill, expense and income). N4 `ReminderAlarm.onAction` syncs after Paid / Moved it / Undo.
+  N5 `ReminderReceiver` uses `goAsync()` and a worker thread (`handle()` holds the old body). N7 `Sheets()` closes the
+  Access page into its `next`. N10 `res/xml/data_extraction_rules.xml`. W5 `MainViewModel.clearExamples` (Month notice).
+  W6 `Views.history` + `HistoryCard` (Spending). W7 `Views.csv` / `csvCell`, `MainViewModel.csvFile`, `ShareCard`,
+  FileProvider `${applicationId}.files` on `cache/share/`. Test: `ViewsTest`.
+  Left as they are, on purpose: the "Sheet" names (renaming every form is churn for no user benefit), the month maths
+  inside screens (under 1 ms), the per-payday breakdown written twice (small, and covered by screenshots), and the
+  screen tests' fixed waits (reliable so far; worth revisiting only if they get flaky).
