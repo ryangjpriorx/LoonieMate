@@ -33,7 +33,7 @@ tested on GitHub before the next. **To pick up again: find the first unticked st
 ## Stages
 
 - [x] **Stage 0**: this plan.
-- [ ] **Stage 1**: `Sync.reconcile(local, remote, base)` in the engine with tests (two phones through one file: edits on
+- [x] **Stage 1**: `Sync.reconcile(local, remote, base)` in the engine with tests (two phones through one file: edits on
   both, newest wins, Undo of a tick sticks, deletions carry over, first sync with no base).
 - [ ] **Stage 2**: `sync/SyncManager.kt`: file access with a persisted permission, password in the Keystore, the sync
   steps, key cache, errors (can't reach the file, wrong password, not a LoonieMate file), triggers and the background job.

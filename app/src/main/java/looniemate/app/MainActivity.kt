@@ -8,6 +8,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import looniemate.app.ui.LoonieMateApp
+import kotlinx.coroutines.launch
 import looniemate.app.ui.theme.LoonieTheme
 import looniemate.engine.*
 
@@ -37,7 +38,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onPause() { super.onPause(); (application as LoonieApp).foreground = false }
+    override fun onPause() { super.onPause(); val app = application as LoonieApp; app.foreground = false
+        /* send this phone's changes before the person leaves */
+        if (app.sync.on) app.scope.launch { app.sync.sync(force = true) } }
 
     override fun onResume() {
         super.onResume()
@@ -46,6 +49,8 @@ class MainActivity : ComponentActivity() {
         vm.refreshDay()
         vm.refreshNotif()
         vm.checkUpdates(false)
+        /* pick up the other phone's changes (at most once every 20 seconds) */
+        (application as LoonieApp).let { app -> if (app.sync.on) app.scope.launch { app.sync.sync() } }
         vm.updater.onPermissionMaybeGranted()
     }
 }

@@ -83,6 +83,12 @@ class Repository(dir: File) {
 
     fun replaceAll(data: Map<String, J>) = edit { m -> m.clear(); m.putAll(data) }
 
+    /** Replaces everything with [data], but only if nothing changed since [expected] was read (used by sync). */
+    fun replaceIfUnchanged(expected: Map<String, J>, data: Map<String, J>): Boolean = synchronized(lock) {
+        if (_docs.value !== expected) return false
+        val m = LinkedHashMap(data); _docs.value = m; persist(m); true
+    }
+
     fun newId(): String = java.lang.Long.toString(System.currentTimeMillis(), 36) + (1..7).map { "0123456789abcdefghijklmnopqrstuvwxyz"[rnd.nextInt(36)] }.joinToString("")
 
     private val rnd = java.security.SecureRandom()

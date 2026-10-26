@@ -141,6 +141,12 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("onboarded", false)
         set(v) { sp.edit().putBoolean("onboarded", v).apply() }
 
+    /* ---- sync (docs/plans/sync.md): the file, its name, the password sealed by the Keystore, the last good sync ---- */
+    var syncUri: String? get() = sp.getString("syncUri", null); set(v) { sp.edit().putString("syncUri", v).apply() }
+    var syncName: String? get() = sp.getString("syncName", null); set(v) { sp.edit().putString("syncName", v).apply() }
+    var syncPass: String? get() = sp.getString("syncPass", null); set(v) { sp.edit().putString("syncPass", v).apply() }
+    var syncLast: Long get() = sp.getLong("syncLast", 0); set(v) { sp.edit().putLong("syncLast", v).apply() }
+
     var group: String
         get() = sp.getString("billGroup", "adults")!!
         set(v) { sp.edit().putString("billGroup", v).apply() }
