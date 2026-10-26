@@ -211,15 +211,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         repo.set("settings/main", raw)
     }
 
-    fun togglePaid(e: Obj) { val ym = e.s("ym"); val cur = repo.get("months/$ym")?.get("paid")?.get(e.s("key")).let { looniemate.engine.truthy(it) }
-        change(if (cur) "Marked not paid" else "Marked paid", listOf("months/$ym")) { patchMonth(ym, J.obj("paid" to J.obj(e.s("key") to !cur))) } }
+    fun togglePaid(e: Obj) { val ym = e.s("ym"); val cur = looniemate.app.data.Ticks.isPaid(repo, ym, e.s("key"))
+        change(if (cur) "Marked not paid" else "Marked paid", listOf("months/$ym")) { looniemate.app.data.Ticks.setPaid(repo, ym, e.s("key"), !cur) } }
 
-    fun toggleMove(e: Obj) { val ym = e.s("ym"); val m = repo.get("months/$ym"); val cur = looniemate.engine.truthy(m?.get("moves")?.get(e.s("key")))
-        val patch = J.obj("moves" to J.obj(e.s("key") to !cur))
-        val sav = e.s("sav")
-        if (sav.isNotEmpty()) { val k = sav.replace("-out", ""); val sign = if (sav.endsWith("-out")) -1 else 1; val amt = e.n("amount") * sign
-            patch["moved"] = J.obj(k to round2(m?.get("moved").n(k) + if (cur) -amt else amt)) }
-        change(if (cur) "Marked not done" else "Done. Nice.", listOf("months/$ym")) { patchMonth(ym, patch) } }
+    fun toggleMove(e: Obj) { val ym = e.s("ym"); val cur = looniemate.app.data.Ticks.isMoved(repo, ym, e.s("key"))
+        change(if (cur) "Marked not done" else "Done. Nice.", listOf("months/$ym")) { looniemate.app.data.Ticks.setMoved(repo, ym, e.s("key"), e.s("sav"), e.n("amount"), !cur) } }
 
     fun locked(ym: String) = repo.get("months/$ym").t("closed")
 

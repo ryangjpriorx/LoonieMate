@@ -73,6 +73,10 @@ object Reminders {
         return Digest(day, todo, pads, tomorrow)
     }
 
+    /** The digest without items already handled on the notification (by key; automatic payment groups as "pad:<account>"). */
+    fun without(d: Digest, keys: Set<String>): Digest = Digest(d.day, d.todo.filter { it.key !in keys }, d.pads.filter { "pad:" + it.account !in keys },
+        d.tomorrowMoves.filter { it.key !in keys })
+
     /** The one-line summary for the notification: "3 things today" and so on. */
     fun summary(d: Digest): String {
         val n = d.todo.size; val over = d.todo.count { it.overdue }

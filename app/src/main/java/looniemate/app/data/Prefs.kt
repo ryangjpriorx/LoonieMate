@@ -96,6 +96,15 @@ class Prefs(context: Context) {
     var reminderFiredAt: Long
         get() = sp.getLong("reminderFiredAt", 0)
         set(v) { sp.edit().putLong("reminderFiredAt", v).apply() }
+    private fun set(k: String): Set<String> = sp.getStringSet(k, emptySet())!!.toSet()
+    private fun putSet(k: String, v: Set<String>) { sp.edit().putStringSet(k, HashSet(v)).apply() }
+    /** automatic-payment heads-ups dismissed with Got it ("day|key"), rows put off with Remind me later ("key|until ms"),
+     *  rows showing "Marked paid · Undo" (key), and the row notifications on screen (ids) */
+    var reminderGotIt: Set<String> get() = set("remGotIt"); set(v) = putSet("remGotIt", v)
+    var reminderSnoozed: Set<String> get() = set("remSnoozed"); set(v) = putSet("remSnoozed", v)
+    var reminderUndo: Set<String> get() = set("remUndo"); set(v) = putSet("remUndo", v)
+    var reminderChildren: Set<String> get() = set("remChildren"); set(v) = putSet("remChildren", v)
+
     /** the waking day and slot of the reminder on screen ("day|slot|slots"), so ticking things off can update it */
     var reminderShown: String?
         get() = sp.getString("reminderShown", null)
