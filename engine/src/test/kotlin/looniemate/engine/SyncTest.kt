@@ -87,6 +87,38 @@ class SyncTest {
         assertNull(c.data["bills/rent"]); assertNull(d.data["bills/rent"])
     }
 
+    /** The file goes back to an older copy (a cloud app's cache, or the other phone writing from an older copy). */
+    @Test fun aStaleFileDoesNotDeleteNewItems() {
+        val (a, b) = two()
+        val old = file
+        a.set("bills/phone", J.obj("name" to "Phone", "amount" to 45), 10); sync(a)
+        file = old                          /* the file loses the new bill */
+        sync(a); sync(b)
+        for (p in listOf(a, b)) assertEquals(45.0, p.data["bills/phone"].n("amount"), "the new bill survives on both phones")
+    }
+
+    @Test fun aStaleFileDoesNotUndoEdits() {
+        val (a, b) = two()
+        val old = file
+        a.set("bills/rent", J.obj("name" to "Rent", "amount" to 1500), 10); sync(a)
+        file = old                          /* back to the old rent */
+        sync(a); sync(b)
+        for (p in listOf(a, b)) assertEquals(1500.0, p.data["bills/rent"].n("amount"))
+        /* and when this phone changes something else in the same item meanwhile, the stale copy still doesn't win */
+        val (c, d) = two(); val old2 = file
+        c.set("bills/rent", J.obj("name" to "Rent", "amount" to 1500), 10); sync(c)
+        file = old2; c.set("bills/rent", J.obj("name" to "Rent (new)", "amount" to 1500), 11)
+        sync(c); sync(d)
+        for (p in listOf(c, d)) { assertEquals(1500.0, p.data["bills/rent"].n("amount")); assertEquals("Rent (new)", p.data["bills/rent"].s("name")) }
+    }
+
+    @Test fun deletionsStillCarryOverWithTheStaleFileGuard() {
+        val (a, b) = two()
+        a.set("bills/phone", J.obj("name" to "Phone", "amount" to 45), 10); sync(a); sync(b)
+        b.delete("bills/phone", 20); sync(b); sync(a)
+        assertNull(a.data["bills/phone"]); assertNull(b.data["bills/phone"])
+    }
+
     @Test fun nothingChangedMeansNothingToWrite() {
         val (a, _) = two()
         val r = Sync.reconcile(a.data, file, a.base); assertFalse(r.changedLocal); assertFalse(r.changedRemote)

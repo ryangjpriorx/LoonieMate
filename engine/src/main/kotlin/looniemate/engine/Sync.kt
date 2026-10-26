@@ -7,7 +7,8 @@ package looniemate.engine
  * field inside it, if only one side changed it since the base, that change wins; if both did, the newer document wins.
  * That lets an Undo on one phone stick on the other, which the plain combine (Backup.merge, which keeps a Paid tick if
  * either copy has it) can't do. Savings totals in a month (`moved`) add up both phones' changes instead of picking one.
- * Deletions carry over through tombstones, as before. With no base yet (the first sync), it uses Backup.merge.
+ * Deletions carry over through tombstones, as before; an item merely missing from the file, or a copy in the file older
+ * than the base, means the file is stale, and this phone's copy is kept. With no base yet (the first sync), it uses Backup.merge.
  */
 object Sync {
     class Result(val data: LinkedHashMap<String, J>, val changedLocal: Boolean, val changedRemote: Boolean)
@@ -51,6 +52,11 @@ object Sync {
 
     private fun mergeDoc(key: String, l: J?, r: J?, b: J?): J? {
         if (same(l, r)) return l
+        /* The file can be stale: a cloud app's cached copy, or the other phone writing from an older copy. An item missing
+           from the file without a tombstone wasn't deleted (deletions always leave one), and a file copy older than what
+           both phones last agreed on (the base) is out of date: either way this phone's copy is kept, and the file is
+           rewritten with it. */
+        if (!absent(b) && (absent(r) || r!!.n("_u") < b!!.n("_u"))) return l
         if (same(l, b)) return r
         if (same(r, b)) return l
         /* changed on both phones */
