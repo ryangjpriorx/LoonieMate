@@ -124,7 +124,8 @@ class ScreensTest {
         back(); if (rule.onAllNodesWithText("Food so far").fetchSemanticsNodes().isEmpty()) problems.add("$theme: back didn't go to the previous step")
         closePage()
         /* balance check: only the first account typed in; the rest count as $0 after one question */
-        tab("More"); rule.onNodeWithTag("checkin-more").performClick(); settle()
+        tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("checkin-more")); settle()
+        rule.onNodeWithTag("checkin-more").performClick(); settle()
         rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[0].performScrollTo().performTextInput("100")
         rule.onNodeWithTag("compare").performScrollTo().performClick(); settle()
         if (rule.onAllNodesWithTag("blank-zero").fetchSemanticsNodes().isEmpty()) problems.add("$theme: blank balances didn't ask once to count them as $0")
