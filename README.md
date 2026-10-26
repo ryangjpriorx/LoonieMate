@@ -56,7 +56,7 @@ It was built for a family living on social assistance and benefits, where a late
         <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ryangjpriorx/LoonieMate/screens/readme-dark-settings.png">
         <img alt="Settings screen" src="https://raw.githubusercontent.com/ryangjpriorx/LoonieMate/screens/readme-light-settings.png">
       </picture>
-      <br><sub><b>Settings</b>: your colours, your backups</sub>
+      <br><sub><b>Settings</b>: accounts, income and backups</sub>
     </td>
   </tr>
 </table>
@@ -93,7 +93,7 @@ It was built for a family living on social assistance and benefits, where a late
 ### 👶 Savings that protect the kids
 - The **Child Benefit is kept in a protected Child Reserve**, separate from spending money. You can choose to send a share to Emergency Savings in good months.
 - Savings funds for the costs that catch families off guard: a vet fund, Christmas, winter coats, car repairs.
-- Help with **free government money**: the Canada Learning Bond checklist, and RDSP, RESP and TFSA estimates, plus how close you are to the ODSP asset limit. *(In the web version for now; coming to the app.)*
+- Help with **free government money**: the Canada Learning Bond checklist, and RDSP, RESP and TFSA estimates, plus how close you are to the ODSP asset limit.
 
 ### 🧾 Bills and debts
 - Bills for **Adults, Kids and Pets**, monthly, every 2 weeks, weekly, every 3 months or yearly. Bills that come every 3 months or once a year are **set aside a little each month**.
@@ -145,8 +145,8 @@ It does everything the Android app does, without the extra visuals. Your budget 
 | Encrypted backups (same file) | ✅ | ✅ |
 | Material You, effects tuned to the phone | ✅ | — |
 | Updates itself | ✅ | always current |
-| Food, Savings, Income and benefits, Accounts | 🔜 | ✅ |
-| Balance checks | 🔜 | ✅ |
+| Food, Savings, Income and benefits, Accounts | ✅ | ✅ |
+| Balance checks | ✅ | ✅ |
 | Google Drive sync | 🔜 | — |
 | Reminders and a home-screen widget | 🔜 | — |
 
@@ -211,7 +211,7 @@ Signing needs the `SIGNING_PASSPHRASE` Actions secret. Every release must be sig
 - [x] Native Android app with the web version's maths, matched to the cent
 - [x] Encrypted backups shared between the app and the web version
 - [x] Updates itself from GitHub
-- [ ] Food, Savings, Income and benefits, Accounts and balance checks in the app
+- [x] Food, Savings, Income and benefits, Accounts and balance checks in the app
 - [ ] Google Drive sync between two phones (the same encrypted backup file)
 - [ ] Bill and money-move reminders, and a home-screen widget
 - [ ] More provinces' assistance programs
