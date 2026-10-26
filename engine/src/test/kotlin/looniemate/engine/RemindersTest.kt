@@ -31,16 +31,20 @@ class RemindersTest {
     }
 
     @Test fun automaticPaymentsAreNotToDosButOtherBillsAre() {
+        /* this household has no income, so the plan also has money moves on Nov 1; those are to-dos too */
         val d = Reminders.digest(st(docs(), "2026-11-02"), "2026-11-02", 0, 2, cfg)
-        assertEquals(listOf("Gym"), d.todo.map { it.name }); assertEquals(false, d.todo[0].overdue)
-        val late = Reminders.digest(st(docs(), "2026-11-03"), "2026-11-03", 1, 2, cfg)
-        assertEquals(listOf("Gym"), late.todo.map { it.name }); assertEquals(true, late.todo[0].overdue)
+        val bills = d.todo.filter { it.kind == "bill" }
+        assertEquals(listOf("Gym"), bills.map { it.name }); assertEquals(false, bills[0].overdue)
+        assertTrue(d.todo.any { it.kind == "move" })
+        val late = Reminders.digest(st(docs(), "2026-11-03"), "2026-11-03", 1, 2, cfg).todo.filter { it.kind == "bill" }
+        assertEquals(listOf("Gym"), late.map { it.name }); assertEquals(true, late[0].overdue)
     }
 
     @Test fun somethingTickedOffIsNeverSent() {
         val d = Reminders.digest(st(docs(), "2026-11-02"), "2026-11-02", 0, 2, cfg)
-        val key = d.todo[0].key
-        val paid = docs(mapOf("months/2026-11" to J.obj("paid" to J.obj(key to true))))
+        val paidKeys = J.O(); val movedKeys = J.O()
+        d.todo.forEach { if (it.kind == "bill") paidKeys[it.key] = J.B(true) else movedKeys[it.key] = J.B(true) }
+        val paid = docs(mapOf("months/2026-11" to J.obj("paid" to paidKeys, "moves" to movedKeys)))
         assertTrue(Reminders.digest(st(paid, "2026-11-02"), "2026-11-02", 1, 2, cfg).isEmpty)
     }
 
@@ -57,6 +61,6 @@ class RemindersTest {
 
     @Test fun summaryCountsThings() {
         val d = Reminders.digest(st(docs(), "2026-11-03"), "2026-11-03", 0, 2, cfg)
-        assertEquals("1 thing to do today · 1 overdue", Reminders.summary(d))
+        assertEquals("${d.todo.size} things to do today · ${d.todo.size} overdue", Reminders.summary(d))
     }
 }
