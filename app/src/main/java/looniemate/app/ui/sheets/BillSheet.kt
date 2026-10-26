@@ -207,7 +207,7 @@ fun BillSheet(vm: MainViewModel, id: String?, group0: String, close: () -> Unit)
                 if (freq == "monthly") doc["day"] = J.N(dayN.toDouble()) else doc["anchor"] = J.S(anchor)
                 if (isDate(start)) doc["start"] = J.S(start); if (isDate(end)) doc["end"] = J.S(end)
                 if (debt != null) doc["debt"] = debt
-                if (method == "Cash" && amt > 0) { val up2 = Math.ceil(round2(amt) / 5 - 1e-9) * 5; if (up2 > amt && up2 - amt <= 2.0000001) doc["cashRound"] = J.B(cashRound) }
+                val a0 = amt ?: 0.0; if (method == "Cash" && a0 > 0) { val up2 = Math.ceil(round2(a0) / 5 - 1e-9) * 5; if (up2 > a0 && up2 - a0 <= 2.0000001) doc["cashRound"] = J.B(cashRound) }
                 if (b.t("example") && id != null && num(b["amount"]) == amt) doc["example"] = J.B(true)
                 vm.saveBill(id, doc); close()
             }
