@@ -361,6 +361,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         change("${Fmt.monthOnly(ym)} is locked", listOf("months/$ym")) { patchMonth(ym, J.obj("closed" to true, "closedOn" to t, "snapshot" to Core.snapshot(c))) } }
     fun unlockMonth(ym: String) = change("${Fmt.monthOnly(ym)} is unlocked", listOf("months/$ym")) { patchMonth(ym, J.obj("closed" to false)) }
 
+    /* ---------- catching up: things the family is behind on (docs/plans/getting-on-track.md) ---------- */
+
+    fun catchUpOnDate(name: String, amount: Double, date: String) { val ym = ymOf(date); val p = "months/$ym/expenses/${repo.newId()}"
+        change("${name.trim()}: ${Fmt.money(amount)} planned for ${Fmt.dShort(date)}", listOf(p)) { repo.set(p, CatchUp.oneTime(name, amount, date)) } }
+
+    fun catchUpPlan(name: String, owed: Double, payment: Double, day: Int, account: String, method: String) { val p = "bills/${repo.newId()}"
+        change("${name.trim()}: ${Fmt.money(payment)} a month", listOf(p)) { repo.set(p, CatchUp.plan(repo.docs.value, today.value, name, owed, payment, day, account, method)) } }
+
+    fun catchUpUnsure(name: String, amount: Double) = change("Added ${name.trim()}", listOf("settings/main")) {
+        saveSettings(J.obj("catchUp" to CatchUp.unsure(settings(), "cu" + repo.newId(), name, amount, today.value))) }
+
+    /** An undecided item was paid, or turned into a date or a payment plan. */
+    fun catchUpResolve(id: String, message: String = "") = change(message, listOf("settings/main")) {
+        saveSettings(J.obj("catchUp" to CatchUp.undecided(settings()).filter { it.s("id") != id }.map { it.copy() })) }
+
     /* ---------- balance checks (checkins/<date>, the same documents the web version saves) ---------- */
 
     class CheckResult(val date: String, val bal: Map<String, Double>, val day: Double, val sav: Double, val prev: Obj?, val ex: Checkins.Expected?,

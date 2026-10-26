@@ -119,6 +119,7 @@ const empty = { 'settings/main': { startYm: '2026-11', trackFrom: '2026-11-01' }
 /* 6. The Ontario household starting partway through November (a starting month: no savings target or savings moves) */
 const onStart = JSON.parse(JSON.stringify(on));
 onStart['months/2026-11'] = Object.assign({}, onStart['months/2026-11'] || {}, { starting: true });
+onStart['settings/main'].catchUp = [{ id: 'cu1', name: 'Bell (behind)', amount: 180.5, added: '2026-11-14' }, { id: 'cu2', name: 'Landlord', amount: 300, added: '2026-11-14' }];
 
 module.exports = [
   { name: 'ontario', docs: on, todays: ['2026-10-25', '2026-11-16', '2026-12-31', '2027-03-15'] },

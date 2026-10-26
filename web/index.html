@@ -976,6 +976,8 @@ function runway(st,today,bal){
   for(const e of billEvents(st,from,end)){if(e.fund)continue;const m=st.months[e.ym];if(m&&m.paid&&m.paid[e.key])continue;
     push(e.date<today?today:e.date,e.date<today?'overdue':'bill',e.name,num(e.amount))}
   for(const ym in st.expenses||{})for(const e of listExp(st.expenses[ym]))if(e.oneTime&&e.date>=today&&e.date<=end)push(e.date,'oneoff',e.note||'One-time expense',num(e.amount));
+  /* things the family is behind on but hasn't decided how to pay yet (settings.catchUp) count as owed today */
+  for(const x of(Array.isArray(s.catchUp)?s.catchUp:[]))if(x&&x.id)push(today,'overdue',x.name||'Owed',num(x.amount));
   const order={in:0,overdue:1,bill:2,oneoff:3,food:4};
   ev.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:order[a.kind]-order[b.kind]);
   const days=[];let b=start,low=start,lowDate=today,short=null;

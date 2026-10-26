@@ -724,6 +724,8 @@ object Core {
         for (e in billEvents(st, from, end)) { if (e.t("fund")) continue; val m = st.months[e.s("ym")]; if (m != null && truthy(m["paid"]?.get(e.s("key")))) continue
             val d = e.s("date"); push(if (d < today) today else d, if (d < today) "overdue" else "bill", e.s("name"), num(e["amount"])) }
         for ((_, mp) in st.expenses) for (e in listExp(mp)) if (e.t("oneTime") && e.s("date") >= today && e.s("date") <= end) push(e.s("date"), "oneoff", if (e.t("note")) e.s("note") else "One-time expense", num(e["amount"]))
+        /* things the family is behind on but hasn't decided how to pay yet (settings.catchUp) count as owed today */
+        for (x in s["catchUp"].arr()) if (x is Obj && x.t("id")) push(today, "overdue", if (x.t("name")) x.s("name") else "Owed", num(x["amount"]))
         val order = mapOf("in" to 0, "overdue" to 1, "bill" to 2, "oneoff" to 3, "food" to 4)
         val sorted = ev.sortedWith(compareBy<Obj> { it.s("date") }.thenBy { order[it.s("kind")] ?: 9 })
         val days = mutableListOf<Obj>(); var b = start; var low = start; var lowDate = today; var short: Obj? = null
