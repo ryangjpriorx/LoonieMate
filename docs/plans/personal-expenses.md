@@ -16,6 +16,10 @@ before the next.
   planning $0 and spending $80." Changeable any time in Settings.
 - **In the plan:** taken out after bills and food (like food money), before what goes to savings. Shown as its own line
   on the Month screen.
+- **On Today: what's gone on Personal Expenses this month** (added 2026-10-26). A small, plain card: "Personal
+  Expenses · $34 of $87 this month", a calm bar, and what's left. Honest about the number but never shaming: no red, no
+  "wasted" or "spent too much" wording; going over just says "$12 over what was planned" in the normal text colour.
+  Shown only when Personal Expenses are planned or something was logged under it.
 - **Logging is optional:** a "Personal Expenses" choice in Log spending (category key `self`; `personal` is already
   taken by "Personal care"). Not logging it is fine and never nagged about. Going over
   what's planned comes out of what's left for savings, the same way going over on food does.
@@ -31,8 +35,24 @@ before the next.
 
 ## Stages
 
-- [ ] **Stage 0**: this plan.
-- [ ] **Stage 1**: the maths in both engines (web first, then Kotlin), checked by the parity tests: the planned amount in
+- [x] **Stage 0**: this plan.
+- [x] **Stage 1**: the maths in both engines (web first, then Kotlin), checked by the parity tests: the planned amount in
   `monthCalc`, the `self` spending category, going over, a held-back amount for a month (`months/<ym>`), `runway`.
-- [ ] **Stage 2**: Android: the setup step, a Settings card, the "Personal Expenses" choice in Log spending, the Month line.
+- [ ] **Stage 2**: Android: the setup step, a Settings card, the "Personal Expenses" choice in Log spending, the Month line,
+  and the Today card.
 - [ ] **Stage 3**: Android: the "hold back" fix in Where you stand and the status note. Web shows the line. Then release.
+
+## Notes for picking up
+
+- Stage 1 (done): both engines (web `Core.selfPlanFor` / `SELF`, Kotlin `Core.selfPlanFor` / `Core.SELF`).
+  `settings.selfPlan` = `[{name, amount, per: "week" | "pay" | "month"}]` (week = 52/12 a month; pay = each regular main
+  payday; anything else = per month). `months/<ym>.selfHold` holds some back for that month (capped at the plan).
+  `monthCalc` adds `selfPlanned`, `selfHold`, `self` (after the hold), `perPaySelf`, `selfSpent` (logged `self`, not
+  one-time), `selfOver`; `plannedSurplus` takes off `self`, `liveSurplus` takes off `selfOver`, and `self` spending is
+  no longer in `otherSpent`. `runway` adds `self` items: today, what was given out on this month's paydays so far and
+  not spent; then `perPaySelf` on each later regular payday (or the whole amount on the 1st with no main paydays).
+  Status (`getStatus` / `Views.status`): "Bills, food and Personal Expenses add up to…" for future months, and a
+  `selfTip` ("If you can, planning $X less for Personal Expenses … would help.") offering only what's still unspent.
+  The per-payday breakdown shows a Personal Expenses line. Spending category "Personal Expenses" (`self`) in both lists.
+  Parity: the Ontario, Quebec and Nova Scotia households have `selfPlan`; Ontario has `self` spending, a hold, and a
+  hold bigger than the plan.

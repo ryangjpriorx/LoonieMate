@@ -34,7 +34,7 @@ const UI = (() => {
   const app = html.match(/<script>([\s\S]*?)<\/script>/)[1];
   const pick = re => app.match(re)[0];
   const src = [pick(/const fmt=n=>[^\n]*/), pick(/const monthOnly=ym=>[^\n]*/), pick(/const dShort=s=>[^\n]*/),
-    pick(/function getStatus\(c,up,phase,today,s\)\{[\s\S]*?\n\}/)].join('\n');
+    pick(/function selfTip\(c,future\)\{[^\n]*\n[^\n]*/), pick(/function getStatus\(c,up,phase,today,s\)\{[\s\S]*?\n\}/)].join('\n');
   const u = { C, num: C.num, round2: C.round2, ymOf: C.ymOf, diffDays: C.diffDays, Math, Date, Object, JSON, String, Number };
   vm.createContext(u); vm.runInContext(src + ';this.getStatus=getStatus;', u);
   return { getStatus: u.getStatus, phaseOf: (ym, today, s) => { const cur = C.ymOf(today); if (ym === cur) return 'now'; if (ym < cur) return 'past'; if (ym === s.startYm && cur < s.startYm) return 'now'; return 'future'; } };

@@ -5,7 +5,7 @@ package looniemate.engine
 
 object Labels {
     val SPEND = listOf("groceries" to "Groceries", "takeout" to "Takeout & snacks", "personal" to "Personal care", "household" to "Household", "baby" to "Baby extras",
-        "pet" to "Pet extras", "transport" to "Transportation", "health" to "Pharmacy & health", "clothing" to "Clothing", "fun" to "Gifts & fun", "other" to "Other")
+        "pet" to "Pet extras", "transport" to "Transportation", "health" to "Pharmacy & health", "clothing" to "Clothing", "fun" to "Gifts & fun", "self" to "Personal Expenses", "other" to "Other")
     val SPENDL: Map<String, String> = SPEND.toMap() + ("oneoff" to "One-time extras")
     class Group(val label: String, val desc: String)
     val GROUPS = linkedMapOf("adults" to Group("Adults", "Rent, utilities, phones, loans and subscriptions"),
@@ -35,6 +35,10 @@ object Views {
 
     class Status(val tone: String, val label: String, val points: List<String>)
 
+    /** A suggestion, never an instruction: Personal Expenses stay in the plan unless the person chooses otherwise (web selfTip). */
+    fun selfTip(c: J, future: Boolean): String? { val free = round2(maxOf(0.0, c.n("self") - c.n("selfSpent")))
+        return if (free > 0 && c.n("net") < 0) "If you can, planning ${money(minOf(free, -c.n("net")))} less for Personal Expenses ${if (future) "in " + Fmt.monthOnly(c.s("ym")) else "this month"} would help." else null }
+
     /** The status badge and its reasons (the web version's getStatus). */
     fun status(c: J, up: List<Obj>, phase: String, today: String, s: J): Status {
         val pts = mutableListOf<String>(); var tone = "good"
@@ -42,12 +46,14 @@ object Views {
         val net = c.n("net")
         if (phase == "past") return Status("plan", if (c.t("closed")) "Locked month" else "Finished month", listOf(if (net < 0) "Ended ${money(-net)} short." else "Ended with ${money(net)} left over for savings."))
         if (phase == "future" && c.s("ym") != s.s("startYm")) {
-            if (net < 0) return Status("bad", "Plan needs work", listOf("Bills and food add up to ${money(-net)} more than the income for ${Fmt.monthOnly(c.s("ym"))}."))
+            if (net < 0) return Status("bad", "Plan needs work", listOfNotNull(
+                if (c.n("self") > 0) "Bills, food and Personal Expenses add up to ${money(-net)} more than the income for ${Fmt.monthOnly(c.s("ym"))}."
+                else "Bills and food add up to ${money(-net)} more than the income for ${Fmt.monthOnly(c.s("ym"))}.", selfTip(c, true)))
             return Status("plan", "Plan looks good", listOf("About ${money(c.n("target"))} should go to Emergency Savings in ${Fmt.monthOnly(c.s("ym"))}."))
         }
         val overdue = up.filter { it.s("kind") == "bill" && it.t("overdue") }
         val soon = up.filter { it.s("kind") == "bill" && !it.t("paid") && !it.t("overdue") && diffDays(today, it.s("date")) <= 3 }
-        if (net < 0) { bump("bad"); pts.add("This month is ${money(-net)} short. Cover it from Emergency Savings first. Use the Child Reserve only as a last resort.") }
+        if (net < 0) { bump("bad"); pts.add("This month is ${money(-net)} short. Cover it from Emergency Savings first. Use the Child Reserve only as a last resort."); selfTip(c, false)?.let { pts.add(it) } }
         if (overdue.isNotEmpty()) { bump("bad"); pts.add("${overdue.size} bill${if (overdue.size > 1) "s are" else " is"} past due (${money(sumOf2(overdue.map { it.n("amount") }))}). Pay ${if (overdue.size > 1) "them" else "it"}, then tap Paid.") }
         if (ymOf(today) == c.s("ym")) { val fp = Core.foodPeriod(c, today)
             if (fp.n("spent") > fp.n("allow")) { bump("warn"); pts.add("Food is ${money(fp.n("spent") - fp.n("allow"))} over for this half of the month.") }
@@ -172,10 +178,11 @@ object Views {
             if (c.n("rentGap") > 0) Line("Rent gap (from the main paychecks)", money(-c.n("rentGap")), true, "bad") else Line("Left over", money(c.n("ryanLeft")), true))))
         else if (c.n("housing") > 0) out.add(PayCard("Rent & housing", "", listOf(Line("Paid from the main paychecks", money(c.n("housing"))))))
         val pays = main.flatMap { i -> i.strList("regular").map { d -> d to i } }.sortedBy { it.first }
-        pays.forEachIndexed { idx, (d, i) -> val left = round2(i.n("amount") - c.n("perPayBills") - c.n("perPayFood"))
+        pays.forEachIndexed { idx, (d, i) -> val left = round2(i.n("amount") - c.n("perPayBills") - c.n("perPayFood") - c.n("perPaySelf"))
             out.add(PayCard(i.s("name") + (if (pays.size > 1) " · payday ${idx + 1}" else ""), Fmt.dLabel(d), listOf(Line("Comes in", money(i.n("amount"))), Line("Bills set-aside", neg(c.n("perPayBills"))),
-                Line("Food allowance (" + (if (c.n("food") <= s.n("foodMin") + 1) "minimum" else "${c.n("foodPct").toInt()}% of what's left") + ")", neg(c.n("perPayFood"))),
-                Line("Left over", money(left), true, if (left < 0) "bad" else "")))) }
+                Line("Food allowance (" + (if (c.n("food") <= s.n("foodMin") + 1) "minimum" else "${c.n("foodPct").toInt()}% of what's left") + ")", neg(c.n("perPayFood"))))
+                + (if (c.n("perPaySelf") > 0) listOf(Line("Personal Expenses", neg(c.n("perPaySelf")))) else emptyList())
+                + Line("Left over", money(left), true, if (left < 0) "bad" else ""))) }
         for (i in inc) for (d in i.strList("bonusDates")) out.add(PayCard(i.s("name") + " · extra payday", Fmt.dLabel(d), listOf(Line("Bills from this one", money(0.0)), Line("For Emergency Savings (after any shortfall)", money(i.n("amount")), true)), "bonus"))
         val others = other.filter { it.n("total") > 0 }.map { Line(it.s("name") + " · " + it.strList("regular").joinToString(", ") { d -> Fmt.dShort(d) }, money(it.n("total"))) }
         val credits = c["credits"].arr().filter { it.n("amount") > 0 }.map { Line(it.s("name") + " · " + it.strList("dates").joinToString(", ") { d -> Fmt.dShort(d) }, money(it.n("amount") * it["dates"].arr().size)) }

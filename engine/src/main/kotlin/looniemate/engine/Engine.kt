@@ -35,6 +35,13 @@ data class Skip(val amount: Double?)
 
 object Core {
     val FOOD = setOf("groceries", "takeout")
+    /** Personal Expenses (docs/plans/personal-expenses.md): spending logged under this category counts against the planned amount. */
+    const val SELF = "self"
+    /** The monthly Personal Expenses amount from settings.selfPlan [{name, amount, per: week | pay | month}]. */
+    fun selfPlanFor(s: J, regCount: Int): Double { var t = 0.0
+        for (p in s["selfPlan"].arr()) { if (p !is Obj) continue; val a = maxOf(0.0, num(p["amount"]))
+            t += when (p.s("per")) { "week" -> a * 52 / 12; "pay" -> a * regCount; else -> a } }
+        return round2(t) }
 
     /* ---------- bank holidays ---------- */
     private val PROV_FEB = mapOf("ON" to "Family Day", "AB" to "Family Day", "BC" to "Family Day", "NB" to "Family Day", "SK" to "Family Day", "MB" to "Louis Riel Day", "PE" to "Islander Day", "NS" to "Heritage Day")
@@ -486,15 +493,22 @@ object Core {
         val rawFood = maxOf(s.n("foodMin"), minOf(maxOf(0.0, leftAfterBills), leftAfterBills * pct))
         val foodHalf = Math.floor(rawFood / 2); val food = foodHalf * 2
         val perPayFood = round2(food / maxOf(1, regCount))
-        val plannedSurplus = round2(spendable - billsTotal - food)
-        var h1 = 0.0; var h2 = 0.0; var other = 0.0; var oneTime = 0.0; val byCat = Obj()
+        /* Personal Expenses: a month can hold some of it back when money is short (months/<ym>.selfHold) */
+        val selfPlanned = selfPlanFor(s, regCount)
+        val selfHold = round2(minOf(selfPlanned, maxOf(0.0, num(m["selfHold"]))))
+        val self = round2(selfPlanned - selfHold)
+        val perPaySelf = round2(self / maxOf(1, regCount))
+        val plannedSurplus = round2(spendable - billsTotal - food - self)
+        var h1 = 0.0; var h2 = 0.0; var other = 0.0; var oneTime = 0.0; var selfSpent = 0.0; val byCat = Obj()
         for (e in expenses) { val a = e.n("amount"); val one = e.t("oneTime")
             if (FOOD.contains(e.s("category")) && !one) { if (e.s("date").substring(8, 10).toInt() <= 15) h1 += a else h2 += a }
+            else if (e.s("category") == SELF && !one) selfSpent += a
             else { other += a; if (one) oneTime += a }
             val k = if (one) "oneoff" else e.s("category"); byCat[k] = js(round2(byCat.n(k) + a)) }
-        h1 = round2(h1); h2 = round2(h2); other = round2(other); oneTime = round2(oneTime)
+        h1 = round2(h1); h2 = round2(h2); other = round2(other); oneTime = round2(oneTime); selfSpent = round2(selfSpent)
         val foodOver = round2(maxOf(0.0, h1 - foodHalf) + maxOf(0.0, h2 - foodHalf))
-        val liveSurplus = round2(plannedSurplus - other - foodOver)
+        val selfOver = round2(maxOf(0.0, selfSpent - self))
+        val liveSurplus = round2(plannedSurplus - other - foodOver - selfOver)
         /* the 3rd paycheck covers any shortfall first; net can be negative (money has to come out of savings) */
         val net = round2(liveSurplus + bonus); val target = round2(maxOf(0.0, net))
         return J.obj("ym" to ym, "closed" to false, "moved" to moved, "paid" to paid, "expenses" to expenses, "expensesLoaded" to expensesLoaded,
@@ -504,7 +518,8 @@ object Core {
             "billLines" to billLines, "housing" to housing, "billsTotal" to billsTotal, "otherBills" to otherBills, "byGroup" to byGroup, "rentGap" to rentGap, "ryanLeft" to ryanLeft,
             "skippedTotal" to skippedTotal, "deferredTotal" to deferredTotal, "perPayBills" to perPayBills, "food" to food, "foodHalf" to foodHalf, "foodPct" to jsRound(pct * 100).toInt(),
             "leftAfterBills" to leftAfterBills, "perPayFood" to perPayFood, "spendable" to spendable, "plannedSurplus" to plannedSurplus, "net" to net, "foodH1" to h1, "foodH2" to h2,
-            "otherSpent" to other, "oneTimeSpent" to oneTime, "byCat" to byCat, "foodOver" to foodOver, "liveSurplus" to liveSurplus, "target" to target)
+            "otherSpent" to other, "oneTimeSpent" to oneTime, "byCat" to byCat, "foodOver" to foodOver, "liveSurplus" to liveSurplus, "target" to target,
+            "selfPlanned" to selfPlanned, "selfHold" to selfHold, "self" to self, "perPaySelf" to perPaySelf, "selfSpent" to selfSpent, "selfOver" to selfOver)
     }
 
     /** What gets saved when a month is locked. */
@@ -719,6 +734,11 @@ object Core {
                 push(today, "food", "Food money left for " + (if (fp.n("half") == 1.0) "the 1st–15th" else "the 16th–end"), maxOf(0.0, fp.n("left")))
                 if (fp.n("half") == 1.0) push("$ym-16", "food", "Food for the 16th–end", c.n("foodHalf")) }
             else { if ("$ym-01" <= end) push("$ym-01", "food", "Food for the 1st–15th", c.n("foodHalf")); if ("$ym-16" <= end) push("$ym-16", "food", "Food for the 16th–end", c.n("foodHalf")) }
+            /* Personal Expenses arrive with each main payday; this month, what was given out so far and not spent yet counts today */
+            if (c.n("self") > 0) { val reg = c.strList("regularDays"); val n = reg.size
+                if (ym == cur) push(today, "self", "Personal Expenses left", maxOf(0.0, round2((if (n > 0) c.n("self") * reg.count { it <= today } / n else c.n("self")) - c.n("selfSpent"))))
+                if (n > 0) { for (d in reg) if (d > today && d <= end) push(d, "self", "Personal Expenses", c.n("perPaySelf")) }
+                else if (ym != cur && "$ym-01" <= end) push("$ym-01", "self", "Personal Expenses", c.n("self")) }
             ym = ymAdd(ym, 1) }
         var from = addDays(today, -21); if (isDate(s["trackFrom"]) && from < s.s("trackFrom")) from = s.s("trackFrom")
         for (e in billEvents(st, from, end)) { if (e.t("fund")) continue; val m = st.months[e.s("ym")]; if (m != null && truthy(m["paid"]?.get(e.s("key")))) continue
@@ -726,7 +746,7 @@ object Core {
         for ((_, mp) in st.expenses) for (e in listExp(mp)) if (e.t("oneTime") && e.s("date") >= today && e.s("date") <= end) push(e.s("date"), "oneoff", if (e.t("note")) e.s("note") else "One-time expense", num(e["amount"]))
         /* things the family is behind on but hasn't decided how to pay yet (settings.catchUp) count as owed today */
         for (x in s["catchUp"].arr()) if (x is Obj && x.t("id")) push(today, "overdue", if (x.t("name")) x.s("name") else "Owed", num(x["amount"]))
-        val order = mapOf("in" to 0, "overdue" to 1, "bill" to 2, "oneoff" to 3, "food" to 4)
+        val order = mapOf("in" to 0, "overdue" to 1, "bill" to 2, "oneoff" to 3, "food" to 4, "self" to 5)
         val sorted = ev.sortedWith(compareBy<Obj> { it.s("date") }.thenBy { order[it.s("kind")] ?: 9 })
         val days = mutableListOf<Obj>(); var b = start; var low = start; var lowDate = today; var short: Obj? = null
         for (e in sorted) { var d = days.lastOrNull(); if (d == null || d.s("date") != e.s("date")) { d = J.obj("date" to e.s("date"), "items" to J.A(), "bal" to b); days.add(d) }
