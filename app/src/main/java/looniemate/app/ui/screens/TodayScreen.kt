@@ -206,8 +206,8 @@ fun ReminderCard(r: Views.Reminder, vm: MainViewModel, open: (Sheet) -> Unit, in
                     color = if (l.url != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = if (l.url != null) Modifier.clickable { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(l.url))) } else Modifier) }
             }
-            if (r.button != null) Row { Spacer(Modifier.weight(1f))
-                if (r.action == "backup") Button(onClick = { open(Sheet.Export) }) { Text(r.button) } else FilledTonalButton(onClick = { vm.reminderAction(r) }) { Text(r.button) } }
+            r.button?.let { label -> Row { Spacer(Modifier.weight(1f))
+                if (r.action == "backup") Button(onClick = { open(Sheet.Export) }) { Text(label) } else FilledTonalButton(onClick = { vm.reminderAction(r) }) { Text(label) } } }
         }
     }
 }
