@@ -518,7 +518,7 @@ object Core {
         val foodOver = round2(maxOf(0.0, h1 - foodHalf) + maxOf(0.0, h2 - foodHalf))
         val selfOver = round2(maxOf(0.0, selfSpent - self))
         val liveSurplus = round2(plannedSurplus - other - foodOver - selfOver)
-        /* the 3rd paycheck covers any shortfall first; net can be negative (money has to come out of savings) */
+        /* the 3rd paycheque covers any shortfall first; net can be negative (money has to come out of savings) */
         val net = round2(liveSurplus + bonus); val target = round2(maxOf(0.0, net))
         return J.obj("ym" to ym, "closed" to false, "moved" to moved, "paid" to paid, "expenses" to expenses, "expensesLoaded" to expensesLoaded,
             "incomes" to incomes, "crAll" to crAll, "odspCalc" to odspCalc, "assistCalc" to assistCalc, "otherIncome" to otherIncome, "paydays" to paydays, "regularDays" to regularDays, "bonusDays" to bonusDays,

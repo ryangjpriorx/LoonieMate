@@ -309,7 +309,7 @@ private fun AccountsCard(vm: MainViewModel, open: (Sheet) -> Unit) {
         Spacer(Modifier.height(10.dp))
         if (ck != null && list.isNotEmpty()) Text("Balances are from your last check on ${Fmt.dLabel(ck.s("date"))}.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             FilledTonalButton(onClick = { open(Sheet.Account(null)) }, modifier = Modifier.testTag("add-account")) { Text("+ Add an account") }
             if (list.isNotEmpty()) OutlinedButton(onClick = { open(Sheet.Checkin) }, modifier = Modifier.testTag("checkin-more")) { Text("Check balances") }
         }

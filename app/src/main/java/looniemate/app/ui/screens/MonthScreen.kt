@@ -70,9 +70,11 @@ fun MonthScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (m.examples) item {
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Pill("Example amounts", "warn"); Text("Some bills are examples. Replace them with your real numbers, or clear them.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                    androidx.compose.material3.TextButton(onClick = { vm.clearExamples() }, modifier = Modifier.testTag("clear-examples")) { Text("Clear") } }
+                /* the note on its own line, so it never gets squeezed at large text sizes */
+                androidx.compose.foundation.layout.Column(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) { Pill("Example amounts", "warn"); androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        androidx.compose.material3.TextButton(onClick = { vm.clearExamples() }, modifier = Modifier.testTag("clear-examples")) { Text("Clear examples") } }
+                    Text("Some bills are examples. Replace them with your real numbers, or clear them.", style = MaterialTheme.typography.bodySmall) }
             }
         }
         item { StatusCard(m) }

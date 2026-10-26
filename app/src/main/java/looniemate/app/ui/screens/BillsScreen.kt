@@ -151,7 +151,7 @@ private fun PayingOffCard(debts: List<Views.Debt>) {
                 ProgressRing(d.pct)
                 Column(Modifier.weight(1f)) {
                     Text(d.name, fontWeight = FontWeight.Bold)
-                    Row(verticalAlignment = Alignment.CenterVertically) { Money(d.info.n("remaining"), MaterialTheme.typography.titleMedium, weight = FontWeight.SemiBold)
+                    FlowRow(verticalArrangement = Arrangement.Center) { Money(d.info.n("remaining"), MaterialTheme.typography.titleMedium, weight = FontWeight.SemiBold)
                         Text(" left of " + Fmt.money(d.info.n("paid") + d.info.n("remaining")), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     val i0 = d.info
                     Text(when { i0.t("stuck") -> "Payment doesn't cover the interest"; isDate(i0["finish"]) -> "${i0.n("payments").toInt()} payments left · done ${Fmt.monthYearLong(i0.s("finish"))}"; i0.n("remaining") > 0 -> "Payments end before it's paid off"; else -> "Paid off" },

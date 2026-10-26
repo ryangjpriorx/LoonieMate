@@ -72,9 +72,14 @@ It was built for a family living on social assistance and benefits, where a late
 - **Debt payoff rings** with milestones: a quarter done, halfway there, almost done.
 - **Easier to use for more people**: bigger or bolder text, an easier-to-read font, stronger contrast, colour-blind friendly colours, less motion, more time and bigger buttons, in Settings → Accessibility (the app matches your phone's settings when you first open it). Screen readers get each row as one sentence, with Paid and Done as actions.
 - **Sync between phones** *(Android)*: keep the same budget on two phones through one encrypted file in Google Drive (or Nextcloud, or any cloud app in Android's file picker). No sign-in; an Undo on one phone sticks on the other.
-- **Start from today** *(Android)*: starting partway through a month, or after a rough patch? Five quick steps take what's in your accounts now, what's paid, what you're behind on and food so far, then show every payday and bill until the next payday, the first day money runs short, and ways to cover it. That month has no savings target.
+- **Start from today** *(Android)*: starting partway through a month, or after a rough patch? Six quick steps take what's in your accounts now, what's paid, what you're behind on, food so far and your Personal Expenses, then show every payday and bill until the next payday, the first day money runs short, and ways to cover it. That month has no savings target.
 - **Reminders that don't nag** *(Android)*: only on days something needs doing, at times you pick. Tap **Paid** or **Moved it** right on the notification, get a heads-up a day or two before an automatic payment, and nothing is sent when nothing is due.
 - A status badge that says, in plain words, whether the month is **on track**, needs a **heads up**, or **needs attention**, and why.
+
+### ☕ Personal Expenses, planned in the open
+- Everyone spends a little on themselves: a coffee, smokes, a game, a night out. List what you usually get and how often (*a $3.25 coffee, 5 times a week*), and LoonieMate sets it aside after bills and food, before savings. Naming each one is up to you.
+- On the **Spending** tab, each item has a one-tap **Log** button, and Today shows what's gone on it this month, without judgement.
+- When money is short, holding some back is **offered, never expected**.
 
 ### 💸 Every paycheque has a job
 - Income that **covers rent first** (like ODSP), then bills **split across the main paycheques**.
@@ -103,6 +108,10 @@ It was built for a family living on social assistance and benefits, where a late
 - Bills for **Adults, Kids and Pets**, monthly, every 2 weeks, weekly, every 3 months or yearly. Bills that come every 3 months or once a year are **set aside a little each month**.
 - **Debts** (loans, consumer proposals, payment plans) from the original amount or a statement balance, with interest, **missed payments**, and **extra payments** like a lump sum from a tax refund. LoonieMate shows what's left and the month it'll be paid off.
 
+### 📊 Looking back
+- **Last 6 months**: fixed bills, food and everything else, month by month, with the biggest change called out.
+- **Spreadsheets**: share your bills or everything logged as a CSV for Google Sheets or Excel.
+
 ### 🎨 Feels at home on your phone
 - **Material You**: on Android 12 and later, LoonieMate takes its colours from your wallpaper. You can also pick one of six colour themes, in light or dark.
 - **Smooth on flagships, quick on budget phones.** Visual effects (animated rings, count-ups, motion) turn on by themselves on phones with the power for them, and stay off on low-end phones. You can switch them either way.
@@ -127,7 +136,7 @@ Needs Android 8.0 or later.
     <td valign="top">
 
 1. Open **[ryangjpriorx.github.io/LoonieMate](https://ryangjpriorx.github.io/LoonieMate/)**.
-2. On iPhone, tap **Share → Add to Home Screen** to open it like an app.
+2. On iPhone, tap **Share → Add to Home Screen** to open it like an app. Do this: iPhone browsers clear a website's saved data after a week without a visit, but a Home Screen app keeps it.
 
 It does everything the Android app does, without the extra visuals. Your budget is saved in that browser on that device.
 
@@ -155,7 +164,10 @@ It does everything the Android app does, without the extra visuals. Your budget 
 | Accessibility settings | ✅ | ✅ |
 | Start from today and get back on track | ✅ | — |
 | Reminders and update notifications | ✅ | — |
-| Home-screen widget | 🔜 | — |
+| Household, province and plan dates | ✅ | ✅ |
+| Personal Expenses list (one-tap logging) | ✅ | counts it; edit on Android |
+| Last 6 months and spreadsheets | ✅ | ✅ |
+| Reset (type RESET to start over) | ✅ | ✅ |
 
 </details>
 

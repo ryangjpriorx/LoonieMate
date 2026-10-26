@@ -161,7 +161,7 @@ main.wrap{padding-block:20px 120px;display:block}
 .task{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px;border-radius:12px;background:var(--accent-bg);margin-bottom:10px}
 .empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
 
-/* paycheck flow */
+/* paycheque flow */
 .flow{display:flex;flex-direction:column;gap:10px}
 .pay{border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
 .pay-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
@@ -287,6 +287,7 @@ body{background:radial-gradient(1200px 500px at 100% -10%,color-mix(in srgb,var(
 .top{position:sticky}
 .top::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent-2),var(--baby),var(--pets),var(--accent));background-size:300% 100%;opacity:.85}
 .logo{background:linear-gradient(135deg,var(--accent),var(--accent-2))}
+.logo.loon{background:none;border-radius:9px}.logo.loon::before,.logo.loon::after{display:none}.logo.loon svg{display:block;width:100%;height:100%}
 .tab{display:inline-flex;align-items:center;gap:7px;border-radius:10px 10px 0 0}
 .tab svg{width:18px;height:18px;flex:none}
 .tab:hover{color:var(--ink)}
@@ -498,7 +499,13 @@ details.item>summary:hover{background:color-mix(in srgb,var(--tone-bg) 40%,trans
 
 <header class="top">
   <div class="top-in">
-    <div class="brand"><span class="logo" aria-hidden="true"></span>
+    <div class="brand"><span class="logo loon" aria-hidden="true"><svg width="34" height="34" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><defs><linearGradient id="navy" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2F3E8F"/><stop offset="1" stop-color="#17204A"/></linearGradient></defs>
+<rect width="108" height="108" rx="24" fill="url(#navy)"/><path fill="#B8860B" d="M54.00,23.60 L71.08,28.62 L82.74,42.07 L85.28,59.70 L77.88,75.89 L62.90,85.52 L45.10,85.52 L30.12,75.89 L22.72,59.70 L25.26,42.07 L36.92,28.62 Z"/>
+<path fill="#F2C14E" d="M54.00,23.00 L70.76,27.92 L82.20,41.12 L84.68,58.41 L77.43,74.30 L62.73,83.74 L45.27,83.74 L30.57,74.30 L23.32,58.41 L25.80,41.12 L37.24,27.92 Z"/>
+<path fill="none" stroke="#C8962A" stroke-width="1.6" d="M54.00,27.50 L68.33,31.71 L78.11,42.99 L80.23,57.77 L74.03,71.35 L61.47,79.43 L46.53,79.43 L33.97,71.35 L27.77,57.77 L29.89,42.99 L39.67,31.71 Z"/>
+<path fill="#1D2A52" d="M37.5,60.5 C39,55.5 44,53 50.5,53.5 C55,54 58.5,55.5 61.5,55 C62.5,52 62.8,49.2 65.2,47.8 C67.6,46.4 70.4,47.2 71.2,49.2 L75.5,50.4 L71.4,51.6 C70.8,53.6 69.4,55.6 67.6,57.4 C65,60.2 60.5,62 55,62.2 L41,62.2 C39.4,62.2 38,61.6 37.5,60.5 Z"/>
+<circle cx="67.9" cy="49.6" r="0.9" fill="#F2C14E"/>
+<path fill="none" stroke="#1D2A52" stroke-width="1.6" stroke-linecap="round" d="M36,65.6 C40,64.4 44,66.8 48,65.6 C52,64.4 56,66.8 60,65.6 C64,64.4 68,66.8 72,65.6"/></svg></span>
       <div><h1 id="hh-name">LoonieMate</h1><p class="sync" id="sync"><i></i><span>Opening…</span></p></div>
     </div>
     <div class="hdr-right">
@@ -848,7 +855,7 @@ function monthCalc(ym,st,today){
   const foodOver=round2(Math.max(0,h1-foodHalf)+Math.max(0,h2-foodHalf));
   const selfOver=round2(Math.max(0,selfSpent-self));
   const liveSurplus=round2(plannedSurplus-other-foodOver-selfOver);
-  /* the 3rd paycheck covers any shortfall first; net can be negative (money has to come out of savings) */
+  /* the 3rd paycheque covers any shortfall first; net can be negative (money has to come out of savings) */
   const net=round2(liveSurplus+bonus);
   const target=round2(Math.max(0,net));
   return{ym,closed:false,moved,paid,expenses,expensesLoaded,
@@ -926,7 +933,7 @@ function moneyMoves(st,from,to){
       const accts=[...new Set(win.map(x=>x.acct).filter(id=>id&&id!==main&&!incomeAccts.has(id)))];
       accts.forEach(id=>add(P,main,id,sum(win.filter(x=>x.acct===id).map(x=>x.amount)),why(id)));
 });
-    /* extra paydays (a 3rd bi-weekly paycheck, a 5th weekly one) go to savings after any shortfall is covered */
+    /* extra paydays (a 3rd bi-weekly paycheque, a 5th weekly one) go to savings after any shortfall is covered */
     if(ym>=start&&!startingMonth(st,ym)){let room=Math.max(0,c.net);for(const inc of c.incomes||[])for(const d of inc.bonusDates){const toSave=Math.min(inc.amount,room);room=round2(room-toSave);
       add(d,main,'',toSave,toSave<inc.amount-0.004?`Extra ${inc.name} this month, after covering a shortfall`:`Extra ${inc.name} this month`,'emergency')}}
     /* credits that land outside the main account */
@@ -1066,7 +1073,7 @@ const BILLCATS={adults:[['housing','Rent & housing'],['utilities','Utilities'],[
   pets:[['petfood','Food'],['litter','Litter & supplies'],['vet','Vet & meds'],['insurance','Insurance'],['other','Other']]};
 const CATL={};Object.values(BILLCATS).forEach(a=>a.forEach(([k,l])=>CATL[k]=l));
 const ACCT_TYPES=[['chequing','Chequing'],['savings','Savings'],['prepaid','Prepaid card'],['cash','Cash on hand']];
-const PURPOSES=[['main','Main account','Paychecks are held here and automatic bill payments come out. Money moves start from here.'],
+const PURPOSES=[['main','Main account','Paycheques are held here and automatic bill payments come out. Money moves start from here.'],
   ['rent','Pays rent','New rent and housing bills are paid from here.'],
   ['everyday','Everyday spending','Food money and in-store purchases go here.'],
   ['online','Online and subscriptions','New subscriptions and online purchases go on this.'],
@@ -1074,7 +1081,7 @@ const PURPOSES=[['main','Main account','Paychecks are held here and automatic bi
 const SAV_KINDS=[['hisa','Regular savings'],['tfsa','TFSA'],['rdsp','RDSP'],['resp','RESP'],['fhsa','FHSA'],['rrsp','RRSP']];
 const PROVINCES=[['ON','Ontario'],['AB','Alberta'],['BC','British Columbia'],['MB','Manitoba'],['NB','New Brunswick'],['NL','Newfoundland and Labrador'],['NS','Nova Scotia'],['PE','Prince Edward Island'],['QC','Quebec'],['SK','Saskatchewan'],['NT','Northwest Territories'],['NU','Nunavut'],['YT','Yukon']];
 const INCOME_TYPES=[['biweekly','Every 2 weeks'],['weekly','Every week'],['semimonthly','Twice a month (15th and last day)'],['monthly','Monthly on a set day'],['lastbiz','Last business day of the month'],['firstbiz','First business day of the month'],['odsp','ODSP / Ontario Works schedule']];
-const ROLES=[['rent','Covers rent first'],['main','Main paycheck (bills and food are split across these paydays)'],['other','Extra income']];
+const ROLES=[['rent','Covers rent first'],['main','Main paycheque (bills and food are split across these paydays)'],['other','Extra income']];
 const WEEKDAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const accts=()=>C.accountsOf(settings());
 const acctName=ref=>{const a=C.acctById(settings(),ref);return a?a.name:(ref?ref+' (removed)':'')};
@@ -1376,10 +1383,10 @@ function vOverview(){
   }else if(phase==='now'){
     const lastReg=c.regularDays[c.regularDays.length-1];
     k1=`<div class="kpi hero"><span class="label">Safe to move to Emergency Savings</span><span class="big">${fmt(owed)}</span>
-      <span class="small muted">${owed>0?`This month's ${c.bonus?`surplus and 3rd paycheck ${fmt(c.target)}`:`surplus ${fmt(c.target)}`}${owed-c.target>0.5?` + ${fmt(owed-c.target)} from earlier months`:''}.${lastReg&&lastReg>today?` Move it after ${dShort(lastReg)}.`:''}`:'Nothing waiting to move right now.'}</span>
+      <span class="small muted">${owed>0?`This month's ${c.bonus?`surplus and 3rd paycheque ${fmt(c.target)}`:`surplus ${fmt(c.target)}`}${owed-c.target>0.5?` + ${fmt(owed-c.target)} from earlier months`:''}.${lastReg&&lastReg>today?` Move it after ${dShort(lastReg)}.`:''}`:'Nothing waiting to move right now.'}</span>
       <div><button class="btn sm" data-act="transfer" data-kind="emergency" data-amt="${owed}">I moved money</button></div></div>`;
   }else if(phase==='future'){
-    k1=`<div class="kpi hero"><span class="label">Planned for Emergency Savings</span><span class="big">${fmt(c.target)}</span><span class="small muted">${c.bonus?(c.liveSurplus<0?`3rd paycheck ${fmt(c.bonus)} after covering a ${fmt(-c.liveSurplus)} shortfall`:`Surplus ${fmt(c.liveSurplus)} + 3rd paycheck ${fmt(c.bonus)}`):`Surplus ${fmt(Math.max(0,c.liveSurplus))}`}</span></div>`;
+    k1=`<div class="kpi hero"><span class="label">Planned for Emergency Savings</span><span class="big">${fmt(c.target)}</span><span class="small muted">${c.bonus?(c.liveSurplus<0?`3rd paycheque ${fmt(c.bonus)} after covering a ${fmt(-c.liveSurplus)} shortfall`:`Surplus ${fmt(c.liveSurplus)} + 3rd paycheque ${fmt(c.bonus)}`):`Surplus ${fmt(Math.max(0,c.liveSurplus))}`}</span></div>`;
   }else{
     k1=`<div class="kpi hero"><span class="label">Emergency Savings target</span><span class="big">${fmt(c.target)}</span><span class="small muted">Moved in ${monthOnly(ym)}: ${fmt(c.moved.emergency)}</span></div>`;
   }
@@ -1566,9 +1573,9 @@ function lastCheckin(){const list=Object.values(S.checkins||{}).filter(x=>x&&isD
 function isNew(){return!C.incomesOf(settings()).length&&!Object.keys(S.bills).length&&!C.accountsOf(settings()).length}
 function welcomeCard(){
   const steps=[['Name your household','Who\'s in it, so spending can be tagged by person.','Household'],['Add your bank accounts','Chequing, savings, prepaid cards and cash, and what each is for.','Accounts','accounts'],
-    ['Add your income','Paychecks, and social assistance like ODSP or Ontario Works, and how often they come.','Social assistance','income'],['Add government benefits','The CCB, CGEB and provincial benefits. Payment dates fill in by themselves.','Government benefits and credits','income'],['Add your regular bills','Rent, phone, diapers, pet food: anything that repeats.','']];
+    ['Add your income','Paycheques, and social assistance like ODSP or Ontario Works, and how often they come.','Social assistance','income'],['Add government benefits','The CCB, CGEB and provincial benefits. Payment dates fill in by themselves.','Government benefits and credits','income'],['Add your regular bills','Rent, phone, diapers, pet food: anything that repeats.','']];
   return`${iosNotice()}<section class="card" style="padding:22px"><div class="ttl" style="margin-bottom:10px">${ico('star','amber')}<h2 style="font-size:1.4rem">Welcome. Let's set up your budget.</h2></div>
-   <p class="muted" style="max-width:60ch">This tool plans every paycheck, tells you when to move money between accounts, protects child benefits, and helps when a month comes up short. It works with no account and no sign-up. Everything stays on this device.</p>
+   <p class="muted" style="max-width:60ch">This tool plans every paycheque, tells you when to move money between accounts, protects child benefits, and helps when a month comes up short. It works with no account and no sign-up. Everything stays on this device.</p>
    <ol style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">${steps.map(([t,d,sec,tb],i)=>`<li class="pay" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="display:flex;gap:12px;align-items:flex-start;min-width:0"><span class="stepn">${i+1}</span><div><b>${t}</b><div class="small muted">${d}</div></div></div>
      <button class="btn sm" data-act="${sec?'goset':'tab'}" data-to="${esc(sec)}" data-tab="${tb||(sec?'settings':'fixed')}">Start</button></li>`).join('')}</ol>
    <div class="banner" style="margin-top:16px"><div><b>Already using this on another phone?</b> <span class="muted">Import your encrypted backup to bring everything over.</span></div><button class="btn primary" data-act="import">Import a backup</button></div></section>`;
@@ -1601,8 +1608,8 @@ function planCard(c,phase){
   const rentCard=rent.length?`<div class="pay"><div class="pay-h"><b>${rent.map(x=>esc(x.name)).join(' + ')}</b><span class="small muted">${rent.flatMap(x=>x.dates).map(dLabel).join(', ')}</span></div>
       <div class="line"><span>Comes in</span><span class="num">${fmt(c.rentIncome)}</span></div>
       <div class="line"><span>Rent &amp; housing</span><span class="num">${neg(c.housing)}</span></div>
-      <div class="line total"><span>${c.rentGap>0?'Rent gap (from the main paychecks)':'Left over'}</span><span class="num" style="color:var(--${c.rentGap>0?'bad':'ink'})">${c.rentGap>0?fmt(-c.rentGap):fmt(c.rentLeft)}</span></div></div>`
-    :(c.housing>0?`<div class="pay"><div class="pay-h"><b>Rent &amp; housing</b></div><div class="line"><span>Paid from the main paychecks</span><span class="num">${fmt(c.housing)}</span></div></div>`:'');
+      <div class="line total"><span>${c.rentGap>0?'Rent gap (from the main paycheques)':'Left over'}</span><span class="num" style="color:var(--${c.rentGap>0?'bad':'ink'})">${c.rentGap>0?fmt(-c.rentGap):fmt(c.rentLeft)}</span></div></div>`
+    :(c.housing>0?`<div class="pay"><div class="pay-h"><b>Rent &amp; housing</b></div><div class="line"><span>Paid from the main paycheques</span><span class="num">${fmt(c.housing)}</span></div></div>`:'');
   const reg=pays.map(({d,inc},i)=>{const left=round2(inc.amount-c.perPayBills-c.perPayFood-num(c.perPaySelf));
     return`<div class="pay"><div class="pay-h"><b>${esc(inc.name)}${pays.length>1?' · payday '+(i+1):''}</b><span class="small muted">${dLabel(d)}</span></div>
       <div class="line"><span>Comes in</span><span class="num">${fmt(inc.amount)}</span></div>
@@ -1788,7 +1795,7 @@ function projectionCard(T,today){
   const table=rows.map(r=>`<tr><td>${monthShort(r.ym)} ${r.ym.slice(0,4)}${r.bonus?'<span class="chip3">3 pays</span>':''}</td><td class="num">${fmt(r.income)}</td><td class="num">${fmt(r.bills+r.food)}</td><td class="num">${fmt(r.toSavings)}</td><td class="num">${fmt(r.em)}</td><td class="num">${fmt(r.ch)}</td></tr>`).join('');
   return`<section class="card"><div class="card-h"><div class="ttl">${ico('chart')}<h2>Next 6 months</h2></div><span class="small muted">If you stick to the plan</span></div>
    ${chartBox(spec)}
-   <p class="small muted">Bars show the Emergency Savings balance at each month's end. * marks a 3-paycheck month.</p>
+   <p class="small muted">Bars show the Emergency Savings balance at each month's end. * marks a 3-paycheque month.</p>
    <div class="tablewrap"><table><thead><tr><th>Month</th><th>Money in</th><th>Bills + food</th><th>Savings +/−</th><th>Emergency</th><th>Child Reserve</th></tr></thead><tbody>${table}</tbody></table></div></section>`;
 }
 function catCard(c){
@@ -1967,7 +1974,7 @@ function assistCard(c,s,src){const k=C.assistOf(src),P=C.ASSIST[k],cfg=C.dedCfg(
     <div class="field"><label for="ded-lag-${id}">Which payment a month's pay reduces</label><select id="ded-lag-${id}" data-ded="lag" data-sid="${id}" ${dis}>${opts([['2','The payment for two months later (January pay → March payment)'],['1','The payment for the next month (January pay → February payment)']],String(L))}</select><span class="hint">${esc(P.short)} payments are ${ex} they cover. Check this against your own statements.</span></div>
     <div class="fgrid"><label class="check"><input type="checkbox" data-ded="couple" data-sid="${id}" ${cfg.couple?'checked':''} ${dis}><span><b>We're a couple</b><br><span class="small muted">${P.assets?`Asset limit: ${fmt0(P.assets.couple)} for a couple, ${fmt0(P.assets.single)} single.`:P.rule==='qc'?'A couple can earn $300 before it counts.':'Used for household rules.'}</span></span></label>
      ${P.assets?`<div class="field"><label for="ded-deps-${id}">Dependants (not counting a spouse)</label><input id="ded-deps-${id}" type="number" min="0" max="12" value="${esc(num(cfg.deps))}" data-ded="deps" data-sid="${id}" ${dis}><span class="hint">Adds ${fmt0(P.assets.dep)} each to the asset limit.</span></div>`:''}</div></div>
-   ${C.incomesOf(s).some(x=>x.odsp)?'':`<p class="small" style="margin-top:10px">Next, set <b>How assistance counts it</b> on each income below, like a paycheck or EI.</p>`}
+   ${C.incomesOf(s).some(x=>x.odsp)?'':`<p class="small" style="margin-top:10px">Next, set <b>How assistance counts it</b> on each income below, like a paycheque or EI.</p>`}
    ${oc?`<div class="pay" style="margin-top:12px"><div class="pay-h"><b>${esc(oc.name)} · ${monthName(c.ym)}</b><span class="small muted">Based on ${monthOnly(oc.earnYm)} income</span></div>
      <div class="line"><span>Usual amount before deductions</span><span class="num">${fmt(oc.base)}</span></div>
      ${oc.lines.map(l=>`<div class="line"><span>${esc(l.names.join(' + '))}: ${fmt(l.amount)} (${esc(l.how)})</span><span class="num">${neg(l.deduct)}</span></div>`).join('')||'<div class="line"><span>No counted income that month</span><span class="num">$0.00</span></div>'}
@@ -1990,8 +1997,8 @@ function assistSetup(){const s=settings(),dis=S.readOnly?'disabled':'',list=C.in
      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span class="small muted">Next: ${nxt.slice(0,3).map(dShort).join(', ')||'—'}</span>${S.readOnly?'':`<button class="btn sm ghost danger" data-act="del-inc" data-id="${esc(x.id)}">Remove</button>`}</div></div></details>`}).join('')||'<div class="empty small">No social assistance added.</div>'}</div>
    ${S.readOnly?'':progs.length?`<div class="daterow" style="margin-top:10px"><select id="new-assist" aria-label="Program to add">${progs.map(([k,v])=>`<option value="${k}">${esc(v.name)}</option>`).join('')}</select><button class="btn" data-act="add-assist">Add</button></div>`
      :`<p class="small muted" style="margin-top:10px">No programs for your province yet. Turn on "Show programs from all provinces" in Settings, or add it as a regular income.</p>`}</section>`}
-function incomeSetup(){const s=settings(),dis=S.readOnly?'disabled':'';return assistSetup()+`   <section class="card"><div class="card-h"><div class="ttl">${ico('in')}<h2>Paychecks and other income</h2></div>${S.readOnly?'':'<button class="btn sm" data-act="add-inc">+ Add income</button>'}</div>
-     <p class="small muted" style="margin-bottom:10px">Paychecks and assistance payments. Set how often each one comes and the tool works out every payday, moving it to the business day before when it lands on a weekend or bank holiday.</p>
+function incomeSetup(){const s=settings(),dis=S.readOnly?'disabled':'';return assistSetup()+`   <section class="card"><div class="card-h"><div class="ttl">${ico('in')}<h2>Paycheques and other income</h2></div>${S.readOnly?'':'<button class="btn sm" data-act="add-inc">+ Add income</button>'}</div>
+     <p class="small muted" style="margin-bottom:10px">Paycheques and assistance payments. Set how often each one comes and the tool works out every payday, moving it to the business day before when it lands on a weekend or bank holiday.</p>
      <div class="form">${C.incomesOf(s).filter(x=>!C.assistOf(x)).map((x,i)=>{const sc=x.sched||{},t=sc.type||'monthly',nxt=[];for(let k=0;k<3&&nxt.length<3;k++)nxt.push(...C.schedDates(sc,ymAdd(ymOf(todayStr()),k)).filter(d=>d>=todayStr()));
        const wd=isDate(sc.anchor)?C.parse(sc.anchor).getDay():1;
        return`<details class="item" data-keep="src-${esc(x.id)}" ${S.open['src-'+x.id]?'open':''}><summary class="itemsum"><span><b>${esc(x.name)}</b><span class="small muted"> · ${fmt(x.amount)} · ${esc(((INCOME_TYPES.find(y=>y[0]===t)||[])[1]||'').split(' (')[0])}${nxt[0]?' · next '+dShort(nxt[0]):''}</span></span><span class="chev" aria-hidden="true">›</span></summary><div class="itembody">
@@ -2008,7 +2015,7 @@ function incomeSetup(){const s=settings(),dis=S.readOnly?'disabled':'';return as
          ${(s.people||[]).length?`<div class="field"><label for="src-person-${i}">Whose income</label><select id="src-person-${i}" data-src="${esc(x.id)}" data-srcf="person" ${dis}><option value="">—</option>${opts(s.people,x.person||'')}</select><span class="hint">Two jobs for one person share one exemption.</span></div>`:''}</div>`:''}
        ${(()=>{const r=reportCfg(x);return`<div class="fgrid" style="align-items:end"><label class="check"><input type="checkbox" data-src="${esc(x.id)}" data-srcf="reportOn" ${r.on?'checked':''} ${dis}><span><b>Remind us to report income</b><br><span class="small muted">For programs that need a monthly income report.</span></span></label>
          ${r.on?`<div class="field"><label for="src-rep-${i}">Report due by day</label><input id="src-rep-${i}" type="number" min="1" max="28" value="${esc(r.day||7)}" data-src="${esc(x.id)}" data-srcf="reportDay" ${dis}></div>`:''}</div>`})()}
-       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span class="small muted">Next: ${nxt.slice(0,3).map(dShort).join(', ')||'—'}</span>${S.readOnly?'':`<button class="btn sm ghost danger" data-act="del-inc" data-id="${esc(x.id)}">Remove</button>`}</div></div></details>`}).join('')||'<div class="empty">No income yet. Add each paycheck or assistance payment.</div>'}</div></section>
+       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span class="small muted">Next: ${nxt.slice(0,3).map(dShort).join(', ')||'—'}</span>${S.readOnly?'':`<button class="btn sm ghost danger" data-act="del-inc" data-id="${esc(x.id)}">Remove</button>`}</div></div></details>`}).join('')||'<div class="empty">No income yet. Add each paycheque or assistance payment.</div>'}</div></section>
    <section class="card"><div class="card-h"><div class="ttl">${ico('gift')}<h2>Government benefits and credits</h2></div></div>
      <p class="small muted" style="margin-bottom:10px">Pick a benefit and the tool knows its payment dates from the CRA and Service Canada published schedules, including bank holidays.</p>
      <div class="form">${C.creditsOf(s).map((x,i)=>{const nxt=[];for(let k=0;k<12&&nxt.length<3;k++)if(!isYm(x.start)||ymAdd(ymOf(todayStr()),k)>=x.start)nxt.push(...C.schedDates(C.creditSched(x),ymAdd(ymOf(todayStr()),k)).filter(d=>d>=todayStr()));

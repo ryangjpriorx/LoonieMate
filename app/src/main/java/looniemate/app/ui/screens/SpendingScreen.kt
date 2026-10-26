@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package looniemate.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
@@ -89,7 +91,7 @@ private fun SelfSpendingCard(m: looniemate.app.SpendingModel, vm: MainViewModel,
             }
         }
         Spacer(Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             FilledTonalButton(onClick = { open(Sheet.Self) }, modifier = Modifier.testTag("self-edit")) { Text("Change the list") }
             if (m.isCurrent && !m.locked) TextButton(onClick = { open(Sheet.Log(category = Core.SELF)) }) { Text("Log something else") }
         }
@@ -139,7 +141,7 @@ private fun ShareCard(vm: MainViewModel) {
         Text("Share your bills or everything logged as a spreadsheet (CSV), to open in Google Sheets or Excel, or to send to someone helping with your budget.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             FilledTonalButton(onClick = { share("spending") }, modifier = Modifier.testTag("csv-spending")) { Text("Spending") }
             FilledTonalButton(onClick = { share("bills") }, modifier = Modifier.testTag("csv-bills")) { Text("Bills") }
         }

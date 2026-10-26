@@ -118,6 +118,9 @@ class ScreensTest {
         if (rule.onAllNodesWithTag("self-log-0").fetchSemanticsNodes().isNotEmpty()) { rule.onNodeWithTag("self-log-0").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle() }
         if (rule.onAllNodesWithText("Coffee").fetchSemanticsNodes().isEmpty()) problems.add("$theme: the Personal Expenses list isn't on the Spending tab")
         rule.onNodeWithTag("self-edit").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); shot("$theme-sheet-self", sheet = true); closePage()
+        /* Last 6 months and the spreadsheet card, further down the Spending tab */
+        tab("Spending"); if (runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("csv-spending")) }.isSuccess) shot("$theme-Spending-history")
+        else problems.add("$theme: no spreadsheet card on the Spending tab")
         tab("Today"); if (runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("self-open")) }.isSuccess) shot("$theme-Today-self")
         else problems.add("$theme: no Personal Expenses card on Today")
         /* these sit further down a scrolling list, so they're drawn only when they're on screen */
@@ -192,6 +195,8 @@ class ScreensTest {
         rule.onNodeWithTag("reset-go").assertIsEnabled().performScrollTo().performClick(); settle()
         assertTrue("the budget is empty", vm.repo.docs.value.isEmpty())
         assertTrue("first-time setup starts again", rule.onAllNodesWithTag("a11y-continue").fetchSemanticsNodes().isNotEmpty())
+        /* the first-run screens a new person sees: the accessibility choices, then the welcome on Today */
+        shot("first-run-access", sheet = true); closePage(); shot("first-run-today")
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 

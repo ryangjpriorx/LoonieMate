@@ -10,7 +10,7 @@ object IncomeSetup {
     val TYPES = listOf("biweekly" to "Every 2 weeks", "weekly" to "Every week", "semimonthly" to "Twice a month (15th and last day)", "monthly" to "Monthly on a set day",
         "lastbiz" to "Last business day of the month", "firstbiz" to "First business day of the month")
     /** Keep in step with ROLES in web/index.html. */
-    val ROLES = listOf("rent" to "Covers rent first", "main" to "Main paycheck (bills and food are split across these paydays)", "other" to "Extra income")
+    val ROLES = listOf("rent" to "Covers rent first", "main" to "Main paycheque (bills and food are split across these paydays)", "other" to "Extra income")
     /** How assistance counts an income (keep in step with ODSP_T). */
     val COUNTS = listOf("" to "Not counted", "dis" to "Work pay of a person with a disability (ODSP)", "spouse" to "Work pay", "full" to "Counted in full (EI, CPP, spousal support)")
     val WEEKDAYS = listOf("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")

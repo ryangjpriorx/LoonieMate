@@ -12,7 +12,7 @@ object Accounts {
     class Purpose(val key: String, val label: String, val desc: String)
     /** Keep in step with PURPOSES in web/index.html. */
     val PURPOSES = listOf(
-        Purpose("main", "Main account", "Paychecks are held here and automatic bill payments come out. Money moves start from here."),
+        Purpose("main", "Main account", "Paycheques are held here and automatic bill payments come out. Money moves start from here."),
         Purpose("rent", "Pays rent", "New rent and housing bills are paid from here."),
         Purpose("everyday", "Everyday spending", "Food money and in-store purchases go here."),
         Purpose("online", "Online and subscriptions", "New subscriptions and online purchases go on this."),

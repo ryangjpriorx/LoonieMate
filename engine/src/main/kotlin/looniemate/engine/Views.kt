@@ -235,8 +235,8 @@ object Views {
         val out = mutableListOf<PayCard>()
         if (rent.isNotEmpty()) out.add(PayCard(rent.joinToString(" + ") { it.s("name") }, rent.flatMap { it.strList("dates") }.joinToString(", ") { Fmt.dLabel(it) }, listOf(
             Line("Comes in", money(c.n("rentIncome"))), Line("Rent & housing", neg(c.n("housing"))),
-            if (c.n("rentGap") > 0) Line("Rent gap (from the main paychecks)", money(-c.n("rentGap")), true, "bad") else Line("Left over", money(c.n("rentLeft")), true))))
-        else if (c.n("housing") > 0) out.add(PayCard("Rent & housing", "", listOf(Line("Paid from the main paychecks", money(c.n("housing"))))))
+            if (c.n("rentGap") > 0) Line("Rent gap (from the main paycheques)", money(-c.n("rentGap")), true, "bad") else Line("Left over", money(c.n("rentLeft")), true))))
+        else if (c.n("housing") > 0) out.add(PayCard("Rent & housing", "", listOf(Line("Paid from the main paycheques", money(c.n("housing"))))))
         val pays = main.flatMap { i -> i.strList("regular").map { d -> d to i } }.sortedBy { it.first }
         pays.forEachIndexed { idx, (d, i) -> val left = round2(i.n("amount") - c.n("perPayBills") - c.n("perPayFood") - c.n("perPaySelf"))
             out.add(PayCard(i.s("name") + (if (pays.size > 1) " · payday ${idx + 1}" else ""), Fmt.dLabel(d), listOf(Line("Comes in", money(i.n("amount"))), Line("Bills set-aside", neg(c.n("perPayBills"))),

@@ -96,7 +96,8 @@ fun BillSheet(vm: MainViewModel, id: String?, group0: String, close: () -> Unit)
 
     fun debtForm() = Views.DebtForm(dmode, principal, dstart, missed, owed, asOf, rate, extras.map { it.date to it.amount })
 
-    Text((if (id != null) "Edit " else "Add ") + (Labels.GROUPS[g]?.label ?: "Adults").lowercase() + " bill", style = MaterialTheme.typography.headlineSmall)
+    /* in the top bar like every other form: "Add a bill for the kids", "Edit bill" */
+    SheetTitle(if (id != null) "Edit " + b.s("name").ifEmpty { "bill" } else "Add a bill for " + when (g) { "baby" -> "the kids"; "pets" -> "the pets"; else -> "the adults" })
     TextFieldRow(name, { name = it.take(60) }, "Name", placeholder = if (g == "baby") "Diapers" else if (g == "pets") "Dog food" else "Hydro")
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         MoneyField(amount, { amount = it }, "Amount each time", Modifier.weight(1f))

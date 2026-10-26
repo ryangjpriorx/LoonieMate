@@ -13,14 +13,14 @@ const accountsON = [
   { id: 'a-sav', name: 'Savings', type: 'savings', kind: 'hisa', purposes: [] },
 ];
 
-/* 1. Ontario: ODSP for rent, a bi-weekly paycheck, benefits, every kind of bill */
+/* 1. Ontario: ODSP for rent, a bi-weekly paycheque, benefits, every kind of bill */
 const on = {
   'settings/main': household({
     startYm: '2026-11', trackFrom: '2026-10-20', babyDue: '2026-11-28', ccbEmergencyPct: 10, emergencyStart: 150, childStart: 40, foodPct: 100,
     accounts: accountsON,
     incomes: [
       { id: 'i-odsp', name: "Alex's ODSP", amount: 1289, assist: 'odsp', sched: { type: 'odsp' }, account: 'a-rent', role: 'rent', ded: { dis: true, work: true, wrb: true } },
-      { id: 'i-pay', name: "Sam's paycheck", amount: 1263.33, sched: { type: 'biweekly', anchor: '2026-10-26' }, account: 'a-main', role: 'main', odsp: 'spouse', person: 'Sam' },
+      { id: 'i-pay', name: "Sam's paycheque", amount: 1263.33, sched: { type: 'biweekly', anchor: '2026-10-26' }, account: 'a-main', role: 'main', odsp: 'spouse', person: 'Sam' },
       { id: 'i-side', name: 'Side work', amount: 120, sched: { type: 'monthly', day: 3 }, account: 'a-main', role: 'other', odsp: 'dis', person: 'Alex', start: '2026-12-01' },
     ],
     credits: [

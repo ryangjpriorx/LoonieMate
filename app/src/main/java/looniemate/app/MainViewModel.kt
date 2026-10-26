@@ -186,7 +186,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val (safe, note) = when {
             short && phase != "past" -> -c.n("net") to "Cover the rest from Emergency Savings. Child Reserve is last resort only."
             phase == "now" -> { val lastReg = c.strList("regularDays").lastOrNull()
-                owed to (if (owed > 0) "This month's ${if (c.n("bonus") > 0) "surplus and 3rd paycheck" else "surplus"}" + (if (owed - c.n("target") > 0.5) " + ${Fmt.money(owed - c.n("target"))} from earlier months" else "") + "." +
+                owed to (if (owed > 0) "This month's ${if (c.n("bonus") > 0) "surplus and 3rd paycheque" else "surplus"}" + (if (owed - c.n("target") > 0.5) " + ${Fmt.money(owed - c.n("target"))} from earlier months" else "") + "." +
                     (if (lastReg != null && lastReg > t) " Move it after ${Fmt.dShort(lastReg)}." else "") else "Nothing waiting to move right now.") }
             phase == "future" -> c.n("target") to "Planned for Emergency Savings"
             else -> c.n("target") to "Moved in ${Fmt.monthOnly(ym)}: ${Fmt.money(c["moved"].n("emergency"))}"

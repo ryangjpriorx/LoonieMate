@@ -254,7 +254,7 @@ fun UpdateBanner(st: Updater.State, vm: MainViewModel, go: (Tab) -> Unit) {
 @Composable
 private fun WelcomeCard(open: (Sheet) -> Unit) {
     SectionCard("Welcome to LoonieMate", Icons.Rounded.AutoAwesome, "amber") {
-        Text("LoonieMate plans every paycheck, tells you when to move money between accounts, protects child benefits, and helps when a month comes up short. Everything stays on this phone.",
+        Text("LoonieMate plans every paycheque, tells you when to move money between accounts, protects child benefits, and helps when a month comes up short. Everything stays on this phone.",
             style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(10.dp))
         Text("Already using the web version? Export an encrypted backup there and bring it over here. Starting fresh? Add your bank accounts first, then your bills. Setting up income and benefits in the app is coming next; for now do that in the web version.",
@@ -345,7 +345,7 @@ private fun StorageProblemCard(vm: MainViewModel, open: (Sheet) -> Unit) {
                 (if (vm.sync.on) "Your budget is coming back from the sync file. " else "") +
                 "If you have a backup, import it to get your budget back.", style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { open(Sheet.Import) }, modifier = Modifier.testTag("problem-import")) { Text("Import a backup") }
                 TextButton(onClick = { vm.repo.dismissProblem() }) { Text("Start fresh") }
             }
