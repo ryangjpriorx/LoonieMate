@@ -31,6 +31,8 @@ object Parity {
                 cmp("$p events", r["events"], J.of(Core.billEvents(st, ymAdd(cur, -1) + "-01", dayIn(ymAdd(cur, 1), 31))))
                 cmp("$p paydays", r["paydays"], J.of(Core.mainPaydays(st.settings, cur)))
                 cmp("$p funds", r["funds"], J.of(Core.fundsOf(st.settings)))
+                r["todo"]?.let { cmp("$p todo", it, Core.todo(st, today, addDays(today, -9))) }
+                r["todoChecked"]?.let { cmp("$p todo checked", it, Core.todo(st, today, today)) }
                 r["runway"]?.let { rw ->
                     val bal = Core.accountsOf(st.settings).mapIndexed { i, a -> a.s("id") to (if (i % 2 != 0) 900 + i * 13.37 else 25.5 * (i + 1)) }.toMap()
                     cmp("$p runway", rw, Core.runway(st, today, bal)) }

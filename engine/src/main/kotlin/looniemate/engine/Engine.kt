@@ -608,10 +608,10 @@ object Core {
             raw.add(r)
         }
         /* cash for bills paid in cash, taken out of the account that pays them */
-        fun addCash(date: String, src: String, amount0: Double, name: String, arrive: String?, due: String) {
+        fun addCash(date: String, src: String, amount0: Double, name: String, arrive: String?, due: String, bk: String, bym: String) {
             val amount = round2(amount0); if (!(amount > 0.004 && date.isNotEmpty()) || src.isEmpty() || src == cashAcct) return
             raw.add(J.obj("date" to date, "code" to src + "-" + cashAcct.ifEmpty { "cash" }, "from" to nm(src), "to" to (if (cashAcct.isNotEmpty()) nm(cashAcct) else "Cash"), "fromAcct" to "", "toAcct" to "",
-                "amount" to amount, "why" to "", "sav" to "", "cash" to true, "src" to src, "items" to listOf(J.obj("name" to name, "amount" to amount)), "arrive" to (arrive ?: date), "latest" to due))
+                "amount" to amount, "why" to "", "sav" to "", "cash" to true, "src" to src, "items" to listOf(J.obj("name" to name, "amount" to amount, "key" to bk, "ym" to bym)), "arrive" to (arrive ?: date), "latest" to due))
         }
         val mc = HashMap<String, Obj>(); fun calc(ym: String): Obj = mc.getOrPut(ym) { monthCalc(ym, st, from) }
         /* the latest day on or before [due] that money lands in [src]: a main payday (the main account funds the others then) or income paid into it */
@@ -633,7 +633,7 @@ object Core {
             all.filter { it.t("fund") }.forEach { x -> add(x.s("date"), x.s("acct").ifEmpty { main }, "", x.n("amount"), x.s("name"), x.s("fund")) }
             /* cash bills: take the cash out the day before it's due (ATMs work every day), but not before the money that pays for it is there */
             ev.filter { it.s("method") == "Cash" }.forEach { x -> val src = x.s("acct").ifEmpty { main }; val p = arrive(src, x.s("date")); var d = addDays(x.s("date"), -1)
-                if (p != null && p > d) d = p; addCash(d, src, x.n("amount"), x.s("name"), p, x.s("date")) }
+                if (p != null && p > d) d = p; addCash(d, src, x.n("amount"), x.s("name"), p, x.s("date"), x.s("key"), x.s("ym")) }
             /* any account that receives income (other than the main account) pays its own bills first */
             class In(val date: String, val amount: Double, val name: String)
             val ins = LinkedHashMap<String, MutableList<In>>()
@@ -685,7 +685,10 @@ object Core {
             if (m["items"].arr().isNotEmpty()) m["why"] = js(listOf("Cash for " + m["items"].arr().joinToString(", ") { it.s("name") }, m.s("why")).filter { it.isNotEmpty() }.joinToString(" · "))
             val r = atmParts(s, m, carry[m.s("ym")] ?: 0.0); carry[m.s("ym")] = r.second; parts[m.s("key")] = r.first }
         val out = mutableListOf<Obj>(); for (m in merged) out.addAll(if (m.t("cash")) parts[m.s("key")] ?: emptyList() else listOf(m))
-        return merge(out).filter { it.s("date") >= from && it.s("date") <= to }.map { m -> val mm = st.months[m.s("ym")]; m["done"] = js(mm != null && truthy(mm["moves"]?.get(m.s("key")))); m }
+        /* ticked, or, for cash taken out for bills, every one of those bills already ticked paid */
+        fun paid(x: J): Boolean = truthy(st.months[x.s("ym")]?.get("paid")?.get(x.s("key")))
+        return merge(out).filter { it.s("date") >= from && it.s("date") <= to }.map { m -> val mm = st.months[m.s("ym")]
+            m["done"] = js((mm != null && truthy(mm["moves"]?.get(m.s("key")))) || (m.t("cash") && m["items"].arr().isNotEmpty() && m["items"].arr().all { paid(it) })); m }
     }
 
     /** What an account's ATM can do (settings.accounts[]): the bills it gives out (atmNotes: 20, 10 or 5), a daily limit (atmLimit),
@@ -727,6 +730,34 @@ object Core {
             parts.add(base("date" to dd, "ym" to ymOf(dd), "key" to m.s("code") + "@" + dd, "amount" to round2(pA), "atm" to round2(pa), "extra" to (if (lastOne) round2(pa - pA) else 0.0),
                 "overBy" to (if (lastOne) round2(maxOf(0.0, pa - c.L)) else 0.0), "part" to i + 1, "parts" to days.size, "ask" to c.over.isEmpty())) }
         return parts to carry
+    }
+
+    /** Everything to do today, in one list (docs/plans/overhaul.md): bills due or overdue, money moves and cash to take out, income to
+     *  report, taxes to file in season, a month to lock, and the weekly balance check, plus the money landing today. Data only; each
+     *  version writes its own words. [lastCheck] is the date of the last balance check, or null. Same as the web's Core.todo. */
+    fun todo(st: Store, today: String, lastCheck: String?): Obj {
+        val s = st.settings; val up = upcoming(st, today, 0); val items = mutableListOf<J>()
+        for (e in up) if ((e.s("kind") == "bill" && !e.t("paid") && e.s("date") <= today) || (e.s("kind") == "move" && !e.t("done") && e.s("date") <= today)) items.add(e)
+        val incoming = up.filter { it.s("kind") == "in" && it.s("date") == today }
+        /* reporting income */
+        val ym = ymOf(today); val mm = st.months[ym]; val dom = today.substring(8, 10).toInt()
+        for (src in incomesOf(s)) { val (on, day) = Views.reportCfg(src); if (!on) continue
+            if (src.s("kind") == "ei") { val rd = Views.eiReportDay(src, today) ?: continue; if (rd < s.s("trackFrom")) continue; val key = src.s("id") + "@" + rd
+                if (truthy(st.months[ymOf(rd)]?.get("reported")?.get(key))) continue
+                items.add(J.obj("kind" to "report", "ei" to true, "id" to src.s("id"), "name" to src.s("name"), "key" to key, "ym" to ymOf(rd), "date" to rd, "overdue" to (diffDays(rd, today) > 2))); continue }
+            val due = minOf(28, maxOf(1, day)); val dueDate = "$ym-${pad(due)}"
+            if (truthy(mm?.get("reported")?.get(src.s("id"))) || dom < due - 6 || dueDate < s.s("trackFrom")) continue
+            items.add(J.obj("kind" to "report", "ei" to false, "id" to src.s("id"), "name" to src.s("name"), "key" to src.s("id"), "ym" to ym, "date" to dueDate, "overdue" to (dom > due), "forYm" to ymAdd(ym, -1))) }
+        /* taxes, February to June, until ticked for the year */
+        val y = today.substring(0, 4).toInt(); val md = today.substring(5)
+        if (!s["taxReminder"].isFalse() && md >= "02-01" && md <= "06-30" && !truthy(s["taxFiled"]?.get(y.toString())))
+            items.add(J.obj("kind" to "tax", "year" to y.toString(), "date" to "$y-04-30", "overdue" to (md > "04-30")))
+        /* the oldest finished month that isn't locked */
+        if (isYm(s["startYm"])) { var m = s.s("startYm"); while (m < ym) { if (!st.months[m].t("closed")) { items.add(J.obj("kind" to "lock", "ym" to m, "date" to dayIn(m, 31), "overdue" to false)); break }; m = ymAdd(m, 1) } }
+        /* the weekly balance check, once there are everyday accounts */
+        if (accountsOf(s).any { it.s("type") != "savings" }) { val days = if (lastCheck != null && isDate(J.S(lastCheck))) diffDays(lastCheck, today) else null
+            if (days == null || days > 7) items.add(J.obj("kind" to "check", "days" to days, "date" to today, "overdue" to false)) }
+        return J.obj("items" to items, "incoming" to incoming)
     }
 
     fun upcoming(st: Store, today: String, days: Int, labelOf: ((Obj) -> String)? = null): List<Obj> {

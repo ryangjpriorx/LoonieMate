@@ -922,8 +922,8 @@ function moneyMoves(st,from,to){
     if(toCash(toId,kind))Object.assign(r,{cash:true,src:fromId,items:[],arrive:date,latest:date});
     raw.push(r)};
   /* cash for bills paid in cash, taken out of the account that pays them */
-  const addCash=(date,src,amount,name,arrive,due)=>{amount=round2(amount);if(!(amount>0.004&&date)||!src||src===cashAcct)return;
-    raw.push({date,code:src+'-'+(cashAcct||'cash'),from:nm(src),to:cashAcct?nm(cashAcct):'Cash',fromAcct:'',toAcct:'',amount,why:'',sav:'',cash:true,src,items:[{name,amount}],arrive:arrive||date,latest:due})};
+  const addCash=(date,src,amount,name,arrive,due,bk,bym)=>{amount=round2(amount);if(!(amount>0.004&&date)||!src||src===cashAcct)return;
+    raw.push({date,code:src+'-'+(cashAcct||'cash'),from:nm(src),to:cashAcct?nm(cashAcct):'Cash',fromAcct:'',toAcct:'',amount,why:'',sav:'',cash:true,src,items:[{name,amount,key:bk,ym:bym}],arrive:arrive||date,latest:due})};
   const mc={},calc=ym=>mc[ym]||(mc[ym]=monthCalc(ym,st,from));
   /* the latest day on or before [due] that money lands in [src]: a main payday (the main account funds the others then) or income paid into it */
   const arrive=(src,due)=>{let best=null;for(const ym of[ymAdd(ymOf(due),-1),ymOf(due)]){const c=calc(ym),ds=(c.paydays||[]).slice();
@@ -939,7 +939,7 @@ function moneyMoves(st,from,to){
     /* bills that pay into a savings fund become moves into that fund */
     all.filter(x=>x.fund).forEach(x=>add(x.date,x.acct||main,'',x.amount,x.name,x.fund));
     /* cash bills: take the cash out the day before it's due (ATMs work every day), but not before the money that pays for it is there */
-    ev.filter(x=>x.method==='Cash').forEach(x=>{const src=x.acct||main,p=arrive(src,x.date);let d=addDays(x.date,-1);if(p&&p>d)d=p;addCash(d,src,x.amount,x.name,p,x.date)});
+    ev.filter(x=>x.method==='Cash').forEach(x=>{const src=x.acct||main,p=arrive(src,x.date);let d=addDays(x.date,-1);if(p&&p>d)d=p;addCash(d,src,x.amount,x.name,p,x.date,x.key,x.ym)});
     /* any account that receives income (other than the main account) pays its own bills first; the rest goes to the main account, or the main account tops it up */
     const ins={};
     for(const inc of c.incomes||[]){const a=acctOf(inc.account);if(a===main)continue;for(const d of inc.regular.concat(inc.bonusDates))(ins[a]=ins[a]||[]).push({date:d,amount:inc.amount,name:inc.name})}
@@ -983,7 +983,9 @@ function moneyMoves(st,from,to){
     if(m.items.length)m.why=['Cash for '+m.items.map(x=>x.name).join(', '),m.why].filter(Boolean).join(' · ');
     const r=atmParts(s,m,carry[m.ym]||0);carry[m.ym]=r.carry;parts.set(m.key,r.parts)});
   const out=[];for(const m of merged)out.push(...(m.cash?parts.get(m.key):[m]));
-  return merge(out).filter(m=>m.date>=from&&m.date<=to).map(m=>{const mm=(st.months||{})[m.ym]||{};m.done=!!(mm.moves&&mm.moves[m.key]);return m});
+  /* ticked, or, for cash taken out for bills, every one of those bills already ticked paid */
+  const paid=x=>{const mm=(st.months||{})[x.ym]||{};return!!(mm.paid&&mm.paid[x.key])};
+  return merge(out).filter(m=>m.date>=from&&m.date<=to).map(m=>{const mm=(st.months||{})[m.ym]||{};m.done=!!(mm.moves&&mm.moves[m.key])||!!(m.cash&&m.items.length&&m.items.every(paid));return m});
 }
 /* What an account's ATM can do (settings.accounts[]): the bills it gives out (atmNotes: 20, 10 or 5), a daily limit (atmLimit),
    whether the bank has tellers (tellers:false for an online bank), and what to do over the limit (atmOver: days | split, atmAlso). */
@@ -1012,6 +1014,35 @@ function atmParts(s,m,hand){const c=atmOf(s,m.src),A=round2(m.amount),fromHand=r
   days.forEach((d,i)=>{const lastOne=i===days.length-1,pa=lastOne?leftAtm:c.L,pA=lastOne?leftA:Math.min(c.L,leftA);leftAtm=round2(leftAtm-pa);leftA=round2(leftA-pA);
     parts.push(base({date:d,ym:ymOf(d),key:m.code+'@'+d,amount:round2(pA),atm:round2(pa),extra:lastOne?round2(pa-pA):0,overBy:lastOne?round2(Math.max(0,pa-c.L)):0,part:i+1,parts:days.length,ask:!c.over}))});
   return done(parts)}
+/* Reporting income (assistance and EI): whether to remind, and when. EI every two weeks from an anchor; assistance by a day of the month. */
+function reportCfg(src){if(src.report)return src.report;if(src.kind==='ei'){const a=(src.sched||{}).anchor;return{on:true,every:14,anchor:isDate(a)?addDays(a,-3):''}}const k=assistOf(src);return k&&ASSIST[k].report?{on:true,day:ASSIST[k].report}:{on:false,day:7}}
+/* EI is reported every two weeks: the latest report day on or before today (shown for 6 days), or null */
+function eiReportDay(src,today){const r=reportCfg(src),a=r.anchor;if(!r.on||!isDate(a)||today<a)return null;const d=addDays(today,-(diffDays(a,today)%14));
+  return diffDays(d,today)<=6&&(!isDate(src.end)||d<=addDays(src.end,14))&&(!isDate(src.start)||d>=src.start)?d:null}
+/* Everything to do today, in one list (docs/plans/overhaul.md): bills due or overdue, money moves and cash to take out, income to
+   report, taxes to file in season, a month to lock, and the weekly balance check. Plus the money landing today. Data only; each
+   version writes its own words. [lastCheck] is the date of the last balance check (or null). */
+function todo(st,today,lastCheck){
+  const s=st.settings,up=upcoming(st,today,0),items=[];
+  for(const e of up)if(e.kind==='bill'&&!e.paid&&e.date<=today||e.kind==='move'&&!e.done&&e.date<=today)items.push(e);
+  const incoming=up.filter(e=>e.kind==='in'&&e.date===today);
+  /* reporting income */
+  const ym=ymOf(today),mm=st.months[ym]||{},dom=+today.slice(8,10);
+  for(const src of incomesOf(s)){const r=reportCfg(src);if(!r.on)continue;
+    if(src.kind==='ei'){const rd=eiReportDay(src,today);if(!rd||rd<s.trackFrom)continue;const key=src.id+'@'+rd;if(((st.months[ymOf(rd)]||{}).reported||{})[key])continue;
+      items.push({kind:'report',ei:true,id:src.id,name:src.name,key,ym:ymOf(rd),date:rd,overdue:diffDays(rd,today)>2});continue}
+    const due=Math.min(28,Math.max(1,num(r.day)||7)),dueDate=ym+'-'+pad(due);
+    if((mm.reported||{})[src.id]||dom<due-6||dueDate<s.trackFrom)continue;
+    items.push({kind:'report',ei:false,id:src.id,name:src.name,key:src.id,ym,date:dueDate,overdue:dom>due,forYm:ymAdd(ym,-1)})}
+  /* taxes, February to June, until ticked for the year */
+  const y=+today.slice(0,4),md=today.slice(5);
+  if(s.taxReminder!==false&&md>='02-01'&&md<='06-30'&&!(s.taxFiled||{})[y])items.push({kind:'tax',year:String(y),date:y+'-04-30',overdue:md>'04-30'});
+  /* the oldest finished month that isn't locked */
+  if(isYm(s.startYm))for(let m=s.startYm;m<ym;m=ymAdd(m,1))if(!(st.months[m]&&st.months[m].closed)){items.push({kind:'lock',ym:m,date:dayIn(m,31),overdue:false});break}
+  /* the weekly balance check, once there are everyday accounts */
+  if(accountsOf(s).some(a=>a.type!=='savings')){const days=isDate(lastCheck)?diffDays(lastCheck,today):null;
+    if(days==null||days>7)items.push({kind:'check',days,date:today,overdue:false})}
+  return{items,incoming}}
 function upcoming(st,today,days,labelOf){
   const s=st.settings,end=addDays(today,days);
   let from=addDays(today,-21);if(isDate(s.trackFrom)&&from<s.trackFrom)from=s.trackFrom;
@@ -1125,7 +1156,7 @@ function foodPeriod(c,today,s){
   const spent=first?c.foodH1:c.foodH2,left=round2(allow-spent),daysLeft=len-idx+1;
   return{half:first?1:2,allow,spent,left,target:round2(allow/len),expected:round2(allow*idx/len),daysLeft,perDay:round2(Math.max(0,left)/Math.max(1,daysLeft)),end:first?ym+'-15':dayIn(ym,31),len};
 }
-root.Core={SELF,bAmt,atmOf,atmParts,selfPlanFor,selfItemMonthly,pad,num,round2,ymd,parse,ymOf,ymAdd,dim,addDays,diffDays,dayIn,isYm,isDate,sum,billDates,billPlanForMonth,resolve,listExp,monthCalc,snapshot,savingsState,targetsThrough,projection,upcoming,foodPeriod,FOOD,billEvents,moneyMoves,startingMonth,runway,debtInfo,debtParts,ASSIST,assistOf,assistSched,dedCfg,countsAs,inRange,fundsOf,fundOf,holidaysOf,isBiz,schedDates,schedEstimated,CREDIT_TYPES,incomesOf,creditsOf,creditSched,creditName,mainPaydays,accountsOf,acctById,acctId,acctFor};
+root.Core={SELF,bAmt,atmOf,atmParts,todo,reportCfg,eiReportDay,selfPlanFor,selfItemMonthly,pad,num,round2,ymd,parse,ymOf,ymAdd,dim,addDays,diffDays,dayIn,isYm,isDate,sum,billDates,billPlanForMonth,resolve,listExp,monthCalc,snapshot,savingsState,targetsThrough,projection,upcoming,foodPeriod,FOOD,billEvents,moneyMoves,startingMonth,runway,debtInfo,debtParts,ASSIST,assistOf,assistSched,dedCfg,countsAs,inRange,fundsOf,fundOf,holidaysOf,isBiz,schedDates,schedEstimated,CREDIT_TYPES,incomesOf,creditsOf,creditSched,creditName,mainPaydays,accountsOf,acctById,acctId,acctFor};
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 
@@ -1534,9 +1565,8 @@ function reminders(today){const out=[];
 const TAX_HELP='https://www.canada.ca/en/revenue-agency/campaigns/free-tax-help.html',SIMPLEFILE='https://www.canada.ca/en/revenue-agency/campaigns/file-my-return',STUDIOTAX='https://www.studiotax.com/paymentpage.html';
 const REPORT_HELP='https://stepstojustice.ca/steps/income-assistance/5-tell-odsp-about-money-you-make-and-life-changes/';
 /* EI is reported every two weeks: the latest report day on or before today (shown for 6 days), or null */
-function eiReportDay(src,today){const r=reportCfg(src),a=r.anchor;if(!r.on||!isDate(a)||today<a)return null;const d=addDays(today,-(diffDays(a,today)%14));
-  return diffDays(d,today)<=6&&(!isDate(src.end)||d<=addDays(src.end,14))&&(!isDate(src.start)||d>=src.start)?d:null}
-function reportCfg(src){if(src.report)return src.report;if(src.kind==='ei'){const a=(src.sched||{}).anchor;return{on:true,every:14,anchor:isDate(a)?addDays(a,-3):''}}const k=C.assistOf(src);return k&&C.ASSIST[k].report?{on:true,day:C.ASSIST[k].report}:{on:false,day:7}}
+function eiReportDay(src,today){return C.eiReportDay(src,today)}
+function reportCfg(src){return C.reportCfg(src)}
 function extraReminders(today){
   const s=settings(),out=[],y=+today.slice(0,4),md=today.slice(5),T=st();
   /* tax filing season: benefits depend on filing every year */
