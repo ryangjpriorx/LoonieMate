@@ -65,6 +65,8 @@ class ScreensTest {
         rule.runOnUiThread {
             vm.repo.replaceAll(LinkedHashMap(docs))
             vm.prefs.setLook(Prefs.Look(if (dark) "dark" else "light", false, "iris", effects))
+            /* phone-only settings can carry over from the README test; show the one-time cards here */
+            vm.prefs.onboarded = false; vm.prefs.notifAsked = false; vm.prefs.notifSnoozeUntil = 0
         }
         settle()
     }
