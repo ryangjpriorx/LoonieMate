@@ -2,7 +2,7 @@
 
 The plan agreed on 2026-10-25, and where the work stands. The web version gets no notifications.
 Work is done in small stages; each one is committed, built and tested on GitHub before the next.
-**To pick up again: find the first unticked stage below and start there.**
+**All stages done; released in 0.3.0.** Next: docs/plans/getting-on-track.md.
 
 ## Progress
 
@@ -22,8 +22,8 @@ Work is done in small stages; each one is committed, built and tested on GitHub 
 - [x] **Stage 5b**: the bundled notification (summary + one silent row per item) with **Paid / Moved it / Got it /
   Remind me later** and Undo, sharing the tick code with Today; lock-screen privacy; unlock required for the buttons.
 - [x] **Stage 6**: Reminders settings card (times, how often, weekend times, heads-up days, test notification).
-- [ ] **Stage 7**: late-reminder detection and the battery-settings help card.
-- [ ] **Stage 8**: ride-along reminders (report income, tax filing, backup, weekly balance check), then release.
+- [x] **Stage 7**: late-reminder detection and the battery-settings help card.
+- [x] **Stage 8**: ride-along reminders (report income, tax filing, backup, weekly balance check), then release.
 
 ## Notes for picking up
 

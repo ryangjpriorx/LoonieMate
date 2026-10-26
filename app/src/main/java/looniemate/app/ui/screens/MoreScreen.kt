@@ -138,7 +138,7 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
         }
         item {
             SectionCard("Coming to the app next", Icons.Rounded.Schedule, "amber", index = 3) {
-                Text("Google Drive sync, reminders and a home screen widget are next.",
+                Text("Google Drive sync and a home screen widget are next.",
                     style = MaterialTheme.typography.bodyMedium)
             }
         }
