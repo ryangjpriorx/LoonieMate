@@ -52,6 +52,10 @@ import looniemate.engine.*
 fun CatchUpSheet(vm: MainViewModel, first: Boolean, close: () -> Unit) {
     var step by remember { mutableIntStateOf(0) }
     androidx.compose.runtime.LaunchedEffect(Unit) { vm.startCatchUp(first) }
+    /* each step saves as it goes, so moving on means nothing typed is at risk; back goes a step back first */
+    val page = LocalPage.current
+    androidx.compose.runtime.LaunchedEffect(step) { page?.saved() }
+    androidx.activity.compose.BackHandler(enabled = step > 0) { step-- }
     val titles = listOf("What's in your accounts right now?", "This month so far", "Anything you're behind on?", "Food so far", "Where you stand")
     Text("Step ${step + 1} of ${titles.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     LinearProgressIndicator(progress = { (step + 1f) / titles.size }, modifier = Modifier.fillMaxWidth())

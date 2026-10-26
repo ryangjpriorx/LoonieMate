@@ -4,6 +4,8 @@ package looniemate.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -58,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -138,7 +141,10 @@ fun LoonieMateApp(vm: MainViewModel) {
         is looniemate.app.sync.SyncManager.State.Error -> "Sync needs attention · see Settings"
         is looniemate.app.sync.SyncManager.State.Ok -> looniemate.app.ui.screens.syncedAgo(s.at); else -> "" }
 
+    /* an open form is a full-screen page over the app; the app underneath is hidden from screen readers meanwhile */
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
+        modifier = if (sheet != null) Modifier.clearAndSetSemantics {} else Modifier,
         topBar = {
             Column {
                 CenterAlignedTopAppBar(
@@ -189,7 +195,12 @@ fun LoonieMateApp(vm: MainViewModel) {
             else Screen(tab, vm, content, open) { tab = it }
         }
     }
-    sheet?.let { s -> Sheets(s, vm, onDismiss = { sheet = null }, open = open) }
+    /* the page slides up a little and fades in (just appears with Less motion); "last" keeps it drawn while it fades out */
+    val last = remember { arrayOfNulls<Sheet>(1) }; sheet?.let { last[0] = it }
+    if (LocalFx.current) AnimatedVisibility(sheet != null, enter = fadeIn() + slideInVertically { it / 16 }, exit = fadeOut()) {
+        last[0]?.let { s -> Sheets(s, vm, onDismiss = { sheet = null }, open = open) } }
+    else sheet?.let { s -> Sheets(s, vm, onDismiss = { sheet = null }, open = open) }
+    }
 }
 
 @Composable

@@ -26,17 +26,16 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,14 +71,12 @@ import looniemate.engine.strList
 import looniemate.engine.ymAdd
 import looniemate.engine.*
 
+/** The open form, shown as a full-screen page (see Page.kt). */
 @Composable
 fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet) -> Unit) {
-    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val scope = rememberCoroutineScope()
-    val close: () -> Unit = { scope.launch { state.hide() }.invokeOnCompletion { onDismiss() } }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val close: () -> Unit = onDismiss
+    /* a new page for each form, so one form's typing or scroll never carries into the next (setup chains forms) */
+    key(sheet) { Page(onClose = onDismiss) {
             when (sheet) {
                 is Sheet.Log -> LogSheet(vm, sheet.oneTime, close, sheet.category)
                 is Sheet.Food -> FoodSheet(vm, sheet.ym, close, open)
@@ -101,12 +98,8 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
                 is Sheet.Export -> ExportSheet(vm, close)
                 is Sheet.Import -> ImportSheet(vm, close)
             }
-        }
-    }
+    } }
 }
-
-@Composable
-fun SheetTitle(t: String) = Text(t, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
 
 @Composable
 fun ErrorText(e: String?) { if (e != null) Text(e, color = toneColors("bad").first, fontWeight = FontWeight.SemiBold) }
@@ -122,7 +115,7 @@ private fun LogSheet(vm: MainViewModel, oneTime: Boolean, close: () -> Unit, cat
     LaunchedEffect(Unit) { try { focus.requestFocus() } catch (_: Exception) {} }
     SheetTitle(if (oneTime) "Add a one-time expense" else "Log spending")
     if (oneTime) TextFieldRow(note, { note = it }, "What is it?", placeholder = "Car seat, vet visit, birthday gift…")
-    OutlinedTextField(amt, { v -> amt = v.replace(',', '.').filter { it.isDigit() || it == '.' } }, Modifier.fillMaxWidth().focusRequester(focus), label = { Text(if (oneTime) "Amount" else "How much?") },
+    OutlinedTextField(amt, marking { v: String -> amt = v.replace(',', '.').filter { it.isDigit() || it == '.' } }, Modifier.fillMaxWidth().focusRequester(focus), label = { Text(if (oneTime) "Amount" else "How much?") },
         prefix = { Text("$", style = MaterialTheme.typography.headlineMedium) }, textStyle = MaterialTheme.typography.headlineMedium.merge(Numbers), singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
     if (!oneTime) {
@@ -240,7 +233,7 @@ private fun ExportSheet(vm: MainViewModel, close: () -> Unit) {
 
 @Composable
 private fun PasswordField(v: String, onChange: (String) -> Unit, label: String) =
-    OutlinedTextField(v, onChange, Modifier.fillMaxWidth(), label = { Text(label) }, singleLine = true, visualTransformation = PasswordVisualTransformation(),
+    OutlinedTextField(v, marking(onChange), Modifier.fillMaxWidth(), label = { Text(label) }, singleLine = true, visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
 
 @Composable

@@ -37,14 +37,15 @@ import looniemate.engine.*
 
 @Composable
 fun MoneyField(value: String, onChange: (String) -> Unit, label: String, modifier: Modifier = Modifier.fillMaxWidth(), hint: String? = null) {
-    OutlinedTextField(value, { v -> onChange(v.replace(',', '.').filter { it.isDigit() || it == '.' }) }, modifier, label = { Text(label) }, prefix = { Text("$") },
+    val ch = marking(onChange)
+    OutlinedTextField(value, { v -> ch(v.replace(',', '.').filter { it.isDigit() || it == '.' }) }, modifier, label = { Text(label) }, prefix = { Text("$") },
         singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.merge(Numbers), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         supportingText = slot(hint), placeholder = { Text("0.00") })
 }
 
 @Composable
 fun TextFieldRow(value: String, onChange: (String) -> Unit, label: String, modifier: Modifier = Modifier.fillMaxWidth(), hint: String? = null, number: Boolean = false, placeholder: String? = null) {
-    OutlinedTextField(value, onChange, modifier, label = { Text(label) }, singleLine = true, supportingText = slot(hint),
+    OutlinedTextField(value, marking(onChange), modifier, label = { Text(label) }, singleLine = true, supportingText = slot(hint),
         placeholder = slot(placeholder), keyboardOptions = if (number) KeyboardOptions(keyboardType = KeyboardType.Decimal) else KeyboardOptions.Default)
 }
 
@@ -59,7 +60,8 @@ private fun fromMillis(ms: Long): String = LocalDate.ofEpochDay(Math.floorDiv(ms
 
 /** A date field that opens the Android calendar picker. */
 @Composable
-fun DateField(value: String, onChange: (String) -> Unit, label: String, modifier: Modifier = Modifier.fillMaxWidth(), hint: String? = null, clearable: Boolean = false) {
+fun DateField(value: String, onChange0: (String) -> Unit, label: String, modifier: Modifier = Modifier.fillMaxWidth(), hint: String? = null, clearable: Boolean = false) {
+    val onChange = marking(onChange0)
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
         OutlinedTextField(if (isDate(value)) Fmt.dLabel(value) + ", " + value.take(4) else "", {}, Modifier.fillMaxWidth(), readOnly = true, label = { Text(label) },
@@ -78,7 +80,8 @@ fun DateField(value: String, onChange: (String) -> Unit, label: String, modifier
 
 /** A drop-down list of choices (key to label). */
 @Composable
-fun SelectField(value: String, options: List<Pair<String, String>>, onChange: (String) -> Unit, label: String, modifier: Modifier = Modifier.fillMaxWidth(), hint: String? = null) {
+fun SelectField(value: String, options: List<Pair<String, String>>, onChange0: (String) -> Unit, label: String, modifier: Modifier = Modifier.fillMaxWidth(), hint: String? = null) {
+    val onChange = marking(onChange0)
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
         OutlinedTextField(options.find { it.first == value }?.second ?: "", {}, Modifier.fillMaxWidth(), readOnly = true, label = { Text(label) },

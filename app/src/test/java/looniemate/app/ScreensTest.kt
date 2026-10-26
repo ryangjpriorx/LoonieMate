@@ -37,19 +37,21 @@ class ScreensTest {
 
     private fun settle() { repeat(12) { Thread.sleep(60); rule.waitForIdle() } }
 
-    /** Every window on screen (the app, plus a bottom sheet when one is open). */
+    /** Every window on screen (the app, plus a dialog when one is open). */
     private fun windows(): List<android.view.View> {
         val g = Class.forName("android.view.WindowManagerGlobal"); val inst = g.getMethod("getInstance").invoke(null)
         val f = g.getDeclaredField("mViews"); f.isAccessible = true
         @Suppress("UNCHECKED_CAST") return (f.get(inst) as List<android.view.View>).filter { it.isShown && it.width > 0 }
     }
 
-    private fun shot(name: String, sheet: Boolean = false) {
+    /** [dialog]: draw the pop-up window opened on top of the app instead (forms are pages inside the app's own window). */
+    private fun shot(name: String, sheet: Boolean = false, dialog: Boolean = false) {
         settle()
         try {
-            /* this test's own window, or the sheet window opened on top of it (earlier tests' windows can linger) */
+            if (sheet && rule.onAllNodesWithTag("page").fetchSemanticsNodes().isEmpty()) error("no page open")
+            /* this test's own window, or the dialog window opened on top of it (earlier tests' windows can linger) */
             val decor = rule.activity.window.decorView; val all = windows(); val mine = all.indexOf(decor)
-            val v = if (sheet) all.drop(mine + 1).lastOrNull() ?: error("no sheet window") else decor
+            val v = if (dialog) all.drop(mine + 1).lastOrNull() ?: error("no dialog window") else decor
             val b = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888)
             rule.runOnUiThread { v.draw(android.graphics.Canvas(b)) }
             File(out, "$name.png").outputStream().use { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -74,35 +76,54 @@ class ScreensTest {
     /* Settings opens from the gear in the top bar, which isn't there while Settings is already open */
     private fun tab(name: String) { if (rule.onAllNodesWithTag("tab-$name").fetchSemanticsNodes().isNotEmpty()) { rule.onNodeWithTag("tab-$name").performClick(); settle() } }
     private fun back() { rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }; settle() }
+    /** Closes the open page with its ✕, answering "Leave" if it asks. */
+    private fun closePage() {
+        if (rule.onAllNodesWithTag("page-close").fetchSemanticsNodes().isEmpty()) return
+        rule.onNodeWithTag("page-close").performClick(); settle()
+        if (rule.onAllNodesWithTag("leave-go").fetchSemanticsNodes().isNotEmpty()) { rule.onNodeWithTag("leave-go").performClick(); settle() }
+        if (rule.onAllNodesWithTag("page").fetchSemanticsNodes().isNotEmpty()) problems.add("a page didn't close")
+    }
 
     private fun tour(theme: String, dark: Boolean) {
         seed(dark, effects = false)
         for (t in listOf("Today", "Month", "Bills", "Spending", "Savings", "More")) { tab(t); shot("$theme-$t") }
-        tab("Today"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-log", sheet = true); back()
-        tab("Bills"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-bill", sheet = true); back()
-        tab("More"); rule.onNodeWithTag("account-0").performClick(); shot("$theme-sheet-account", sheet = true); back()
-        tab("More"); rule.onNodeWithTag("food-settings").performClick(); shot("$theme-sheet-food", sheet = true); back()
+        tab("Today"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-log", sheet = true); closePage()
+        /* typing then going back asks first; Keep going stays on the page with what was typed, Leave closes it */
+        tab("Today"); rule.onNodeWithTag("fab").performClick(); settle()
+        rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[0].performTextInput("12.50"); back()
+        if (rule.onAllNodesWithTag("leave-stay").fetchSemanticsNodes().isEmpty()) problems.add("$theme: leaving with typing didn't ask first")
+        else { shot("$theme-leave-ask", dialog = true); rule.onNodeWithTag("leave-stay").performClick(); settle()
+            if (rule.onAllNodesWithText("12.50").fetchSemanticsNodes().isEmpty()) problems.add("$theme: Keep going lost what was typed") }
+        closePage()
+        /* nothing typed: back just closes */
+        rule.onNodeWithTag("fab").performClick(); settle(); back()
+        if (rule.onAllNodesWithTag("page").fetchSemanticsNodes().isNotEmpty()) { problems.add("$theme: an untouched page didn't close on back"); closePage() }
+        tab("Bills"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-bill", sheet = true); closePage()
+        tab("More"); rule.onNodeWithTag("account-0").performClick(); shot("$theme-sheet-account", sheet = true); closePage()
+        tab("More"); rule.onNodeWithTag("food-settings").performClick(); shot("$theme-sheet-food", sheet = true); closePage()
         /* these sit further down a scrolling list, so they're drawn only when they're on screen */
         tab("More")
         if (runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("test-reminder")) }.isSuccess) shot("$theme-More-reminders")
         tab("Today"); tab("More")
         rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("sync-create")); settle(); shot("$theme-More-sync")
-        tab("Today"); tab("More"); if (runCatching { rule.onNodeWithTag("add-income").performScrollTo().performClick() }.isSuccess) { shot("$theme-sheet-income", sheet = true); back() }
+        tab("Today"); tab("More"); if (runCatching { rule.onNodeWithTag("add-income").performScrollTo().performClick() }.isSuccess) { shot("$theme-sheet-income", sheet = true); closePage() }
         tab("Month")
         rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("month-income")); settle()
         rule.onNodeWithTag("month-income").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle()
         if (rule.onAllNodesWithText("Lock this month").fetchSemanticsNodes().isEmpty()) problems.add("$theme: this month's income sheet didn't open")
-        shot("$theme-sheet-month-income", sheet = true); back()
+        shot("$theme-sheet-month-income", sheet = true); closePage()
         /* getting on track: fill in balances, step through to Where you stand */
         tab("More")
         rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("get-on-track")); settle()
         rule.onNodeWithTag("get-on-track").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle(); shot("$theme-catchup-1", sheet = true)
         rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction()).fetchSemanticsNodes().indices.forEach { i -> rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[i].performScrollTo().performTextInput("${200 + i * 150}") }
         repeat(4) { k -> rule.onNodeWithTag("cu-next").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle(); shot("$theme-catchup-${k + 2}", sheet = true) }
-        back()
+        /* back goes a step back inside getting on track, not out of it */
+        back(); if (rule.onAllNodesWithText("Food so far").fetchSemanticsNodes().isEmpty()) problems.add("$theme: back didn't go to the previous step")
+        closePage()
         tab("More"); rule.onNodeWithTag("checkin-more").performClick(); settle()
         rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction()).fetchSemanticsNodes().indices.forEach { i -> rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[i].performScrollTo().performTextInput("${100 + i * 250}") }
-        rule.onNodeWithTag("compare").performScrollTo().performClick(); shot("$theme-sheet-checkin", sheet = true); back()
+        rule.onNodeWithTag("compare").performScrollTo().performClick(); shot("$theme-sheet-checkin", sheet = true); closePage()
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 
