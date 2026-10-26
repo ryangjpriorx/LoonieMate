@@ -67,6 +67,39 @@ class Prefs(context: Context) {
         get() = sp.getInt("notifiedVersion", 0)
         set(v) { sp.edit().putInt("notifiedVersion", v).apply() }
 
+    /* ---- reminders (Stage 6 adds the settings card; until then these are the defaults) ---- */
+    var remindersOn: Boolean
+        get() = sp.getBoolean("remindersOn", true)
+        set(v) { sp.edit().putBoolean("remindersOn", v).apply() }
+    /** minutes after midnight, comma separated, first reminder first */
+    var reminderTimes: String
+        get() = sp.getString("reminderTimes", "510,1140")!!
+        set(v) { sp.edit().putString("reminderTimes", v).apply() }
+    /** Saturday and Sunday times, or empty for the same every day */
+    var reminderWeekendTimes: String
+        get() = sp.getString("reminderWeekendTimes", "")!!
+        set(v) { sp.edit().putString("reminderWeekendTimes", v).apply() }
+    var padDays: Int
+        get() = sp.getInt("padDays", 2)
+        set(v) { sp.edit().putInt("padDays", v).apply() }
+    var movesEveningBefore: Boolean
+        get() = sp.getBoolean("movesEveningBefore", false)
+        set(v) { sp.edit().putBoolean("movesEveningBefore", v).apply() }
+    private fun times(t: String) = t.split(',').mapNotNull { it.trim().toIntOrNull() }.filter { it in 0..1439 }.take(3)
+    fun reminderConfig(): Reminders.Config = if (!remindersOn) Reminders.Config(times = emptyList())
+        else Reminders.Config(times(reminderTimes), times(reminderWeekendTimes).ifEmpty { null }, padDays, movesEveningBefore)
+    /** when the next reminder should fire and when the last one did (for spotting a phone that delays them, Stage 7) */
+    var reminderDueAt: Long
+        get() = sp.getLong("reminderDueAt", 0)
+        set(v) { sp.edit().putLong("reminderDueAt", v).apply() }
+    var reminderFiredAt: Long
+        get() = sp.getLong("reminderFiredAt", 0)
+        set(v) { sp.edit().putLong("reminderFiredAt", v).apply() }
+    /** the waking day and slot of the reminder on screen ("day|slot|slots"), so ticking things off can update it */
+    var reminderShown: String?
+        get() = sp.getString("reminderShown", null)
+        set(v) { sp.edit().putString("reminderShown", v).apply() }
+
     var group: String
         get() = sp.getString("billGroup", "adults")!!
         set(v) { sp.edit().putString("billGroup", v).apply() }

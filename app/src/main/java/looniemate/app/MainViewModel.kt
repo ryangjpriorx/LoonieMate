@@ -197,8 +197,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val before = paths.associateWith { repo.docs.value[it]?.copy() }
         block()
         if (message.isNotEmpty()) messages.trySend(Undo(message, before))
+        looniemate.app.notify.ReminderAlarm.refreshShown(getApplication())
     }
-    fun undo(u: Undo) { u.paths.forEach { (p, v) -> repo.restore(p, v) } }
+    fun undo(u: Undo) { u.paths.forEach { (p, v) -> repo.restore(p, v) }; looniemate.app.notify.ReminderAlarm.refreshShown(getApplication()) }
     fun say(msg: String) { messages.trySend(Undo(msg, emptyMap())) }
 
     private fun patchMonth(ym: String, patch: Obj) = repo.update("months/$ym", patch)

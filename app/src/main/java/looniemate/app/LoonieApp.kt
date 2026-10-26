@@ -22,5 +22,6 @@ class LoonieApp : Application() {
         updater = Updater(this, prefs)
         looniemate.app.notify.Notifs.createChannels(this)
         looniemate.app.notify.UpdateCheck.schedule(this)
+        looniemate.app.notify.ReminderAlarm.schedule(this)
     }
 }

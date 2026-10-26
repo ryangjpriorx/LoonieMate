@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <!-- reminders to pay bills and move money, and word of a new version (asked for, Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- setting reminder alarms again after the phone restarts -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- allowBackup is off: Android's own cloud backup would copy the budget unencrypted.
          LoonieMate's encrypted backups are used instead. -->
@@ -36,5 +38,17 @@
         <receiver
             android:name=".update.InstallReceiver"
             android:exported="false" />
+
+        <!-- bill and money-move reminders; set again after a restart, an app update or a clock change -->
+        <receiver
+            android:name=".notify.ReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
