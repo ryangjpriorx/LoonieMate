@@ -33,14 +33,14 @@ object DeviceClass {
         return ram >= 5.5 && cores >= 8 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
     }
 
-    /** Shown under the Visual effects switch: what LoonieMate suggests for this phone, and why. */
+    /** Shown under the Less motion switch (Settings → Accessibility): what LoonieMate suggests for this phone, and why. */
     fun describe(c: Context): String {
         val ram = totalRamGb(c); val mem = if (ram >= 0.5) " (${"%.0f".format(ram)} GB of memory)" else ""
         return when {
-            animationsOff(c) -> "Suggested: off, because animations are turned off in this phone's settings."
-            am(c).isLowRamDevice -> "Suggested: off, to keep this phone quick."
-            effectsByDefault(c) -> "Suggested: on. This phone has plenty of power$mem."
-            else -> "Suggested: off, to keep this phone quick$mem."
+            animationsOff(c) -> "Suggested here, because animations are turned off in this phone's settings."
+            am(c).isLowRamDevice -> "Suggested here, to keep this phone quick."
+            effectsByDefault(c) -> "This phone has plenty of power for motion$mem."
+            else -> "Suggested here, to keep this phone quick$mem."
         }
     }
 }

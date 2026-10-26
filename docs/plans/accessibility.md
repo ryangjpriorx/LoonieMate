@@ -75,7 +75,7 @@ Work in small stages; each is committed, built and tested on GitHub before the n
 - [x] **Stage 1**: the always-on fixes: TalkBack sentences, actions and headings on Today, Month, Bills, Spending,
   Savings and the sheets; status icons and words; 48 dp targets; layouts at the largest font size; the contrast test
   for the current themes (fix anything it catches). Compose UI tests at font scale 2.0 with accessibility checks on.
-- [ ] **Stage 2**: storage and the Accessibility card: `Prefs` keys, an `Access` settings object passed down like
+- [x] **Stage 2**: storage and the Accessibility card: `Prefs` keys, an `Access` settings object passed down like
   `LocalFx` (e.g. `LocalAccess`), the card below Appearance with all switches; Less motion moved in and following the
   phone's animation setting live.
 - [ ] **Stage 3**: Bigger text, Bold text and the Easier-to-read font.
@@ -90,6 +90,10 @@ Work in small stages; each is committed, built and tested on GitHub before the n
 
 ## Notes for picking up
 
+- Stage 2 (done): `Prefs.Access` (textSize 0–3, bold, font, contrast, colorBlind, moreTime, bigButtons; keys `a11y*`),
+  `Prefs.access` flow, `Prefs.a11yAsked`, `Prefs.phoneNoMotion` (set in `MainActivity.onResume` from
+  ANIMATOR_DURATION_SCALE). `LocalAccess` in `Theme.kt`; `LoonieTheme(..., access)`. `AccessibilityCard` in
+  `MoreScreen.kt` below Appearance; Less motion = `!Look.effects`, forced on when the phone's animations are off.
 - Stage 1 (done): `ContrastTest` (app unit test) checks every theme, light and dark, at 4.5:1 (text on all surfaces,
   status and bill-group colours on surfaces, tints and card tops, accents, button text). Light-mode colours were
   darkened to pass: in `Theme.kt` LightExtra good 1C7240, warn 8C5900, bad B33924, adults 2E65A5, baby AB3A6A,
