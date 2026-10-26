@@ -40,8 +40,10 @@ The only network use is checking this repository for updates.
 | `web/` | The web version. |
 | `signing/` | The release signing key, encrypted. |
 
-Every push builds a test copy of the app (see **Actions**). Pushing a tag like `v0.2.0` publishes a
-signed release; release notes come from `docs/releases/v0.2.0.md`.
+Every push builds a test copy of the app and draws every screen (pictures land on the `screens`
+branch). To publish a signed release, set the new version in `version.txt` (for example `0.2.0`) and
+add release notes in `docs/releases/v0.2.0.md`; the Release workflow builds, signs and publishes it,
+and phones offer the update. Signing needs the `SIGNING_PASSPHRASE` Actions secret.
 
 ```
 node parity/gen.js          # the web version's answers
