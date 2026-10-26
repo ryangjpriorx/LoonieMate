@@ -16,16 +16,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
 
       - name: Work out the web version's answers
         run: node parity/gen.js
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -33,10 +33,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Check the app engine matches the web version
-        run: ./gradlew :engine:test --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew :engine:test --stacktrace 2>&1 | tee "$RUNNER_TEMP/build.log"
 
       - name: Build a test copy of the app
-        run: ./gradlew :app:assembleDebug --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleDebug --stacktrace 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
+      - name: Show what went wrong
+        if: failure()
+        run: .github/report-errors.sh "$RUNNER_TEMP/build.log"
 
       - uses: actions/upload-artifact@v4
         with:
