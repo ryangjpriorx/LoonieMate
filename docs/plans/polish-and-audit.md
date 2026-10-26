@@ -29,7 +29,7 @@ GitHub before the next, and released when a group of fixes is worth updating for
   restart, time zone and date changes, large text and TalkBack, small and large screens.
 - **Speed:** the month calculation is re-run inside screens on every redraw (9 places in the UI); the Today,
   Month and Settings screens with a full year of data.
-- **Code health:** ~~the old family names still used as field names in the engine~~ (done in 0.8.x: renamed to
+- **Code health:** ~~the old family names still used as field names in the engine~~ (done 2026-10-26, ships in the next release: renamed to
   `rentIncome`, `rentDate`, `rentLeft`, `mainPer`, `mainRegular`; old snapshots still read), "Sheet" names left over now that forms are pages,
   31 catch-all `catch (e: Exception)` blocks that may hide real problems, the 585-line view model, duplicated logic
   between the web UI and the Kotlin views, unused code and imports.
