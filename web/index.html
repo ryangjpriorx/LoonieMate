@@ -957,13 +957,41 @@ function debtInfo(st,id,today){
   return{mode:dp.orig?'original':'balance',principal:dp.P,owed:dp.P,start,asOf:start,rate:dp.rate,missed:missedUsed,missedAsked:dp.missed,
     paid:round2(paid),made,extraPaid:round2(xPaid),extraCount:xCount,extraFuture:round2(xFuture),interestSoFar:round2(intSoFar),remaining,payments:n,finish:left<=0.004?finish:null,futureInterest:round2(futInt),stuck};
 }
+/* "Where you stand": day by day from today, starting from what the day-to-day accounts hold now (bal: account id → amount),
+   adding each payday and taking off each unpaid bill, food money and planned one-time expense, to find the first day
+   money runs short. Runs to the end of the month, or to next month's first main payday if that's later (so rent on the
+   1st is covered). Overdue bills count as due today. Savings contributions and protected benefits are left out. */
+function runway(st,today,bal){
+  const s=st.settings,cur=ymOf(today),next=ymAdd(cur,1);
+  const monthEnd=dayIn(cur,31),firstPay=mainPaydays(s,next).find(d=>d>monthEnd);
+  const end=firstPay||addDays(monthEnd,7);
+  const start=round2(accountsOf(s).filter(a=>a.type!=='savings').reduce((t,a)=>t+num(bal&&bal[a.id]),0));
+  const ev=[];const push=(date,kind,name,amount)=>{if(amount)ev.push({date,kind,name,amount:round2(amount)})};
+  for(let ym=cur;ym<=ymOf(end);ym=ymAdd(ym,1)){const c=monthCalc(ym,st,today);
+    for(const inc of c.incomes||[])for(const d of inc.dates)if(d>today&&d<=end)push(d,'in',inc.name,num(inc.amount));
+    for(const cr of c.crAll||[])if(!cr.protect)for(const d of cr.dates)if(d>today&&d<=end)push(d,'in',cr.name,num(cr.amount));
+    if(ym===cur){const fp=foodPeriod(c,today,s);push(today,'food','Food money left for '+(fp.half===1?'the 1st–15th':'the 16th–end'),Math.max(0,fp.left));if(fp.half===1)push(ym+'-16','food','Food for the 16th–end',num(c.foodHalf))}
+    else{if(ym+'-01'<=end)push(ym+'-01','food','Food for the 1st–15th',num(c.foodHalf));if(ym+'-16'<=end)push(ym+'-16','food','Food for the 16th–end',num(c.foodHalf))}}
+  let from=addDays(today,-21);if(isDate(s.trackFrom)&&from<s.trackFrom)from=s.trackFrom;
+  for(const e of billEvents(st,from,end)){if(e.fund)continue;const m=st.months[e.ym];if(m&&m.paid&&m.paid[e.key])continue;
+    push(e.date<today?today:e.date,e.date<today?'overdue':'bill',e.name,num(e.amount))}
+  for(const ym in st.expenses||{})for(const e of listExp(st.expenses[ym]))if(e.oneTime&&e.date>=today&&e.date<=end)push(e.date,'oneoff',e.note||'One-time expense',num(e.amount));
+  const order={in:0,overdue:1,bill:2,oneoff:3,food:4};
+  ev.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:order[a.kind]-order[b.kind]);
+  const days=[];let b=start,low=start,lowDate=today,short=null;
+  for(const e of ev){let d=days[days.length-1];if(!d||d.date!==e.date){d={date:e.date,items:[],bal:b};days.push(d)}
+    d.items.push(e);b=round2(b+(e.kind==='in'?e.amount:-e.amount));d.bal=b}
+  for(const d of days){if(d.bal<low){low=d.bal;lowDate=d.date}
+    if(!short&&d.bal<0){const nx=ev.find(e=>e.kind==='in'&&e.date>d.date);short={date:d.date,amount:round2(-d.bal),nextIn:nx?nx.date:null}}}
+  return{from:today,to:end,start,days,low:round2(low),lowDate,short};
+}
 function foodPeriod(c,today,s){
   const ym=c.ym||ymOf(today),day=+today.slice(8,10),n=dim(ym),first=day<=15;
   const len=first?15:n-15,idx=first?day:day-15,allow=num(c.foodHalf);
   const spent=first?c.foodH1:c.foodH2,left=round2(allow-spent),daysLeft=len-idx+1;
   return{half:first?1:2,allow,spent,left,target:round2(allow/len),expected:round2(allow*idx/len),daysLeft,perDay:round2(Math.max(0,left)/Math.max(1,daysLeft)),end:first?ym+'-15':dayIn(ym,31),len};
 }
-root.Core={pad,num,round2,ymd,parse,ymOf,ymAdd,dim,addDays,diffDays,dayIn,isYm,isDate,sum,billDates,billPlanForMonth,resolve,listExp,monthCalc,snapshot,savingsState,targetsThrough,projection,upcoming,foodPeriod,FOOD,billEvents,moneyMoves,startingMonth,debtInfo,debtParts,ASSIST,assistOf,assistSched,dedCfg,fundsOf,fundOf,holidaysOf,isBiz,schedDates,schedEstimated,CREDIT_TYPES,incomesOf,creditsOf,creditSched,creditName,mainPaydays,accountsOf,acctById,acctId,acctFor};
+root.Core={pad,num,round2,ymd,parse,ymOf,ymAdd,dim,addDays,diffDays,dayIn,isYm,isDate,sum,billDates,billPlanForMonth,resolve,listExp,monthCalc,snapshot,savingsState,targetsThrough,projection,upcoming,foodPeriod,FOOD,billEvents,moneyMoves,startingMonth,runway,debtInfo,debtParts,ASSIST,assistOf,assistSched,dedCfg,fundsOf,fundOf,holidaysOf,isBiz,schedDates,schedEstimated,CREDIT_TYPES,incomesOf,creditsOf,creditSched,creditName,mainPaydays,accountsOf,acctById,acctId,acctFor};
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 

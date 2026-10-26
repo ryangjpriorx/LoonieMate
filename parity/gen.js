@@ -77,6 +77,7 @@ for (const sc of scenarios) {
     r.events = C.billEvents(st, C.ymAdd(cur, -1) + '-01', C.dayIn(C.ymAdd(cur, 1), 31));
     r.paydays = C.mainPaydays(st.settings, cur);
     r.funds = C.fundsOf(st.settings);
+    r.runway = C.runway(st, today, ckBal(st.settings));
     r.checkin = CK.run(st, docs, { date: C.addDays(today, -12), day: 1500.25 }, ckBal(st.settings), today);
     r.status = {}; for (const ym of [cur, C.ymAdd(cur, 1), C.ymAdd(cur, -1)]) { const c = C.monthCalc(ym, st, today); r.status[ym] = UI.getStatus(c, C.upcoming(st, today, 10, label), UI.phaseOf(ym, today, st.settings), today, st.settings); }
     res[today] = r;

@@ -699,6 +699,42 @@ object Core {
             "payments" to n, "finish" to (if (left <= 0.004) finish else null), "futureInterest" to round2(futInt), "stuck" to stuck)
     }
 
+    /**
+     * "Where you stand": day by day from today, starting from what the day-to-day accounts hold now ([bal] by account id),
+     * adding each payday and taking off each unpaid bill, food money and planned one-time expense, to find the first day
+     * money runs short. A line-by-line port of the web version's runway(), checked by the parity tests.
+     */
+    fun runway(st: Store, today: String, bal: Map<String, Double>): Obj {
+        val s = st.settings; val cur = ymOf(today); val next = ymAdd(cur, 1)
+        val monthEnd = dayIn(cur, 31); val firstPay = mainPaydays(s, next).find { it > monthEnd }
+        val end = firstPay ?: addDays(monthEnd, 7)
+        var t0 = 0.0; accountsOf(s).filter { it.s("type") != "savings" }.forEach { t0 += bal[it.s("id")] ?: 0.0 }; val start = round2(t0)
+        val ev = mutableListOf<Obj>()
+        fun push(date: String, kind: String, name: String, amount: Double) { if (amount != 0.0 && !amount.isNaN()) ev.add(J.obj("date" to date, "kind" to kind, "name" to name, "amount" to round2(amount))) }
+        var ym = cur
+        while (ym <= ymOf(end)) { val c = monthCalc(ym, st, today)
+            for (inc in c["incomes"].arr()) for (d in inc.strList("dates")) if (d > today && d <= end) push(d, "in", inc.s("name"), num(inc["amount"]))
+            for (cr in c["crAll"].arr()) if (!cr.t("protect")) for (d in cr.strList("dates")) if (d > today && d <= end) push(d, "in", cr.s("name"), num(cr["amount"]))
+            if (ym == cur) { val fp = foodPeriod(c, today)
+                push(today, "food", "Food money left for " + (if (fp.n("half") == 1.0) "the 1st–15th" else "the 16th–end"), maxOf(0.0, fp.n("left")))
+                if (fp.n("half") == 1.0) push("$ym-16", "food", "Food for the 16th–end", c.n("foodHalf")) }
+            else { if ("$ym-01" <= end) push("$ym-01", "food", "Food for the 1st–15th", c.n("foodHalf")); if ("$ym-16" <= end) push("$ym-16", "food", "Food for the 16th–end", c.n("foodHalf")) }
+            ym = ymAdd(ym, 1) }
+        var from = addDays(today, -21); if (isDate(s["trackFrom"]) && from < s.s("trackFrom")) from = s.s("trackFrom")
+        for (e in billEvents(st, from, end)) { if (e.t("fund")) continue; val m = st.months[e.s("ym")]; if (m != null && truthy(m["paid"]?.get(e.s("key")))) continue
+            val d = e.s("date"); push(if (d < today) today else d, if (d < today) "overdue" else "bill", e.s("name"), num(e["amount"])) }
+        for ((_, mp) in st.expenses) for (e in listExp(mp)) if (e.t("oneTime") && e.s("date") >= today && e.s("date") <= end) push(e.s("date"), "oneoff", if (e.t("note")) e.s("note") else "One-time expense", num(e["amount"]))
+        val order = mapOf("in" to 0, "overdue" to 1, "bill" to 2, "oneoff" to 3, "food" to 4)
+        val sorted = ev.sortedWith(compareBy<Obj> { it.s("date") }.thenBy { order[it.s("kind")] ?: 9 })
+        val days = mutableListOf<Obj>(); var b = start; var low = start; var lowDate = today; var short: Obj? = null
+        for (e in sorted) { var d = days.lastOrNull(); if (d == null || d.s("date") != e.s("date")) { d = J.obj("date" to e.s("date"), "items" to J.A(), "bal" to b); days.add(d) }
+            (d["items"] as J.A).list.add(e); b = round2(b + (if (e.s("kind") == "in") e.n("amount") else -e.n("amount"))); d["bal"] = J.N(b) }
+        for (d in days) { if (d.n("bal") < low) { low = d.n("bal"); lowDate = d.s("date") }
+            if (short == null && d.n("bal") < 0) { val nx = sorted.find { it.s("kind") == "in" && it.s("date") > d.s("date") }
+                short = J.obj("date" to d.s("date"), "amount" to round2(-d.n("bal")), "nextIn" to nx?.s("date")) } }
+        return J.obj("from" to today, "to" to end, "start" to start, "days" to days, "low" to round2(low), "lowDate" to lowDate, "short" to short)
+    }
+
     fun foodPeriod(c: J, today: String): Obj {
         val ym = if (c.t("ym")) c.s("ym") else ymOf(today); val day = today.substring(8, 10).toInt(); val n = dim(ym); val first = day <= 15
         val len = if (first) 15 else n - 15; val idx = if (first) day else day - 15; val allow = c.n("foodHalf")
