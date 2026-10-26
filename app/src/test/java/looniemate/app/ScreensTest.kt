@@ -71,6 +71,7 @@ class ScreensTest {
         for (t in listOf("Today", "Month", "Bills", "Spending", "More")) { tab(t); shot("$theme-$t") }
         tab("Today"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-log", sheet = true); back()
         tab("Bills"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-bill", sheet = true); back()
+        tab("More"); rule.onNodeWithTag("account-0").performClick(); shot("$theme-sheet-account", sheet = true); back()
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 

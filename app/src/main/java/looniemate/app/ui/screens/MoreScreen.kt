@@ -24,7 +24,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Schedule
@@ -56,7 +58,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import looniemate.app.BuildConfig
 import looniemate.app.MainViewModel
 import looniemate.app.update.Updater
+import looniemate.app.ui.ClickRow
+import looniemate.app.ui.EmptyNote
+import looniemate.app.ui.IconBadge
 import looniemate.app.ui.SectionCard
+import androidx.compose.material3.Icon
+import androidx.compose.ui.platform.testTag
+import looniemate.engine.Accounts
+import looniemate.engine.Core
+import looniemate.engine.Docs
 import looniemate.app.ui.Sheet
 import looniemate.app.ui.toneColors
 import looniemate.app.ui.theme.PALETTES
@@ -72,6 +82,7 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
     val today by vm.today.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { AccountsCard(vm, open) }
         item {
             SectionCard("Appearance", Icons.Rounded.Palette, trailing = "Only this phone", index = 0) {
                 Text("Light or dark", fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(6.dp))
@@ -120,7 +131,7 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
         }
         item {
             SectionCard("Coming to the app next", Icons.Rounded.Schedule, "amber", index = 3) {
-                Text("Food, Savings, Income and benefits, Accounts and balance checks are next, then Google Drive sync, reminders and a home screen widget. Until then, change those in the web version and import a backup here.",
+                Text("Food, Savings, Income and benefits and balance checks are next, then Google Drive sync, reminders and a home screen widget. Until then, change those in the web version and import a backup here.",
                     style = MaterialTheme.typography.bodyMedium)
             }
         }
@@ -180,4 +191,43 @@ private fun UpdatePanel(st: Updater.State, vm: MainViewModel) {
     Spacer(Modifier.height(10.dp))
     var auto by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(vm.prefs.autoUpdate) }
     SwitchRow("Check for updates automatically", "Only checks; nothing installs without you.", auto) { auto = it; vm.prefs.autoUpdate = it }
+}
+
+/** Every account the family uses, and what each one is for. Money moves, new bills and food money are routed by these. */
+@Composable
+private fun AccountsCard(vm: MainViewModel, open: (Sheet) -> Unit) {
+    val docs by vm.repo.docs.collectAsStateWithLifecycle()
+    val today by vm.today.collectAsStateWithLifecycle()
+    val s = Docs.settings(docs["settings/main"], today)
+    val list = Core.accountsOf(s)
+    val bills = docs.filterKeys { it.startsWith("bills/") }.values
+    SectionCard("Accounts", Icons.Rounded.AccountBalance, "gold", index = 0) {
+        Text("Every account you use. Tick what each one is for and LoonieMate works out where money should go: which account pays new bills, where food money goes, and where to send savings.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(8.dp))
+        if (list.isEmpty()) EmptyNote("No accounts yet. Add the accounts you use.")
+        else {
+            if (Core.acctFor(s, "main") == null) {
+                Text("Tick \"Main account\" on one account so money moves can work.", color = toneColors("bad").first, fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(6.dp))
+            }
+            list.forEachIndexed { i, a ->
+                val used = Accounts.billsUsing(s, bills, a.s("id"))
+                Box(Modifier.testTag("account-$i")) {
+                    ClickRow({ open(Sheet.Account(a.s("id"))) }) {
+                        IconBadge(Icons.Rounded.AccountBalance, if (a.s("type") == "savings") "green" else "sky", 32.dp)
+                        Column(Modifier.weight(1f)) {
+                            Text(a.s("name"), fontWeight = FontWeight.SemiBold)
+                            Text(Accounts.summary(a), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (used > 0) Text("Pays $used bill${if (used > 1) "s" else ""}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Rounded.ChevronRight, "Edit ${a.s("name")}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        FilledTonalButton(onClick = { open(Sheet.Account(null)) }, modifier = Modifier.testTag("add-account")) { Text("+ Add an account") }
+    }
 }

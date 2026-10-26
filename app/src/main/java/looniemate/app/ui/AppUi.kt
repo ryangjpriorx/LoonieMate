@@ -84,6 +84,7 @@ sealed class Sheet {
     class Bill(val id: String?, val group: String) : Sheet()
     class Adjust(val ym: String, val id: String, val defer: Boolean) : Sheet()
     class Transfer(val kind: String, val amount: Double?) : Sheet()
+    class Account(val id: String?) : Sheet()
     object Export : Sheet()
     object Import : Sheet()
 }

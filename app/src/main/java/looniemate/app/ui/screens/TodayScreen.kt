@@ -231,10 +231,11 @@ private fun WelcomeCard(open: (Sheet) -> Unit) {
         Text("LoonieMate plans every paycheck, tells you when to move money between accounts, protects child benefits, and helps when a month comes up short. Everything stays on this phone.",
             style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(10.dp))
-        Text("Already using the web version? Export an encrypted backup there and bring it over here. Setting up accounts, income and benefits in the app is coming in the next update; for now you can add bills and log spending here.",
+        Text("Already using the web version? Export an encrypted backup there and bring it over here. Starting fresh? Add your bank accounts first, then your bills. Setting up income and benefits in the app is coming next; for now do that in the web version.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Button(onClick = { open(Sheet.Import) }) { Text("Import a backup") }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { open(Sheet.Import) }) { Text("Import a backup") }
+            FilledTonalButton(onClick = { open(Sheet.Account(null)) }) { Text("Add an account") }
             FilledTonalButton(onClick = { open(Sheet.Bill(null, "adults")) }) { Text("Add a bill") } }
     }
 }

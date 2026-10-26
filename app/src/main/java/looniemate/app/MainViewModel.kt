@@ -231,6 +231,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteBill(id: String) { val p = "bills/$id"; change("Bill deleted", listOf(p, "meta/tombstones")) { repo.delete(p) } }
 
+    /* ---------- accounts (settings.accounts, the same list the web version's Accounts tab edits) ---------- */
+
+    /** Saves an account. Returns an error message, or null when it worked. */
+    fun saveAccount(id: String?, name: String, type: String, kind: String, purposes: List<String>): String? {
+        if (name.isBlank()) return "Give the account a name."
+        val s = settings()
+        if (Core.accountsOf(s).any { it.s("id") != id && it.s("name").equals(name.trim(), ignoreCase = true) }) return "You already have an account called ${name.trim()}."
+        val list = Accounts.saved(s, id ?: ("a" + repo.newId()), name, type, kind, purposes)
+        change(if (id != null) "Saved ${name.trim()}" else "Added ${name.trim()}", listOf("settings/main")) { saveSettings(J.obj("accounts" to list)) }
+        return null
+    }
+
+    fun deleteAccount(id: String) {
+        val s = settings(); val name = Core.acctById(s, id)?.s("name") ?: "the account"
+        val used = Accounts.billsUsing(s, repo.docs.value.filterKeys { it.startsWith("bills/") }.values, id)
+        change("Removed $name" + (if (used > 0) ". Give its bills a new account." else ""), listOf("settings/main")) { saveSettings(Accounts.removed(s, id)) }
+    }
+
     fun skip(ym: String, id: String, amount: Double) = change("Giving up ${Fmt.money(amount)} in ${Fmt.monthOnly(ym)}", listOf("months/$ym")) {
         patchMonth(ym, J.obj("skipped" to J.obj(id to J.obj("amount" to round2(amount))))) }
     fun unskip(ym: String, id: String) = change("Back in the budget", listOf("months/$ym")) { patchMonth(ym, J.obj("skipped" to J.obj(id to J.Null))) }
