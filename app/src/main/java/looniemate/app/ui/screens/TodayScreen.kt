@@ -8,6 +8,15 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.runtime.key
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.foundation.layout.Arrangement
@@ -84,10 +93,14 @@ import looniemate.engine.n
 import looniemate.engine.s
 import looniemate.engine.*
 
+/**
+ * Today: what to do, and am I okay (docs/plans/overhaul.md). The date and one status chip, at most one notice, the To do
+ * list (overdue first, with what's done today folded underneath), the food and Personal Expenses money, quick buttons,
+ * and the next 7 days. Nothing else.
+ */
 @Composable
 fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go: (Tab) -> Unit, state: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
     val m by vm.todayModel.collectAsStateWithLifecycle()
-    val upd by vm.updater.state.collectAsStateWithLifecycle()
     val model = m ?: return
     val s = vm.settings()
     LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -97,80 +110,168 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
                     Text(Fmt.weekday(model.today).uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                     Text(Fmt.longDate(model.today), style = MaterialTheme.typography.displaySmall)
                 }
-                if (!model.isNew) StatusBadge(model.status.tone, model.status.label)
+                /* tap for the why, on Month */
+                if (!model.isNew) Surface(onClick = { go(Tab.Month) }, shape = CircleShape, color = Color.Transparent, modifier = Modifier.testTag("status-chip")) { StatusBadge(model.status.tone, model.status.label) }
             }
         }
-        item { UpdateBanner(upd, vm, go) }
-        item { StorageProblemCard(vm, open) }
-        items(model.reminders.size) { i -> ReminderCard(model.reminders[i], vm, open, i) }
+        item { Notice(vm, open, go, model.isNew) }
         if (model.isNew) { item { WelcomeCard(open) }; return@LazyColumn }
-        /* asked once there's a budget to remind about, not on first launch */
-        item { NotificationsCard(vm) }
-        item { LateRemindersCard(vm) }
         if (model.readyToStart) item { StartHereCard(vm, open) }
-        item { AccessCard(vm, open) }
-
-        item {
-            val n = model.todo.size
-            SectionCard(if (n > 0) "To do today · $n" else "Nothing to do today", Icons.Rounded.Receipt, if (n > 0) "amber" else "green", index = 1) {
-                if (n > 0) model.todo.forEachIndexed { i, e -> EventRow(e, s, vm, divider = i > 0, open = open) }
-                else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    val x = LocalExtra.current
-                    Box(Modifier.size(46.dp).clip(CircleShape).background(Brush.linearGradient(listOf(x.good, x.pets))).enter(2), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.surface) }
-                    Column { Text("You're all caught up.", fontWeight = FontWeight.Bold)
-                        val nx = model.next.firstOrNull()
-                        Text(if (nx != null) "Next: " + nextText(nx) + " on " + Fmt.dLabel(nx.s("date")) + "." else "Nothing else this week.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                }
-                if (model.incoming.isNotEmpty()) { Spacer(Modifier.height(6.dp)); model.incoming.forEach { e -> EventRow(e, s, vm, open = open) } }
-            }
-        }
-        item {
-            val fp = model.food; val (fg, _) = toneColors(model.foodTone)
-            SectionCard("Food money", Icons.Rounded.Restaurant, "green", trailing = if (fp.n("half") == 1.0) "1st–15th" else "16th–end", index = 2) {
-                FlowRow(verticalArrangement = Arrangement.Center, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Money(fp.n("left"), MaterialTheme.typography.headlineLarge, countUp = true, color = if (fp.n("left") < 0) fg else MaterialTheme.colorScheme.onSurface)
-                    Text("left · about ${Fmt.money(fp.n("perDay"))} a day for ${fp.n("daysLeft").toInt()} day${if (fp.n("daysLeft").toInt() > 1) "s" else ""}",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterVertically))
-                }
-                Spacer(Modifier.height(10.dp))
-                val allow = fp.n("allow")
-                GrowBar(if (allow > 0) (fp.n("spent") / allow).toFloat() else 0f, fg, marker = if (allow > 0) (fp.n("expected") / allow).toFloat() else null)
-                Spacer(Modifier.height(6.dp))
-                Text("${Fmt.money(fp.n("spent"))} of ${Fmt.money(allow)} spent · the line shows where you'd be at ${Fmt.money(fp.n("target"))} a day", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { open(Sheet.Food(model.today.take(7))) }, modifier = Modifier.testTag("food-open")) { Text("Food plan and settings") }
-            }
-        }
-        model.self?.let { c -> item { SelfCard(c) { go(Tab.Spending) } } }
-        if (model.hasAccounts) item {
-            val ck = model.lastCheck; val days = ck?.let { diffDays(it.s("date"), model.today) }
-            SectionCard("Balances", Icons.Rounded.AccountBalance, "gold", trailing = when (days) { null -> "Not checked yet"; 0 -> "Checked today"; 1 -> "Checked yesterday"; else -> "Checked $days days ago" }, index = 3) {
-                val gap = ck?.get("gap")?.let { if (it == J.Null) null else num(it) }
-                Text(if (ck != null && days!! <= 7 && gap != null) (if (Math.abs(gap) < 5) "At the last check, your accounts matched the plan."
-                    else "At the last check, your accounts were ${Fmt.money(Math.abs(gap))} ${if (gap < 0) "lower" else "higher"} than the plan.")
-                    else "Once a week, type in what your accounts actually hold. LoonieMate spots money that went missing or a bill that came out early.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(10.dp))
-                if (days == null || days > 7) Button(onClick = { open(Sheet.Checkin) }, modifier = Modifier.testTag("checkin-open")) { Text("Check my balances") }
-                else FilledTonalButton(onClick = { open(Sheet.Checkin) }, modifier = Modifier.testTag("checkin-open")) { Text("Check my balances") }
-            }
-        }
-        item {
-            SectionCard("Log spending", Icons.Rounded.AccountBalanceWallet, "amber", trailing = "One tap logs it for today", index = 3) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    model.quick.forEach { q -> QuickButton(q.label, Fmt.money(q.amount), q.fav, menu = quickMenu(q, vm, open)) { vm.quickLog(q) } }
-                    QuickButton("Something else", "", true, more = true) { open(Sheet.Log()) }
-                }
-                if (model.quick.isEmpty()) Text("Things you log often will show up here as one-tap buttons. You can also tick \"Add a quick button\" when logging.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
-            }
-        }
-        if (model.debts.isNotEmpty()) item { DebtCard(model.debts, 4) { go(Tab.Bills) } }
+        item { TodoCard(model, s, vm, open) }
+        item { MoneyCard(model) { go(Tab.Spending) } }
+        item { QuickRow(model, vm, open) }
         if (model.next.isNotEmpty()) item {
-            SectionCard("Next few days", Icons.Rounded.CalendarMonth, index = 5) {
+            SectionCard("Coming up", Icons.Rounded.CalendarMonth, trailing = "Next 7 days", index = 4) {
                 model.next.forEachIndexed { i, e -> EventRow(e, s, vm, showDate = true, compact = true, divider = i > 0, open = open) }
             }
         }
+    }
+}
+
+/** The To do list: overdue first, then today, each with its tick; money landing today on top; done today folded below. */
+@Composable
+private fun TodoCard(model: looniemate.app.TodayModel, s: J, vm: MainViewModel, open: (Sheet) -> Unit) {
+    val n = model.todo.size; val x = LocalExtra.current; var showDone by remember { mutableStateOf(false) }
+    val fold = if (looniemate.app.ui.theme.LocalFx.current) Modifier.animateContentSize(androidx.compose.animation.core.tween(looniemate.app.ui.Motion.FOLD)) else Modifier
+    SectionCard(if (n > 0) "To do" else "All done for today", if (n > 0) Icons.Rounded.Checklist else Icons.Rounded.Check, if (n > 0) "amber" else "green",
+        modifier = fold.testTag("todo"), trailing = if (n > 0) "$n to do" else null, index = 1) {
+        model.incoming.forEach { e -> Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            looniemate.app.ui.Dot(if (e.t("protect")) x.baby else x.good, 8.dp, round = true)
+            Text("+${Fmt.money(e.n("amount"))} ${e.s("name")} lands today", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+        if (n == 0) {
+            val nx = model.next.firstOrNull()
+            Text(if (nx != null) "Next: " + nextText(nx) + " on " + Fmt.dLabel(nx.s("date")) + "." else "Nothing else coming this week.", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        val overdue = model.todo.filter { it.t("overdue") }; val now = model.todo.filter { !it.t("overdue") }
+        if (overdue.isNotEmpty() && now.isNotEmpty()) looniemate.app.ui.DayHeader("Overdue")
+        overdue.forEachIndexed { i, e -> key(e.s("kind") + e.s("key") + e.s("ym")) { TodoRow(e, s, vm, open, i > 0) } }
+        if (overdue.isNotEmpty() && now.isNotEmpty()) looniemate.app.ui.DayHeader("Today", true)
+        now.forEachIndexed { i, e -> key(e.s("kind") + e.s("key") + e.s("ym")) { TodoRow(e, s, vm, open, i > 0) } }
+        if (model.done.isNotEmpty()) {
+            if (n > 0) HorizontalDivider(Modifier.padding(top = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+            Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable { showDone = !showDone }.padding(vertical = 10.dp).testTag("done-fold"),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Check, null, tint = x.good, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                Text("Done today · ${model.done.size}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                Icon(if (showDone) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, if (showDone) "Hide what's done" else "Show what's done", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (showDone) model.done.forEach { e -> key("done" + e.s("key")) { EventRow(e, s, vm, divider = false, open = open) } }
+        }
+    }
+}
+
+/** One To do item: a bill or a money move (EventRow), or reporting income, taxes, locking a month or the balance check. */
+@Composable
+private fun TodoRow(e: Obj, s: J, vm: MainViewModel, open: (Sheet) -> Unit, divider: Boolean) {
+    val kind = e.s("kind")
+    if (kind == "bill" || kind == "move") { EventRow(e, s, vm, divider = divider, open = open); return }
+    var help by remember { mutableStateOf(false) }
+    if (divider) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+    val (title, meta) = when (kind) {
+        "report" -> (if (e.t("ei")) "Do your EI report for ${e.s("name")}" else "Report ${Fmt.monthOnly(e.s("forYm"))}'s income for ${e.s("name")}") to
+            (if (e.t("overdue")) "Was due ${Fmt.dShort(e.s("date"))}" else if (e.s("date") == vm.today.value) "Due today" else "Due ${Fmt.dShort(e.s("date"))}")
+        "tax" -> "File your ${e.s("year").toInt() - 1} taxes" to (if (e.t("overdue")) "As soon as you can. Benefits depend on it." else "By April 30. Benefits depend on it, even with no income.")
+        "lock" -> "Lock ${Fmt.monthName(e.s("ym"))}" to "It's finished. Locking keeps its numbers as they were."
+        else -> "Check your balances" to (e.n("days").toInt().takeIf { e["days"] != null && e["days"] != J.Null }?.let { "Last checked $it days ago" } ?: "Once a week keeps the plan honest")
+    }
+    val act: () -> Unit = when (kind) { "report" -> ({ vm.markReported(e) }); "tax" -> ({ vm.markTaxFiled(e.s("year")) }); "lock" -> ({ open(Sheet.MonthIncome(e.s("ym"))) }); else -> ({ open(Sheet.Checkin) }) }
+    val menu = buildList {
+        add(looniemate.app.ui.MenuItem(when (kind) { "report" -> "Reported"; "tax" -> "We've filed"; "lock" -> "Review and lock"; else -> "Check them now" }, onClick = act))
+        if (kind == "report" || kind == "tax") add(looniemate.app.ui.MenuItem(if (kind == "tax") "Free ways to file" else "How to report") { help = true })
+    }
+    looniemate.app.ui.MenuRow(menu, onClick = if (kind == "lock" || kind == "check") act else ({ help = true }), spoken = "$title, $meta", vertical = 8.dp) {
+        looniemate.app.ui.TickButton(false, when (kind) { "report" -> "Reported"; "tax" -> "Filed"; "lock" -> "Lock it"; else -> "Check them" }, act)
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f, fill = false))
+                if (e.t("overdue")) looniemate.app.ui.Pill("Overdue", "bad") }
+            Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    if (help) HelpDialog(kind, e) { help = false }
+}
+
+/** The help behind a report or the taxes: what to tell them, and free ways to file. */
+@Composable
+private fun HelpDialog(kind: String, e: Obj, close: () -> Unit) {
+    val ctx = LocalContext.current
+    val lines: List<Pair<String, String?>> = if (kind == "tax") listOf(
+        "CRA SimpleFile: free for people with low or no income and simple taxes. File online, or by phone or paper if the CRA sends you an invitation." to Views.SIMPLEFILE,
+        "StudioTax: free tax software if your income is under \$20,000 (\$40,000 combined for a couple filing together)." to Views.STUDIOTAX,
+        "Free tax clinics: volunteers file it for you." to Views.TAX_HELP,
+        "A spouse or partner needs to file too. The CCB, CGEB and provincial benefits depend on it every year." to null)
+    else if (e.t("ei")) listOf("Every two weeks: any work and pay, and any days you were sick or away. The payment follows the report." to null)
+    else listOf("Tell them what came in last month, and changes like a new baby, someone moving in or out, starting or stopping a job, or a new address." to null,
+        "More on reporting" to Views.REPORT_HELP)
+    AlertDialog(onDismissRequest = close, title = { Text(if (kind == "tax") "Free ways to file" else "Reporting income") },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { lines.forEach { (t, url) ->
+            Text(t, color = if (url != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                modifier = if (url != null) Modifier.clickable { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } else Modifier) } } },
+        confirmButton = { TextButton(onClick = close) { Text("Close") } })
+}
+
+/** Food and Personal Expenses money in one card: what's left, plainly. Never red for Personal Expenses. Tap for Spending. */
+@Composable
+private fun MoneyCard(model: looniemate.app.TodayModel, toSpending: () -> Unit) {
+    val fp = model.food; val x = LocalExtra.current; val left = fp.n("left")
+    SectionCard("Spending money", Icons.Rounded.Restaurant, "green", modifier = Modifier.clickable(onClick = toSpending).testTag("food-open"), index = 2) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Food", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Money(left, MaterialTheme.typography.titleLarge, weight = FontWeight.SemiBold, color = if (left < 0) x.bad else MaterialTheme.colorScheme.onSurface)
+        }
+        Text(if (left >= 0) "left until ${Fmt.dShort(fp.s("end"))} · about ${Fmt.money(fp.n("perDay"))} a day" else "over for this half of the month",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(6.dp))
+        val allow = fp.n("allow")
+        GrowBar(if (allow > 0) (fp.n("spent") / allow).toFloat() else 0f, if (left < 0) x.bad else x.good)
+        model.self?.let { c -> val plan = c.n("self"); val spent = c.n("selfSpent"); val sl = plan - spent
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("self-open")) {
+                Text("Personal Expenses", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Money(if (plan > 0) maxOf(0.0, sl) else spent, MaterialTheme.typography.titleLarge, weight = FontWeight.SemiBold)
+            }
+            Text(when { plan <= 0 -> "logged this month"; sl >= 0 -> "left for you this month"; else -> "${Fmt.money(-sl)} more than planned this month" },
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (plan > 0) { Spacer(Modifier.height(6.dp)); GrowBar(minOf(1.0, spent / plan).toFloat(), x.sky) }
+        }
+    }
+}
+
+/** Log it: the quick buttons in a row that scrolls sideways, then Something else. */
+@Composable
+private fun QuickRow(model: looniemate.app.TodayModel, vm: MainViewModel, open: (Sheet) -> Unit) {
+    Column(Modifier.enter(3)) {
+        Text("Log it", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp).semantics { heading() })
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            model.quick.forEach { q -> QuickButton(q.label, Fmt.money(q.amount), q.fav, menu = quickMenu(q, vm, open)) { vm.quickLog(q) } }
+            QuickButton("Something else", "", true, more = true) { open(Sheet.Log()) }
+        }
+        if (model.quick.isEmpty()) Text("Things you log often show up here as one-tap buttons.", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 8.dp))
+    }
+}
+
+/** At most one notice at a time, the most important first: a saving problem, an update, notifications, late reminders, accessibility, a backup. */
+@Composable
+private fun Notice(vm: MainViewModel, open: (Sheet) -> Unit, go: (Tab) -> Unit, isNew: Boolean) {
+    val problem by vm.repo.problem.collectAsStateWithLifecycle(); val upd by vm.updater.state.collectAsStateWithLifecycle()
+    val ok by vm.notifOk.collectAsStateWithLifecycle(); val tick by vm.notifTick.collectAsStateWithLifecycle(); val late by vm.remindersLate.collectAsStateWithLifecycle()
+    val lastBackup by vm.prefs.lastBackupFlow.collectAsStateWithLifecycle(); val today by vm.today.collectAsStateWithLifecycle()
+    val ctx = LocalContext.current; val hints = remember { looniemate.app.data.PhoneHints.read(ctx) }
+    var accessHidden by remember { mutableStateOf(vm.prefs.a11yAsked) }
+    val days = lastBackup?.let { diffDays(it.take(10), today) }
+    when {
+        problem != null -> StorageProblemCard(vm, open)
+        upd is Updater.State.Available || upd is Updater.State.Ready -> UpdateBanner(upd, vm, go)
+        isNew -> {}
+        !ok && System.currentTimeMillis() >= vm.prefs.notifSnoozeUntil && tick >= 0 -> NotificationsCard(vm)
+        late -> LateRemindersCard(vm)
+        !accessHidden && hints.isNotEmpty() -> AccessCard(vm, open) { accessHidden = true }
+        !vm.sync.on && (days == null || days > 14) -> SectionCard(if (days == null) "Make a backup" else "Last backup was $days days ago", Icons.Rounded.Backup, "warn", index = 0) {
+            Text("Your budget lives only on this phone. A backup keeps it safe if the phone is lost or reset.", style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(10.dp)); Button(onClick = { open(Sheet.Export) }) { Text("Back up now") } }
+        else -> {}
     }
 }
 
@@ -239,26 +340,6 @@ fun DebtCard(debts: List<Views.Debt>, index: Int, onOpen: () -> Unit) {
 }
 
 @Composable
-fun ReminderCard(r: Views.Reminder, vm: MainViewModel, open: (Sheet) -> Unit, index: Int) {
-    val (fg, bg) = toneColors(r.tone); var more by remember { mutableStateOf(false) }; val ctx = LocalContext.current
-    Card(Modifier.fillMaxWidth().enter(index).animateContentSize(), colors = CardDefaults.cardColors(containerColor = bg), shape = MaterialTheme.shapes.medium) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(r.title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-            if (r.body.isNotEmpty()) Text(r.body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (r.details.isNotEmpty()) {
-                Row(Modifier.clickable { more = !more }, verticalAlignment = Alignment.CenterVertically) {
-                    Text(r.detailsTitle, style = MaterialTheme.typography.labelLarge, color = fg); Icon(if (more) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint = fg) }
-                if (more) r.details.forEach { l -> Text("• " + l.text, style = MaterialTheme.typography.bodySmall,
-                    color = if (l.url != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = if (l.url != null) Modifier.clickable { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(l.url))) } else Modifier) }
-            }
-            r.button?.let { label -> Row { Spacer(Modifier.weight(1f))
-                if (r.action == "backup") Button(onClick = { open(Sheet.Export) }) { Text(label) } else FilledTonalButton(onClick = { vm.reminderAction(r) }) { Text(label) } } }
-        }
-    }
-}
-
-@Composable
 fun UpdateBanner(st: Updater.State, vm: MainViewModel, go: (Tab) -> Unit) {
     val r = when (st) { is Updater.State.Available -> st.r; is Updater.State.Ready -> st.r; else -> null } ?: return
     OutlinedCard(Modifier.fillMaxWidth().enter(0)) {
@@ -277,7 +358,7 @@ private fun WelcomeCard(open: (Sheet) -> Unit) {
         Text("LoonieMate plans every paycheque, tells you when to move money between accounts, protects child benefits, and helps when a month comes up short. Everything stays on this phone.",
             style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(10.dp))
-        Text("Already using the web version? Export an encrypted backup there and bring it over here. Starting fresh? Add your bank accounts first, then your bills. Setting up income and benefits in the app is coming next; for now do that in the web version.",
+        Text("Already using LoonieMate somewhere else? Bring your encrypted backup over. Starting fresh? Add your bank accounts first, then your income and bills in Settings.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(12.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { open(Sheet.Import) }) { Text("Import a backup") }
@@ -421,18 +502,18 @@ private fun StartHereCard(vm: MainViewModel, open: (Sheet) -> Unit) {
  * (large text, TalkBack, colour correction…). docs/plans/accessibility.md, stage 6.
  */
 @Composable
-private fun AccessCard(vm: MainViewModel, open: (Sheet) -> Unit) {
+private fun AccessCard(vm: MainViewModel, open: (Sheet) -> Unit, onHide: () -> Unit) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val hints = androidx.compose.runtime.remember { looniemate.app.data.PhoneHints.read(ctx) }
-    var hidden by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(vm.prefs.a11yAsked) }
+    var hidden by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     if (hidden || hints.isEmpty()) return
     SectionCard("Make LoonieMate easier to use?", Icons.Rounded.AutoAwesome, "accent", index = 1) {
         Text(hints.values.joinToString(" ") + " LoonieMate can match it: bigger or bolder text, stronger contrast, more time and more.",
             style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = { hidden = true; open(Sheet.Access()) }) { Text("Choose") }
-            TextButton(onClick = { vm.prefs.a11yAsked = true; hidden = true }) { Text("Not now") }
+            Button(onClick = { hidden = true; onHide(); open(Sheet.Access()) }) { Text("Choose") }
+            TextButton(onClick = { vm.prefs.a11yAsked = true; hidden = true; onHide() }) { Text("Not now") }
         }
     }
 }

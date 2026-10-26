@@ -44,10 +44,15 @@ import looniemate.engine.*
 
 /* ---------- what each screen shows ---------- */
 
+/**
+ * Today (docs/plans/overhaul.md): one To do list ([todo], overdue first, from Core.todo), what was ticked off today ([done],
+ * folded under the list until tomorrow), money landing today, the food and Personal Expenses money, quick buttons and
+ * the next 7 days.
+ */
 class TodayModel(
-    val today: String, val title: String, val isNew: Boolean, val status: Views.Status, val reminders: List<Views.Reminder>,
-    val todo: List<Obj>, val incoming: List<Obj>, val food: Obj, val foodTone: String, val quick: List<Views.Quick>,
-    val debts: List<Views.Debt>, val next: List<Obj>, val lastCheck: Obj?, val hasAccounts: Boolean, val readyToStart: Boolean = false,
+    val today: String, val title: String, val isNew: Boolean, val status: Views.Status,
+    val todo: List<Obj>, val done: List<Obj>, val incoming: List<Obj>, val food: Obj, val quick: List<Views.Quick>,
+    val next: List<Obj>, val readyToStart: Boolean = false,
     /** This month's figures when Personal Expenses are planned or something was logged under it, for the Today card. */
     val self: Obj? = null,
 )
@@ -143,16 +148,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val st = store(d, t); val s = st.settings; val ym = ymOf(t); val c = Core.monthCalc(ym, st, t)
         val up = Core.upcoming(st, t, 7) { Labels.expLabel(it) }
         val status = if (Core.startingMonth(st, ym)) startingStatus(d, st, t) else Views.status(c, up, "now", t, s)
-        val todo = up.filter { (it.s("kind") == "bill" && !it.t("paid") && it.s("date") <= t) || (it.s("kind") == "move" && !it.t("done") && it.s("date") <= t) }
-        val incoming = up.filter { it.s("kind") == "in" && it.s("date") == t }
-        val next = up.filter { it.s("date") > t && (it.s("kind") != "bill" || !it.t("paid")) }.take(6)
-        val fp = Core.foodPeriod(c, t)
-        val tone = if (fp.n("spent") > fp.n("allow")) "bad" else if (fp.n("spent") > fp.n("expected") + 10) "warn" else "good"
-        return TodayModel(t, titleFor(s), isNew(s, st.bills), status, Views.reminders(st, t, lastBackup), todo, incoming, fp, tone,
-            Views.quickButtons(s, Docs.allExpenses(d), t), Views.debts(st, t), next, Docs.checkins(d).firstOrNull(), Core.accountsOf(s).isNotEmpty(),
+        val td = Core.todo(st, t, Docs.checkins(d).firstOrNull()?.s("date"))
+        /* overdue first, then today's; within each, in the order they come */
+        val todo = td["items"].arr().filterIsInstance<Obj>().sortedBy { if (it.t("overdue")) 0 else 1 }
+        /* ticked off today: today's bills and moves that are done, plus anything ticked on this phone today (an overdue bill, say) */
+        val ticked = tickedToday.takeIf { it.first == t }?.second ?: emptySet()
+        var from = addDays(t, -21); if (isDate(s["trackFrom"]) && from < s.s("trackFrom")) from = s.s("trackFrom")
+        val doneBills = Core.billEvents(st, from, t).filter { e -> !e.t("fund") && (e.s("date") == t || e.s("key") in ticked) && truthy(st.months[e.s("ym")]?.get("paid")?.get(e.s("key"))) }
+            .map { e -> J.obj("kind" to "bill", "paid" to true, "overdue" to false).also { o -> e.map.forEach { (k, v) -> if (k !in o.map) o[k] = v } } }
+        val doneMoves = Core.moneyMoves(st, from, t).filter { m -> m.t("done") && (m.s("date") == t || m.s("key") in ticked) }
+            .map { m -> J.obj("kind" to "move", "overdue" to false).also { o -> m.map.forEach { (k, v) -> if (k !in o.map) o[k] = v } } }
+        val next = up.filter { it.s("date") > t && (it.s("kind") != "bill" || !it.t("paid")) && (it.s("kind") != "move" || !it.t("done")) }.take(8)
+        return TodayModel(t, titleFor(s), isNew(s, st.bills), status, todo, doneBills + doneMoves, td["incoming"].arr().filterIsInstance<Obj>(), Core.foodPeriod(c, t),
+            Views.quickButtons(s, Docs.allExpenses(d), t), next,
             !prefs.onboarded && Core.accountsOf(s).isNotEmpty() && Core.incomesOf(s).isNotEmpty() && st.bills.isNotEmpty(),
             c.takeIf { it.n("selfPlanned") > 0 || it.n("selfSpent") > 0 })
     }
+
+    /** What was ticked off on this phone today (by key), so it folds under Done today even when it was overdue. */
+    @Volatile private var tickedToday: Pair<String, Set<String>> = "" to emptySet()
+    private fun noteTicked(key: String, on: Boolean) { val t = today.value; val cur = tickedToday.takeIf { it.first == t }?.second ?: emptySet()
+        tickedToday = t to (if (on) cur + key else cur - key) }
 
     /**
      * The status in a starting month: no savings target, just getting to the next payday. Uses Where you stand when
@@ -232,6 +248,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun say(msg: String) { messages.trySend(Undo(msg, emptyMap())) }
 
     private fun patchMonth(ym: String, patch: Obj) = repo.update("months/$ym", patch)
+    /** Replaces one field of a month (patchMonth merges nested objects, which would keep old parts of it). */
+    private fun setMonthField(ym: String, key: String, value: J) { val doc = (repo.get("months/$ym")?.copy() as? Obj) ?: Obj(); doc[key] = value; repo.set("months/$ym", doc) }
 
     fun saveSettings(patch: Obj) {
         val raw = (repo.get("settings/main")?.copy() as? Obj) ?: Obj(); val s = settings()
@@ -240,10 +258,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         repo.set("settings/main", raw)
     }
 
-    fun togglePaid(e: Obj) { val ym = e.s("ym"); val cur = looniemate.app.data.Ticks.isPaid(repo, ym, e.s("key"))
+    fun togglePaid(e: Obj) { val ym = e.s("ym"); val cur = looniemate.app.data.Ticks.isPaid(repo, ym, e.s("key")); noteTicked(e.s("key"), !cur)
         change(if (cur) "Marked not paid" else "Marked paid", listOf("months/$ym")) { looniemate.app.data.Ticks.setPaid(repo, ym, e.s("key"), !cur) } }
 
-    fun toggleMove(e: Obj) { val ym = e.s("ym"); val cur = looniemate.app.data.Ticks.isMoved(repo, ym, e.s("key"))
+    fun toggleMove(e: Obj) { val ym = e.s("ym"); val cur = looniemate.app.data.Ticks.isMoved(repo, ym, e.s("key")); noteTicked(e.s("key"), !cur)
         change(if (cur) "Marked not done" else "Done. Nice.", listOf("months/$ym")) { looniemate.app.data.Ticks.setMoved(repo, ym, e.s("key"), e.s("sav"), e.n("amount"), !cur) } }
 
     fun locked(ym: String) = repo.get("months/$ym").t("closed")
@@ -473,7 +491,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Saves which of today's paydays aren't in the balances yet. Starts the food and Personal Expenses check over. */
     fun saveStartNotIn(notIn: List<String>) { val t = today.value
-        patchMonth(ymOf(t), J.obj("start" to J.obj("date" to t, "notIn" to notIn))) }
+        setMonthField(ymOf(t), "start", J.obj("date" to t, "notIn" to notIn)) }
 
     /** Where you stand from today's balance check: Core.runway with its `now` (bills before the next money, food and Personal Expenses left). */
     fun startRunway(): Obj { val t = today.value; val d = repo.docs.value
@@ -493,14 +511,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         change("Starting point saved", listOf("months/$ym", "meta/tombstones", foodPath, selfPath) + old) {
             old.forEach { repo.delete(it) }
             val notIn = startToday()?.get("notIn").arr().map { str(it) }
-            patchMonth(ym, J.obj("start" to J.obj("date" to t, "notIn" to notIn)))
+            setMonthField(ym, "start", J.obj("date" to t, "notIn" to notIn))
             val now = startRunway()["now"]
             val note = if (first) "Spent before LoonieMate" else "Spent before getting back on track"
             fun spent(path: String, plan: Double, left: Double?, category: String) { if (left == null) return; val a = round2(plan - left)
                 if (a > 0.004) repo.set(path, J.obj("date" to t, "amount" to a, "category" to category, "note" to note, "oneTime" to false, "startSpent" to true, "created" to System.currentTimeMillis())) }
             spent(foodPath, now.n("foodPlan"), food, "groceries"); spent(selfPath, now.n("selfPlan"), self, Core.SELF)
             val start = J.obj("date" to t, "notIn" to notIn); if (food != null) start["foodLeft"] = J.N(food); if (self != null) start["selfLeft"] = J.N(self)
-            patchMonth(ym, J.obj("start" to start))
+            setMonthField(ym, "start", start)
         }
     }
 
@@ -664,6 +682,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val name = Core.fundOf(settings(), kind).s("name")
         change("${if (out) "Took out" else "Moved"} ${Fmt.money(amount)} ${if (out) "from" else "to"} $name", listOf("months/$ym")) {
             patchMonth(ym, J.obj("moved" to J.obj(kind to round2(cur + if (out) -amount else amount)))) } }
+
+    /** Income reported (a To do item): months/<ym>.reported[key]. */
+    fun markReported(item: Obj) { val ym = item.s("ym"); change("Marked as reported", listOf("months/$ym")) { patchMonth(ym, J.obj("reported" to J.obj(item.s("key") to true))) } }
+    /** This year's taxes are filed (a To do item from February to June). */
+    fun markTaxFiled(year: String) { val tf = (settings()["taxFiled"]?.copy() as? Obj) ?: Obj(); tf[year] = J.B(true)
+        change("Nice work. Taxes are done for this year.", listOf("settings/main")) { saveSettings(J.obj("taxFiled" to tf)) } }
 
     fun reminderAction(r: Views.Reminder) { when (r.action) {
         "tax-filed" -> { val tf = (settings()["taxFiled"]?.copy() as? Obj) ?: Obj(); tf[r.arg] = J.B(true)
