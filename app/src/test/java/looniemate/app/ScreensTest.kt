@@ -41,6 +41,9 @@ class ScreensTest {
 
     private fun shot(name: String, sheet: Boolean = false) {
         settle()
+        val vm = androidx.lifecycle.ViewModelProvider(rule.activity)[MainViewModel::class.java]
+        File(out, "debug.txt").appendText("$name app=${System.identityHashCode(app)} vmApp=${System.identityHashCode(vm.getApplication<LoonieApp>())} " +
+            "testPrefs=${System.identityHashCode(app.prefs)} ${app.prefs.look.value} vmPrefs=${System.identityHashCode(vm.prefs)} ${vm.prefs.look.value} activity=${System.identityHashCode(rule.activity)}\n")
         try {
             /* this test's own window, or the sheet window opened on top of it (earlier tests' windows can linger) */
             val decor = rule.activity.window.decorView; val all = windows(); val mine = all.indexOf(decor)

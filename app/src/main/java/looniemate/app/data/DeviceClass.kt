@@ -33,13 +33,14 @@ object DeviceClass {
         return ram >= 5.5 && cores >= 8 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
     }
 
+    /** Shown under the Visual effects switch: what LoonieMate suggests for this phone, and why. */
     fun describe(c: Context): String {
-        val ram = totalRamGb(c)
+        val gb = "%.0f".format(totalRamGb(c))
         return when {
-            animationsOff(c) -> "Off because animations are turned off for this phone."
-            am(c).isLowRamDevice -> "Off to keep this phone quick."
-            effectsByDefault(c) -> "On: this phone has plenty of power (${"%.0f".format(ram)} GB of memory)."
-            else -> "Off to keep this phone quick (${"%.0f".format(ram)} GB of memory)."
+            animationsOff(c) -> "Suggested: off, because animations are turned off in this phone's settings."
+            am(c).isLowRamDevice -> "Suggested: off, to keep this phone quick."
+            effectsByDefault(c) -> "Suggested: on. This phone has plenty of power ($gb GB of memory)."
+            else -> "Suggested: off, to keep this phone quick ($gb GB of memory)."
         }
     }
 }

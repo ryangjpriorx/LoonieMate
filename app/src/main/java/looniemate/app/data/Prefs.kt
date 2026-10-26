@@ -7,6 +7,7 @@ import looniemate.engine.*
 
 /** Settings for this phone only (look, effects, updates). They are not part of the budget or its backups. */
 class Prefs(context: Context) {
+    private val appContext: Context = context.applicationContext ?: context
     private val sp = context.getSharedPreferences("device", Context.MODE_PRIVATE)
 
     data class Look(
@@ -22,7 +23,7 @@ class Prefs(context: Context) {
     private fun readLook(context: Context): Look {
         if (!sp.contains("effects")) {
             /* first launch: turn the extra visuals on for capable phones and off for low-end ones */
-            sp.edit().putBoolean("effects", DeviceClass.effectsByDefault(context)).putString("effectsReason", DeviceClass.describe(context)).apply()
+            sp.edit().putBoolean("effects", DeviceClass.effectsByDefault(context)).apply()
         }
         return Look(sp.getString("themeMode", "system")!!, sp.getBoolean("dynamicColor", true), sp.getString("palette", "iris")!!, sp.getBoolean("effects", true))
     }
@@ -32,7 +33,8 @@ class Prefs(context: Context) {
         _look.value = l
     }
 
-    val effectsReason: String get() = sp.getString("effectsReason", "") ?: ""
+    /** worked out fresh each time, so it stays right after an Android update */
+    val effectsReason: String get() = DeviceClass.describe(appContext)
 
     var lastBackup: String?
         get() = sp.getString("lastBackup", null)
