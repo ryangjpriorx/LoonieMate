@@ -12,11 +12,15 @@ Work is done in small stages; each one is committed, built and tested on GitHub 
 - [x] **Stage 3a**: background update check (WorkManager, every 12 hours, needs internet) and the
   "LoonieMate X is available" notification (once per version) with a **Download** button. For now Download opens the
   app on Settings, where the existing Updates card has the download and install buttons.
-- [ ] **Stage 3b**: a dedicated update screen (version, what's new, size, **Start update**, or **Install** if already
+- [x] **Stage 3b**: a dedicated update screen (version, what's new, size, **Start update**, or **Install** if already
   downloaded) opened by the notification instead of Settings; the download keeps going if the person leaves the app,
   then posts "Ready to install" with an **Install** button; ask Android to skip its own confirmation where allowed.
-- [ ] **Stage 4**: reminder rules in the shared engine (what to send, when) with tests.
-- [ ] **Stage 5**: reminder scheduling (alarms that survive restarts and app updates) and the bundled notification with **Paid / Moved it / Got it / Remind me later** and Undo.
+- [x] **Stage 4**: reminder rules in the shared engine (what to send, when) with tests.
+- [ ] **Stage 5a**: reminder scheduling: alarms at the configured times (AlarmManager `setAndAllowWhileIdle`, no exact-alarm
+  permission), rescheduled after BOOT_COMPLETED and MY_PACKAGE_REPLACED; when one fires, build `Reminders.digest` and post
+  one plain notification (summary + lines, tap opens Today). Default config until Stage 6 adds settings.
+- [ ] **Stage 5b**: the bundled notification (summary + one silent row per item) with **Paid / Moved it / Got it /
+  Remind me later** and Undo, sharing the tick code with Today; lock-screen privacy; unlock required for the buttons.
 - [ ] **Stage 6**: Reminders settings card (times, how often, weekend times, heads-up days, test notification).
 - [ ] **Stage 7**: late-reminder detection and the battery-settings help card.
 - [ ] **Stage 8**: ride-along reminders (report income, tax filing, backup, weekly balance check), then release.
@@ -31,6 +35,12 @@ Work is done in small stages; each one is committed, built and tested on GitHub 
   `MainActivity` with extra `open=update` (handled in `onCreate` and `onNewIntent`), which sets `vm.openUpdate`;
   `LoonieMateApp` then switches to Settings. For 3b, open the new update sheet there instead. The existing download, signature check and install code is in
   `update/Updater.kt`; the in-app update UI is `UpdatePanel` in `ui/screens/MoreScreen.kt`.
+- Stage 3b: `Sheet.Update` shows `UpdatePanel(inSheet = true)` (now public, in `ui/screens/MoreScreen.kt`);
+  `vm.startUpdate` downloads in `LoonieApp.scope`, then installs if `LoonieApp.foreground`, otherwise
+  `UpdateCheck.notifyReady` posts "Ready to install" (extra `open=install`, which installs on opening).
+  The manifest declares `UPDATE_PACKAGES_WITHOUT_USER_ACTION`; the session already asks `USER_ACTION_NOT_REQUIRED`.
+- Stage 4: `engine/.../Reminders.kt` (`Config`, `wakingDay`, `headsUpDay`, `digest`, `summary`, `padLine`) with
+  `RemindersTest`. Item keys are the same `key`/`ym` that Today's ticks use (`months/<ym>.paid[key]`, `.moves[key]`).
 - Nothing here is released yet. The next release goes out after Stage 8 (or sooner if you ask).
 
 ## Update notifications
