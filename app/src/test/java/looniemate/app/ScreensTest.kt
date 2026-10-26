@@ -2,6 +2,7 @@ package looniemate.app
 
 import android.graphics.Bitmap
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -65,12 +66,13 @@ class ScreensTest {
         settle()
     }
 
-    private fun tab(name: String) { rule.onNodeWithTag("tab-$name").performClick(); settle() }
+    /* Settings opens from the gear in the top bar, which isn't there while Settings is already open */
+    private fun tab(name: String) { if (rule.onAllNodesWithTag("tab-$name").fetchSemanticsNodes().isNotEmpty()) { rule.onNodeWithTag("tab-$name").performClick(); settle() } }
     private fun back() { rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }; settle() }
 
     private fun tour(theme: String, dark: Boolean) {
         seed(dark, effects = false)
-        for (t in listOf("Today", "Month", "Bills", "Spending", "More")) { tab(t); shot("$theme-$t") }
+        for (t in listOf("Today", "Month", "Bills", "Spending", "Savings", "More")) { tab(t); shot("$theme-$t") }
         tab("Today"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-log", sheet = true); back()
         tab("Bills"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-bill", sheet = true); back()
         tab("More"); rule.onNodeWithTag("account-0").performClick(); shot("$theme-sheet-account", sheet = true); back()

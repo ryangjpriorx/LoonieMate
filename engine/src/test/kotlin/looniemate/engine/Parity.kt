@@ -59,6 +59,10 @@ object Parity {
                 J.obj("amount" to pl.amount, "dates" to pl.dates).also { if (pl.setAside) it["setAside"] = J.B(true) } } }
             cmp("billPlan ${Json.stringify(b)}", x["plan"], J.of(plans))
         }
+        for (x in fx["programs"].arr()) { val c = x.n("c"); val inc = x["inc"]
+            val r = SavingsViews.rdspMoney(c, inc); val e = SavingsViews.respMoney(c, inc)
+            cmp("rdspMoney ${Json.stringify(x["c"])} ${Json.stringify(inc)}", x["rdsp"], J.obj("grant" to r.grant, "bond" to r.bond))
+            cmp("respMoney ${Json.stringify(x["c"])} ${Json.stringify(inc)}", x["resp"], J.obj("grant" to e.grant, "known" to e.known)) }
         fx["backup"]?.let { bk ->
             val t0 = System.currentTimeMillis()
             val (plain, _) = Backup.decrypt(bk.s("text"), bk.s("password")); cmp("backup made by the web version", bk["plain"], plain)

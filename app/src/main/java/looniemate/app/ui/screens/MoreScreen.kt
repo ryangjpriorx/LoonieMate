@@ -133,7 +133,7 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
         }
         item {
             SectionCard("Coming to the app next", Icons.Rounded.Schedule, "amber", index = 3) {
-                Text("Savings, Income and benefits and balance checks are next, then Google Drive sync, reminders and a home screen widget. Until then, change those in the web version and import a backup here.",
+                Text("Income and benefits are next, then Google Drive sync, reminders and a home screen widget. Until then, change those in the web version and import a backup here.",
                     style = MaterialTheme.typography.bodyMedium)
             }
         }

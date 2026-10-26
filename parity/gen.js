@@ -112,6 +112,14 @@ const odd = [{ freq: 'monthly', day: 31, amount: 10 }, { freq: 'weekly', anchor:
   { freq: 'biweekly', amount: 7 }, { amount: 3, start: '2027-01-15', end: '2027-06-01' }, { freq: 'monthly', day: 0, amount: 1 }, { group: 'baby', amount: 4, day: 9 }];
 for (const b of odd) out.bills.push({ b, dates: C.billDates(b, '2026-11-01', '2028-03-31', { babyDue: '2027-02-10' }), plan: ['2026-11', '2027-01', '2027-02', '2027-12'].map(ym => C.billPlanForMonth(b, ym, { babyDue: '2027-02-10' })) });
 
+/* government savings programs, using the web app's own rdspMoney() and respMoney() */
+{ const app = html.match(/<script>([\s\S]*?)<\/script>/)[1]; const pick = re => app.match(re)[0];
+  const u = { num: C.num, round2: C.round2, Math }; vm.createContext(u);
+  vm.runInContext([pick(/const PROG=\{[^\n]*/), pick(/function rdspMoney\([^\n]*\n[^\n]*/), pick(/function respMoney\([^\n]*/)].join('\n') + ';this.rdspMoney=rdspMoney;this.respMoney=respMoney;', u);
+  out.programs = [];
+  for (const c of [0, 120, 500, 777.77, 1500, 2600]) for (const inc of ['', null, 0, 20000, 38237, 45000, 58523, 60000, 100000, 114750, 117045, 130000])
+    out.programs.push({ c, inc, rdsp: u.rdspMoney(c, inc), resp: u.respMoney(c, inc) }); }
+
 fs.writeFileSync(process.env.OUT || path.join(__dirname, 'fixtures.json'), JSON.stringify(out));
 console.log('fixtures.json: ' + out.scenarios.length + ' households, ' + Object.keys(out.holidays).length + ' holiday years, ' + out.sched.length + ' schedules');
 })();

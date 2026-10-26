@@ -26,6 +26,8 @@ import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Savings
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ShoppingCart
 import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -64,6 +66,7 @@ import looniemate.app.ui.screens.BillsScreen
 import looniemate.app.ui.screens.MonthScreen
 import looniemate.app.ui.screens.MoreScreen
 import looniemate.app.ui.screens.SpendingScreen
+import looniemate.app.ui.screens.SavingsScreen
 import looniemate.app.ui.screens.TodayScreen
 import looniemate.app.ui.sheets.Sheets
 import looniemate.app.ui.theme.LocalExtra
@@ -75,7 +78,7 @@ import looniemate.engine.*
 
 enum class Tab(val label: String, val icon: ImageVector) {
     Today("Today", Icons.Rounded.Today), Month("Month", Icons.Rounded.CalendarMonth), Bills("Bills", Icons.Rounded.Receipt),
-    Spending("Spending", Icons.Rounded.ShoppingCart), More("Settings", Icons.Rounded.Settings)
+    Spending("Spending", Icons.Rounded.ShoppingCart), Savings("Savings", Icons.Rounded.Savings), More("Settings", Icons.Rounded.Settings)
 }
 
 /** Which sheet is open, if any. */
@@ -87,6 +90,9 @@ sealed class Sheet {
     class Transfer(val kind: String, val amount: Double?) : Sheet()
     class Account(val id: String?) : Sheet()
     object Checkin : Sheet()
+    class Fund(val key: String?) : Sheet()
+    class UseFund(val key: String) : Sheet()
+    class Ccb(val ym: String) : Sheet()
     object Export : Sheet()
     object Import : Sheet()
 }
@@ -110,7 +116,7 @@ fun LoonieMateApp(vm: MainViewModel) {
     BackHandler(enabled = tab != Tab.Today) { tab = Tab.Today }
 
     val open: (Sheet) -> Unit = { sheet = it }
-    val monthTabs = tab == Tab.Month || tab == Tab.Bills || tab == Tab.Spending
+    val monthTabs = tab == Tab.Month || tab == Tab.Bills || tab == Tab.Spending || tab == Tab.Savings
     val shownYm = ymSel ?: vm.shownYm()
 
     Scaffold(
@@ -129,6 +135,8 @@ fun LoonieMateApp(vm: MainViewModel) {
                                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }
                     },
+                    navigationIcon = { if (tab == Tab.More) IconButton(onClick = { tab = Tab.Today }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+                    actions = { if (tab != Tab.More) IconButton(onClick = { tab = Tab.More }, modifier = Modifier.testTag("tab-More")) { Icon(Icons.Rounded.Settings, "Settings") } },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
                 )
                 AccentLine()
@@ -136,7 +144,7 @@ fun LoonieMateApp(vm: MainViewModel) {
         },
         bottomBar = {
             NavigationBar {
-                Tab.entries.forEach { t ->
+                Tab.entries.filter { it != Tab.More }.forEach { t ->
                     NavigationBarItem(selected = tab == t, onClick = { tab = t }, icon = { Icon(t.icon, null) }, label = { Text(t.label) }, modifier = Modifier.testTag("tab-${t.name}"))
                 }
             }
@@ -169,6 +177,7 @@ private fun Screen(t: Tab, vm: MainViewModel, pad: PaddingValues, open: (Sheet) 
         Tab.Month -> MonthScreen(vm, pad, open)
         Tab.Bills -> BillsScreen(vm, pad, open)
         Tab.Spending -> SpendingScreen(vm, pad, open)
+        Tab.Savings -> SavingsScreen(vm, pad, open)
         Tab.More -> MoreScreen(vm, pad, open)
     }
 }

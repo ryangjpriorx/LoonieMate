@@ -63,6 +63,10 @@ class BillsModel(val ym: String, val totals: Map<String, Double>, val counts: Ma
 
 class SpendingModel(val ym: String, val entries: List<Obj>, val oneTime: List<Obj>, val total: Double, val oneTimeTotal: Double, val byCat: List<Pair<String, Double>>, val locked: Boolean, val emergencyPlan: Double)
 
+class FundView(val f: Obj, val balance: Double, val linked: List<String>, val adding: Double)
+class SavingsModel(val ym: String, val today: String, val s: Obj, val c: Obj, val emergency: Double, val child: Double, val thr: Core.Targets,
+                   val funds: List<FundView>, val projection: List<Obj>, val programs: SavingsViews.Programs, val kids: Boolean)
+
 class Undo(val message: String, val paths: Map<String, J?>)
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -103,6 +107,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val spendingModel: StateFlow<SpendingModel?> = combine(repo.docs, today, ym) { d, t, y -> Triple(d, t, y) }
         .mapLatest { (d, t, y) -> buildSpending(d, t, y) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    val savingsModel: StateFlow<SavingsModel?> = combine(repo.docs, today, ym) { d, t, y -> Triple(d, t, y) }
+        .mapLatest { (d, t, y) -> buildSavings(d, t, y) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    private fun buildSavings(d: Map<String, J>, t: String, y: String?): SavingsModel {
+        val st = store(d, t); val s = st.settings; val ym = y ?: defaultYm(t, s); val c = Core.monthCalc(ym, st, t)
+        val bal = Core.savingsState(st); val lines = c["billLines"].arr().filterIsInstance<Obj>()
+        val funds = Core.fundsOf(s).map { f -> val k = f.s("key"); val ids = st.bills.filter { it.value.s("fund") == k }.keys
+            FundView(f, bal.funds[k] ?: 0.0, ids.mapNotNull { st.bills[it]?.s("name") }, sumOf2(lines.filter { it.s("id") in ids }.map { it.n("amount") })) }
+        val cur = ymOf(t); val from = if (isYm(s["startYm"]) && s.s("startYm") > cur) s.s("startYm") else cur
+        return SavingsModel(ym, t, s, c, bal.emergency, bal.child, Core.targetsThrough(st, ym, t), funds, Core.projection(st, t, from, 6),
+            SavingsViews.programs(st, t, Docs.checkins(d).firstOrNull()), SavingsViews.hasKids(st))
+    }
 
     private fun buildToday(d: Map<String, J>, t: String, lastBackup: String?): TodayModel {
         val st = store(d, t); val s = st.settings; val ym = ymOf(t); val c = Core.monthCalc(ym, st, t)
@@ -247,6 +264,68 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val s = settings(); val name = Core.acctById(s, id)?.s("name") ?: "the account"
         val used = Accounts.billsUsing(s, repo.docs.value.filterKeys { it.startsWith("bills/") }.values, id)
         change("Removed $name" + (if (used > 0) ". Give its bills a new account." else ""), listOf("settings/main")) { saveSettings(Accounts.removed(s, id)) }
+    }
+
+    /* ---------- savings funds (settings.funds, plus emergencyStart/Goal, childStart and ccbEmergencyPct) ---------- */
+
+    /** Saves a savings fund. A null key adds a new one. Returns an error message, or null when it worked. */
+    fun saveFund(key: String?, name: String, account: String, start: String, goal: String): String? {
+        val st0 = Views.parseMoney(start); if (st0 == null || st0.isNaN()) return "Enter the balance at the start (0 if none)."
+        val core = key == "emergency" || key == "child"
+        val g = if (key == "child") { val p = goal.trim().toDoubleOrNull()?.let { Math.round(it).toInt() }; if (p == null || p !in 0..100) return "Enter a share from 0 to 100."; p.toDouble() }
+            else Views.parseMoney(goal).let { if (it == null) 0.0 else if (it.isNaN() || it < 0) return "Enter a goal in dollars, or leave it blank." else it }
+        if (!core && name.isBlank()) return "Give the fund a name."
+        val s = settings(); val list = Core.fundsOf(s).map { it.copy() as Obj }.toMutableList()
+        val k = key ?: ("f" + repo.newId())
+        val f = list.find { it.s("key") == k } ?: J.obj("key" to k, "name" to "", "account" to "", "goal" to 0, "start" to 0).also { list.add(it) }
+        f["account"] = J.S(account); if (!core) { f["name"] = J.S(name.trim().take(40)); f["start"] = J.N(st0); f["goal"] = J.N(g) }
+        val patch = J.obj("funds" to list)
+        when (key) { "emergency" -> { patch["emergencyStart"] = J.N(st0); patch["emergencyGoal"] = J.N(g) }; "child" -> { patch["childStart"] = J.N(st0); patch["ccbEmergencyPct"] = J.N(g) } }
+        change(if (key == null) "Added ${name.trim()}" else "Saved ${f.s("name").ifEmpty { name.trim() }}", listOf("settings/main")) { saveSettings(patch) }
+        return null
+    }
+
+    /** Removes a fund. Bills that paid into it become regular bills, as in the web version. */
+    fun deleteFund(key: String) {
+        val s = settings(); val name = Core.fundOf(s, key).s("name")
+        val bills = repo.docs.value.filter { it.key.startsWith("bills/") && it.value.s("fund") == key }.keys
+        change("Removed $name", listOf("settings/main") + bills) {
+            saveSettings(J.obj("funds" to Core.fundsOf(s).filter { it.s("key") != key }.map { it.copy() }))
+            bills.forEach { repo.update(it, J.obj("fund" to "")) }
+        }
+    }
+
+    /** A ready-made fund: the fund, plus a monthly non-essential bill that pays into it. */
+    fun addReadyFund(r: SavingsViews.Ready) {
+        val s = settings(); val key = "f" + repo.newId(); val id = repo.newId()
+        val sav = Core.accountsOf(s).find { it.s("type") == "savings" }?.s("id") ?: ""; val main = Core.acctFor(s, "main")?.s("id") ?: ""
+        val pay = Core.mainPaydays(s, ymOf(today.value)).firstOrNull(); val day = pay?.substring(8, 10)?.toInt() ?: 1
+        val funds = Core.fundsOf(s).map { it.copy() } + J.obj("key" to key, "name" to r.name, "account" to sav, "goal" to r.yearly, "start" to 0)
+        change("Added ${r.name}: ${Fmt.money(r.yearly / 12)} a month toward ${Fmt.money(r.yearly)} a year", listOf("settings/main", "bills/$id")) {
+            saveSettings(J.obj("funds" to funds))
+            repo.set("bills/$id", J.obj("name" to r.name + " savings", "group" to r.group, "category" to "other", "amount" to round2(r.yearly / 12), "freq" to "monthly", "day" to day,
+                "account" to main, "method" to "Interac e-Transfer", "fund" to key, "essential" to false, "deferrable" to false, "active" to true, "updated" to System.currentTimeMillis()))
+        }
+    }
+
+    /** Takes money out of a fund to pay for what it was saved for (not counted as spending). */
+    fun useFund(key: String, amount: Double, note: String) {
+        val t = today.value; val ym = ymOf(t); val m = repo.get("months/$ym"); val prev = m?.get("moved").n(key)
+        val uses = m?.get("fundUses").arr().map { it.copy() } + J.obj("fund" to key, "amount" to amount, "note" to note.trim(), "date" to t)
+        val f = Core.fundOf(settings(), key); val acct = Core.acctById(settings(), f.s("account"))?.s("name")
+        change("Took ${Fmt.money(amount)} out of ${f.s("name")}" + (if (acct != null) ". Move it from $acct to the account you pay with." else ""), listOf("months/$ym")) {
+            patchMonth(ym, J.obj("moved" to J.obj(key to round2(prev - amount)), "fundUses" to uses)) }
+    }
+
+    fun setCcbSplit(ym: String, amount: Double) = change("${Fmt.money(amount)} of the Child Benefit goes to Emergency Savings", listOf("months/$ym")) {
+        patchMonth(ym, J.obj("income" to J.obj("ccbToEmergency" to round2(amount)))) }
+
+    fun toggleClb(k: String) { val c = (settings()["clb"]?.copy() as? Obj) ?: Obj(); c[k] = J.B(!c.t(k)); change("", emptyList()) { saveSettings(J.obj("clb" to c)) } }
+
+    fun setFamilyIncome(v: String): String? {
+        val t = v.trim().replace(",", "").replace("$", "")
+        val value: Any = if (t.isEmpty()) "" else (t.toDoubleOrNull()?.let { maxOf(0, Math.round(it).toInt()) } ?: return "Enter a whole dollar amount, or leave it blank.")
+        change("Saved", listOf("settings/main")) { saveSettings(J.obj("familyIncome" to value)) }; return null
     }
 
     /* ---------- balance checks (checkins/<date>, the same documents the web version saves) ---------- */
