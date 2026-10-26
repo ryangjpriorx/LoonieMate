@@ -271,7 +271,7 @@ Each stage from 2 on does the Android app first, then the web version, unless it
 
 - [x] **Stage 0**: this plan.
 - [x] **Stage 1**: getting-on-track-fixes.md, both stages (engine, then the Android steps). Released in 0.14.0.
-- [ ] **Stage 2**: engine, web first then Kotlin, parity tested: Take out cash (dates, one trip a day, food in cash,
+- [x] **Stage 2**: engine, web first then Kotlin, parity tested: Take out cash (dates, one trip a day, food in cash,
   ATM limits with days or a second account, rounding to the ATM's bills, tellers, round-up to avoid coins), and
   `Views.todo(st, today)`: one list of every To do item with its kind, so both versions build To do the same way.
 - [ ] **Stage 3**: shared pieces: the row (tap, long-press or ⋯ menu, TalkBack actions, tick), the action menu, the
@@ -301,6 +301,16 @@ Each stage from 2 on does the Android app first, then the web version, unless it
 5. **1.0.0** only on the developer's explicit say-so, after his own testing.
 
 ## Notes for picking up
+
+- Stage 2 (done): `Core.moneyMoves` (both engines) gives cash taken out `cash: true` with `src`, `items` ([{name, amount, key,
+  ym}] of the bills it's for), `arrive`, `latest`, `atm` (rounded to the ATM's bills), `extra`, `fromHand` (cash on hand
+  from an earlier trip that month), `notes`, `teller`, `coins` (online banks), and over the limit `part` / `parts` / `ask`
+  / `overBy`, or `split` (the second account's name) with a move into that account and its own cash item. Cash for bills
+  is done once those bills are ticked paid. `Core.bAmt` rounds a cash bill up when `cashRound` is true. `Core.atmOf`,
+  `Core.atmParts`. `Core.todo(st, today, lastCheck)` → `{items, incoming}`; items are upcoming bills and moves plus
+  `report` (ei, key, ym, forYm), `tax` (year), `lock` (ym) and `check` (days). The web's `reportCfg` / `eiReportDay`
+  moved into its engine. Parity: households `cash-online-bank`, `cash-tellers`; `todo` and `todoChecked` per household.
+  Both versions' rows say "Take out $X cash" for now; the real To do comes in Stage 4.
 
 - Today's To do is built in `MainViewModel.buildToday` from `Core.upcoming`; reminder cards come from `Views.reminders`
   and EI report days from `Views.eiReportDay`. Stage 2 moves the list into `Views.todo` (both engines).
