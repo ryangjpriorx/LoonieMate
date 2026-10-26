@@ -1,10 +1,11 @@
 # The overhaul: easier, calmer, sturdier (Android first, then web)
 
-Proposed 2026-10-26, waiting for the go-ahead. LoonieMate does a lot now, and it shows: Today and Month are long
+The plan agreed on 2026-10-26. LoonieMate does a lot now, and it shows: Today and Month are long
 scrolls of cards and numbers, Settings is fifteen cards in a row, some things live in odd places, and nothing can be
 long-pressed. This phase makes every screen do one job well, puts things where people look for them, makes the
 everyday actions (tick it off, change it, put it off) quick in more than one way, and finishes the four plans still
-waiting, so the app ends up stable with nothing pending: **1.0.0**.
+waiting, so the app ends up stable with nothing pending. **1.0.0 is the developer's seal of approval after testing
+it himself: never release 1.0.0 until he explicitly says so.** This phase ends on a 0.x release.
 Work in small stages; each is committed, built and tested on GitHub before the next, with screenshots checked in
 light, dark and the largest text size.
 
@@ -18,7 +19,9 @@ light, dark and the largest text size.
    first-time setup.
 4. **Bank bill payment, amounts that change, pet prescriptions** (their plans as written), built straight into the
    new bill and income pages instead of building their screens twice.
-5. **Web catch-up, then a stability pass** and the 1.0.0 release.
+5. **A stability pass**, ending on a 0.x release for testing (1.0.0 only when the developer says so).
+
+The web version keeps up stage by stage instead of in one catch-up at the end (see Web version below).
 
 ## What's wrong now (read from the code and the screenshots)
 
@@ -196,10 +199,35 @@ Pages that only show settings open like forms but without "Leave without saving?
   "Take out $240.00 cash from Main Chequing · Rent $200.00, babysitter $40.00".
 - **Food money in cash**: when the everyday-spending account is "Cash on hand", the food move becomes
   "Take out $200.00 cash for food (16th–end)".
-- **Daily ATM limit** (optional, on the account the cash comes from): a withdrawal bigger than the limit is spread
-  over the days before, oldest first ("Take out $1,000 today and $450 tomorrow for rent").
 - Shown with an ATM icon; ticking it is the same as a money move (same keys, so older copies keep their ticks).
-- Older copies that don't know the new item kind show it as an ordinary money move.
+  Older copies that don't know the new item kind show it as an ordinary money move.
+
+**What the bank and its ATM can do** (new, optional, on each chequing account's page):
+- **Daily ATM limit** (blank = no limit). Hint: "Check your banking app; it's often $500 or $1,000."
+- **Bills the ATM gives out**: $20s (the default), $10s and $20s, or $5s and up.
+- **Branches with tellers**: yes (the default) or "No, it's an online bank (like Simplii or Tangerine)".
+
+**More than the daily limit**: the first time it happens, the Take out cash item asks how, and the answer is saved on
+that account (changeable on its page):
+- **Go back each day**: spread over the days before, starting early enough, each day's part its own item
+  ("Take out $1,000 today and $450 tomorrow for rent"), never before the money is there.
+- **Use another account too**: take the rest from a second account's ATM card the same day (with its own limit),
+  plus a money move into that account first if it doesn't hold enough.
+If neither is enough in time, the item says so plainly and suggests a teller (or, for an online bank, starting a day
+earlier or an e-Transfer to whoever is being paid if they take one).
+
+**Amounts the ATM can't give out exactly** (anything that isn't a whole number of its bills):
+- The item rounds the ATM amount up to its bills: "Take out $1,460 at the ATM (it gives $20s). Rent is $1,453.00;
+  the extra $7.00 stays as cash on hand."
+- **With tellers**: "Or get exactly $1,453.00 from a teller."
+- **Online bank, coins needed** (the bill can't be paid with what the ATM gives without change, like an envelope for
+  the landlord): "Your bank has no tellers. Get $3.00 in coins as change when you buy something, or ask a store to
+  break a bill." Cash amounts with cents count to the nearest 5¢, as Canadian stores do.
+- **A dollar or two from a paper bill** ($5, $10, $20, $50, $100): when a cash bill's amount is within $2.00 of the
+  next $5 (for example $38 or $1,453), LoonieMate asks once, on the bill form and on its first Take out cash item:
+  "Round up to $40.00 to avoid coins?" **Round it up** / **Keep it exact**. Rounding up plans the rounded amount for that
+  bill whenever it's paid in cash, so the budget matches what actually leaves. The answer is saved on the bill.
+- Any extra taken out (rounding up to the ATM's bills) is noted as cash on hand, not as spending.
 
 ### Motion: quick but smooth
 - Page and tab changes: a short fade (150 ms tabs, about 220 ms pages, standard Material easing). No sideways slide
@@ -212,6 +240,18 @@ Pages that only show settings open like forms but without "Leave without saving?
 - Less motion turns all of it off, as now. A test checks that no animation in the app runs longer than 400 ms
   (except progress while downloading).
 
+### Web version: the same where it makes sense
+- Every stage that changes the Android app also brings the web version along in the same stage, so both stay
+  functionally the same: the same To do (cash included), Today and Month layout, Food inside Spending, editing an
+  expense, first-time setup, Settings grouped the same way, the new bill and income options.
+- Long-press becomes a ⋯ button on each row (and right-click on a computer), opening the same menu.
+- Things the web version also gets now, since they work fine in a browser: getting on track (all six steps and the
+  fixes), the Personal Expenses list editor.
+- Things that don't work well in a browser get a short, friendly stub where the feature would be, instead of being
+  missing: reminders and notifications, sync between phones, self-updates. The stub says what it does and that
+  "LoonieMate works better on Android", with the download link. On iPhone it says the web version is the way to use
+  LoonieMate there (no Android link nagging).
+
 ### Stability: "works as intended" means checked
 - **Journey tests** (Compose screen tests, the same ones that draw the screenshots): first-time setup start to finish;
   log, change and delete an expense; tick a bill paid, Undo, untick; pay part later and give up from the long-press
@@ -223,35 +263,42 @@ Pages that only show settings open like forms but without "Leave without saving?
   short written checklist (docs/testing.md), results noted in that file.
 - **Nothing pending**: every plan in docs/plans is marked done, the README and screenshots match the app, and the
   release notes list what changed since 0.13.0.
+- The last release of this phase is a 0.x version for the developer to test; **1.0.0 waits for his explicit word.**
 
 ## Stages
+
+Each stage from 2 on does the Android app first, then the web version, unless it says otherwise.
 
 - [x] **Stage 0**: this plan.
 - [ ] **Stage 1**: getting-on-track-fixes.md, both stages (engine, then the Android steps). Release 0.14.0.
 - [ ] **Stage 2**: engine, web first then Kotlin, parity tested: Take out cash (dates, one trip a day, food in cash,
-  ATM limit), and `Views.todo(st, today)`: one list of every To do item with its kind, so both versions build To do
-  from the same thing.
-- [ ] **Stage 3**: shared pieces: the row (tap, long-press menu, TalkBack actions, tick), the action menu, the motion
-  rules, settings pages; navigation (tabs, the floating button, the month switcher in the page); Settings as a list.
+  ATM limits with days or a second account, rounding to the ATM's bills, tellers, round-up to avoid coins), and
+  `Views.todo(st, today)`: one list of every To do item with its kind, so both versions build To do the same way.
+- [ ] **Stage 3**: shared pieces: the row (tap, long-press or ⋯ menu, TalkBack actions, tick), the action menu, the
+  motion rules, settings pages; navigation (tabs, the floating button, the month switcher in the page); Settings as a
+  list; the account page's ATM settings.
 - [ ] **Stage 4**: Today.
 - [ ] **Stage 5**: Month.
 - [ ] **Stage 6**: Bills, Spending (with Food and changing an entry) and Savings.
-- [ ] **Stage 7**: forms: first-time setup, Log spending, the bill form, the add-choices pages. Release 0.15.0.
+- [ ] **Stage 7**: forms: first-time setup, Log spending, the bill form (with the round-up question), the add-choices
+  pages. Release 0.15.0.
 - [ ] **Stage 8**: bank-bill-payment.md (engine, Android on the new bill form and To do, web).
 - [ ] **Stage 9**: amount-changes.md.
 - [ ] **Stage 10**: pet-prescriptions.md. Release 0.16.0.
-- [ ] **Stage 11**: web catch-up: To do from `Views.todo` (cash included), the same wording, a ⋯ menu on rows in place of
-  long-press, Food inside Spending, Settings grouped the same way. (Not a full redesign; see open points.)
-- [ ] **Stage 12**: stability pass: journey tests, the real-phone checklist, README and screenshots. Release 1.0.0.
+- [ ] **Stage 11**: web-only gaps: getting on track and the Personal Expenses list editor on the web, and the
+  "works better on Android" stubs for reminders, sync and updates.
+- [ ] **Stage 12**: stability pass: journey tests, the real-phone checklist, README and screenshots. Release 0.17.0
+  for the developer to test. **Not 1.0.0** until he says so.
 
-## Open points to confirm before Stage 2
+## Decided (2026-10-26)
 
-1. **Web**: catch-up as in Stage 11 (same features and wording, its own layout), or the full Today and Month
-   redesign there too? The catch-up is about a third of the work.
-2. **Ticked items**: fold into "Done today" until tomorrow (proposed), or disappear straight away?
-3. **Cash timing**: the day before it's due (proposed), or on the payday that pays for it?
-4. **ATM limit**: worth having (proposed, off unless set), or leave it out?
-5. **Version**: call the end of this 1.0.0?
+1. **Web**: functionally the same as Android wherever that makes sense, built in the same stages; a "works better on
+   Android" stub where something doesn't work well in a browser.
+2. **Ticked items** fold into "Done today" until tomorrow.
+3. **Cash** is taken out the day before it's due.
+4. **ATM limits** on chequing accounts, with the person's choice of going back each day or using another account;
+   rounding to the ATM's bills, tellers or not, and an offer to round up a dollar or two to avoid coins.
+5. **1.0.0** only on the developer's explicit say-so, after his own testing.
 
 ## Notes for picking up
 
@@ -263,5 +310,6 @@ Pages that only show settings open like forms but without "Leave without saving?
   `rememberCountUp`, `GrowBar`, `ProgressRing`, `StatusBadge` pulse, `AccentLine` (ui/AppUi.kt, ui/Components.kt).
 - Navigation: `Tab`, `Sheet`, the top bar and floating button in `LoonieMateApp` (ui/AppUi.kt); Settings cards in
   ui/screens/MoreScreen.kt; Food in ui/sheets/FoodSheet.kt.
-- No new data except the cash items (Stage 2) and an expense's edits (same fields, same path). Everything else is
-  screens, so older copies and the web version keep reading the budget as they do now.
+- New data, all ignored by older copies: on accounts `atmLimit`, `atmNotes` (20, 10 or 5), `tellers` (false for an
+  online bank), `atmOver` ("days" or "split") and `atmAlso` (the second account); on bills `cashRound` (true / false,
+  absent = not asked yet). An expense's edits use the same fields and path. Everything else is screens.
