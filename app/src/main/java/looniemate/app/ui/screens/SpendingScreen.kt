@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.LocalCafe
 import androidx.compose.material.icons.rounded.FormatListBulleted
 import androidx.compose.material.icons.rounded.Sell
 import androidx.compose.material3.FilledTonalButton
@@ -19,6 +20,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -48,6 +51,48 @@ import looniemate.engine.n
 import looniemate.engine.s
 import looniemate.engine.*
 
+/**
+ * Personal Expenses on the Spending tab: this month's planned and logged amounts, and the list of things bought for
+ * yourself, each with a one-tap Log for today. Calm colours whatever the numbers (docs/plans/personal-expenses.md).
+ */
+@Composable
+private fun SelfSpendingCard(m: looniemate.app.SpendingModel, vm: MainViewModel, open: (Sheet) -> Unit) {
+    val c = m.self; val plan = c.n("self"); val spent = c.n("selfSpent"); val (fg, _) = looniemate.app.ui.toneColors("sky")
+    SectionCard("Personal Expenses", Icons.Rounded.LocalCafe, "sky", trailing = if (plan > 0) "${Fmt.money(spent)} of ${Fmt.money(plan)}" else null, index = 1) {
+        if (m.selfItems.isEmpty()) {
+            Text("A little money for yourselves, planned so it doesn't come as a surprise: a coffee, smokes, a game, a night out. List what you usually get and how often.",
+                style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(10.dp))
+            FilledTonalButton(onClick = { open(Sheet.Self) }, modifier = Modifier.testTag("self-edit")) { Text("Set up Personal Expenses") }
+            return@SectionCard
+        }
+        if (plan > 0) { looniemate.app.ui.GrowBar(minOf(1.0, spent / plan).toFloat(), fg); Spacer(Modifier.height(6.dp)) }
+        val left = plan - spent
+        Text((if (left >= 0) "${Fmt.money(left)} left for you in ${Fmt.monthOnly(m.ym)}." else "${Fmt.money(-left)} more than planned in ${Fmt.monthOnly(m.ym)}.") +
+            (if (c.n("selfHold") > 0) " ${Fmt.money(c.n("selfHold"))} is held back this month." else ""),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (c.n("selfHold") > 0 && !m.locked) TextButton(onClick = { vm.holdSelf(m.ym, 0.0) }) { Text("Put it back") }
+        Spacer(Modifier.height(4.dp))
+        m.selfItems.forEachIndexed { i, p ->
+            if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(p.s("name").ifEmpty { "Personal expense" }, fontWeight = FontWeight.SemiBold)
+                    Text("${Fmt.money(p.n("amount"))} · ${vm.selfHowOften(p)} · about ${Fmt.money(Core.selfItemMonthly(p, m.regCount))} a month",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (m.isCurrent && !m.locked) androidx.compose.material3.OutlinedButton(onClick = { vm.logSelfItem(p) },
+                    modifier = Modifier.testTag("self-log-$i")) { Text("Log ${Fmt.money(p.n("amount"))}") }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FilledTonalButton(onClick = { open(Sheet.Self) }, modifier = Modifier.testTag("self-edit")) { Text("Change the list") }
+            if (m.isCurrent && !m.locked) TextButton(onClick = { open(Sheet.Log(category = Core.SELF)) }) { Text("Log something else") }
+        }
+    }
+}
+
 @Composable
 fun SpendingScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
     val sm by vm.spendingModel.collectAsStateWithLifecycle()
@@ -55,8 +100,9 @@ fun SpendingScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit)
     val people = vm.settings()["people"]
     LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { CategoryCard(m.ym, m.byCat, 0) }
+        item { SelfSpendingCard(m, vm, open) }
         item {
-            SectionCard("Everything logged in ${Fmt.monthOnly(m.ym)}", Icons.Rounded.FormatListBulleted, "amber", trailing = Fmt.money(m.total - m.oneTimeTotal), index = 1) {
+            SectionCard("Everything logged in ${Fmt.monthOnly(m.ym)}", Icons.Rounded.FormatListBulleted, "amber", trailing = Fmt.money(m.total - m.oneTimeTotal), index = 2) {
                 if (m.entries.isEmpty()) EmptyNote("Nothing logged for this month yet.")
                 var last = ""
                 m.entries.forEach { e -> val d = e.s("date"); if (d != last) { last = d; DayHeader(Fmt.dLabel(d)) }; ExpenseRow(e, m.locked) { vm.deleteExpense(e) } }

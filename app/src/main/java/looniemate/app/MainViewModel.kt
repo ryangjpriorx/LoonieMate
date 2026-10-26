@@ -63,7 +63,9 @@ class MonthModel(
 class BillRow(val id: String, val bill: Obj, val line: Obj?, val inFrom: Double, val inMonth: String?, val freq: String)
 class BillsModel(val ym: String, val totals: Map<String, Double>, val counts: Map<String, Int>, val rows: Map<String, List<BillRow>>, val debts: List<Views.Debt>)
 
-class SpendingModel(val ym: String, val entries: List<Obj>, val oneTime: List<Obj>, val total: Double, val oneTimeTotal: Double, val byCat: List<Pair<String, Double>>, val locked: Boolean, val emergencyPlan: Double)
+class SpendingModel(val ym: String, val entries: List<Obj>, val oneTime: List<Obj>, val total: Double, val oneTimeTotal: Double, val byCat: List<Pair<String, Double>>, val locked: Boolean, val emergencyPlan: Double,
+    /** Personal Expenses: the month's figures, the list of items, and whether this is the current month (items can be logged with a tap) */
+    val self: Obj = Obj(), val selfItems: List<Obj> = emptyList(), val isCurrent: Boolean = false, val regCount: Int = 0)
 
 class FundView(val f: Obj, val balance: Double, val linked: List<String>, val adding: Double)
 class SavingsModel(val ym: String, val today: String, val s: Obj, val c: Obj, val emergency: Double, val child: Double, val thr: Core.Targets,
@@ -212,7 +214,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val byCat = (c["byCat"] as? Obj)?.map?.entries?.map { it.key to looniemate.engine.num(it.value) }?.sortedByDescending { it.second } ?: emptyList()
         val one = all.filter { it.t("oneTime") }
         return SpendingModel(ym, all.filter { !it.t("oneTime") }, one, sumOf2(all.map { it.n("amount") }), sumOf2(one.map { it.n("amount") }), byCat,
-            st.months[ym].t("closed"), c.n("target"))
+            st.months[ym].t("closed"), c.n("target"), c, s["selfPlan"].arr().filterIsInstance<Obj>().filter { it.n("amount") > 0 }, ym == ymOf(t), c.strList("regularDays").size)
     }
 
     /* ---------- changes, each with Undo ---------- */
@@ -487,19 +489,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun saveFood(pct: Int, min: Double) = change("Food budget saved", listOf("settings/main")) { saveSettings(J.obj("foodPct" to pct, "foodMin" to min)) }
 
-/* ---------- Personal Expenses (docs/plans/personal-expenses.md): never asks what it's for ---------- */
+/* ---------- Personal Expenses (docs/plans/personal-expenses.md): a list of things bought for yourself ---------- */
 
-    /** One line of the Personal Expenses plan as typed: who (optional), how much, and how often (week, pay or month). */
-    data class SelfRow(val name: String = "", val amount: String = "", val per: String = "week")
+    /** One item as typed: what it is (optional), how much each time, how many times, and per day / week / month / payday. */
+    data class SelfRow(val name: String = "", val amount: String = "", val times: String = "1", val per: String = "week")
+    val SELF_PERS = listOf("day" to "a day", "week" to "a week", "month" to "a month", "pay" to "each payday")
     fun selfRows(): List<SelfRow> = settings()["selfPlan"].arr().filterIsInstance<Obj>()
-        .map { SelfRow(it.s("name"), if (it.n("amount") > 0) String.format(java.util.Locale.US, "%.2f", it.n("amount")) else "", it.s("per").ifEmpty { "month" }) }
-    /** The plan to save from what was typed (blank amounts are $0 and left out), or what's wrong with it. */
+        .map { SelfRow(it.s("name"), if (it.n("amount") > 0) String.format(java.util.Locale.US, "%.2f", it.n("amount")) else "",
+            it.n("times").let { t -> if (t > 0) Json.numStr(t) else "1" }, it.s("per").ifEmpty { "month" }) }
+    /** The list to save from what was typed (items with a blank amount are left out), or what's wrong with it. */
     fun readSelf(rows: List<SelfRow>): Pair<List<Obj>?, String?> {
         val out = mutableListOf<Obj>()
-        for ((i, r) in rows.withIndex()) { val a = Views.parseMoney(r.amount) ?: continue
-            if (a.isNaN() || a < 0) return null to "${r.name.trim().ifEmpty { "Line ${i + 1}" }}: enter a dollar amount, or leave it blank."
-            if (a > 0) out.add(J.obj("name" to r.name.trim().take(30), "amount" to a, "per" to (if (r.per in listOf("week", "pay", "month")) r.per else "month"))) }
+        for ((i, r) in rows.withIndex()) { val a = Views.parseMoney(r.amount) ?: continue; val label = r.name.trim().ifEmpty { "Item ${i + 1}" }
+            if (a.isNaN() || a < 0) return null to "$label: enter a dollar amount, or leave it blank."
+            val t = r.times.trim().ifEmpty { "1" }.replace(',', '.').toDoubleOrNull()
+            if (t == null || !(t > 0) || t > 100) return null to "$label: enter how many times, like 1 or 5."
+            if (a > 0) out.add(J.obj("name" to r.name.trim().take(30), "amount" to a, "times" to t,
+                "per" to (if (SELF_PERS.any { it.first == r.per }) r.per else "week"))) }
         return out to null }
+    /** One typed item's share of a month (for the "about $65 a month" under it), or null when it isn't filled in yet. */
+    fun selfRowMonthly(r: SelfRow): Double? { val (p, _) = readSelf(listOf(r)); return p?.firstOrNull()?.let { selfMonthly(listOf(it)) } }
+    /** "5 times a week", "once a month", "each payday". */
+    fun selfHowOften(p: J): String { val t = p.n("times").let { if (it > 0) it else 1.0 }; val per = SELF_PERS.find { it.first == p.s("per") }?.second ?: "a month"
+        return (if (t == 1.0) "once" else if (t == 2.0) "twice" else Json.numStr(t) + " times") + " " + per }
+    /** One tap on an item in the Spending tab: logs it for today under Personal Expenses. */
+    fun logSelfItem(p: J): String? = logExpense(p.n("amount"), Core.SELF, today.value, p.s("name"), "", false, "household", false)
     /** What the plan comes to in a month, with this month's paydays. */
     fun selfMonthly(plan: List<Obj>, ym: String = ymOf(today.value)): Double =
         Core.selfPlanFor(J.obj("selfPlan" to plan), Core.monthCalc(ym, Docs.toStore(repo.docs.value, today.value), today.value).strList("regularDays").size)

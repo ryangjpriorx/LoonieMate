@@ -536,11 +536,14 @@ const isDate=k=>/^\d{4}-\d{2}-\d{2}$/.test(String(k||''));
 const sum=a=>round2(a.reduce((t,x)=>t+num(x),0));
 const QMONTHS=[1,4,7,10];
 const FOOD=new Set(['groceries','takeout']);
-/* Personal Expenses (docs/plans/personal-expenses.md): settings.selfPlan [{name,amount,per:'week'|'pay'|'month'}] gives a
-   monthly amount planned after bills and food; spending logged as 'self' counts against it, and only going over comes out of savings */
+/* Personal Expenses (docs/plans/personal-expenses.md): settings.selfPlan is a list of things bought for yourself,
+   [{name,amount,times,per:'day'|'week'|'month'|'pay'}] ("a $3 coffee, 5 times a week"); together they give a monthly amount
+   planned after bills and food. Spending logged as 'self' counts against it, and only going over comes out of savings. */
 const SELF='self';
-function selfPlanFor(s,regCount){let t=0;for(const p of(Array.isArray(s.selfPlan)?s.selfPlan:[])){if(!p)continue;const a=Math.max(0,num(p.amount));
-  t+=p.per==='week'?a*52/12:p.per==='pay'?a*regCount:a}return round2(t)}
+/* one item's share of a month: amount × times, per day (365/12 a month), week (52/12), payday (this month's main paydays) or month */
+function selfItemMonthly(p,regCount){if(!p)return 0;const a=Math.max(0,num(p.amount)),t=num(p.times)>0?num(p.times):1;
+  return p.per==='day'?a*t*365/12:p.per==='week'?a*t*52/12:p.per==='pay'?a*t*regCount:a*t}
+function selfPlanFor(s,regCount){let t=0;for(const p of(Array.isArray(s.selfPlan)?s.selfPlan:[]))t+=selfItemMonthly(p,regCount);return round2(t)}
 
 /* ---------- bank holidays ----------
    bank:true = Payments Canada non-processing day (deposits move to the business day before).
@@ -1038,7 +1041,7 @@ function foodPeriod(c,today,s){
   const spent=first?c.foodH1:c.foodH2,left=round2(allow-spent),daysLeft=len-idx+1;
   return{half:first?1:2,allow,spent,left,target:round2(allow/len),expected:round2(allow*idx/len),daysLeft,perDay:round2(Math.max(0,left)/Math.max(1,daysLeft)),end:first?ym+'-15':dayIn(ym,31),len};
 }
-root.Core={SELF,selfPlanFor,pad,num,round2,ymd,parse,ymOf,ymAdd,dim,addDays,diffDays,dayIn,isYm,isDate,sum,billDates,billPlanForMonth,resolve,listExp,monthCalc,snapshot,savingsState,targetsThrough,projection,upcoming,foodPeriod,FOOD,billEvents,moneyMoves,startingMonth,runway,debtInfo,debtParts,ASSIST,assistOf,assistSched,dedCfg,fundsOf,fundOf,holidaysOf,isBiz,schedDates,schedEstimated,CREDIT_TYPES,incomesOf,creditsOf,creditSched,creditName,mainPaydays,accountsOf,acctById,acctId,acctFor};
+root.Core={SELF,selfPlanFor,selfItemMonthly,pad,num,round2,ymd,parse,ymOf,ymAdd,dim,addDays,diffDays,dayIn,isYm,isDate,sum,billDates,billPlanForMonth,resolve,listExp,monthCalc,snapshot,savingsState,targetsThrough,projection,upcoming,foodPeriod,FOOD,billEvents,moneyMoves,startingMonth,runway,debtInfo,debtParts,ASSIST,assistOf,assistSched,dedCfg,fundsOf,fundOf,holidaysOf,isBiz,schedDates,schedEstimated,CREDIT_TYPES,incomesOf,creditsOf,creditSched,creditName,mainPaydays,accountsOf,acctById,acctId,acctFor};
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 

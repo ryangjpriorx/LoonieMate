@@ -37,11 +37,16 @@ object Core {
     val FOOD = setOf("groceries", "takeout")
     /** Personal Expenses (docs/plans/personal-expenses.md): spending logged under this category counts against the planned amount. */
     const val SELF = "self"
-    /** The monthly Personal Expenses amount from settings.selfPlan [{name, amount, per: week | pay | month}]. */
-    fun selfPlanFor(s: J, regCount: Int): Double { var t = 0.0
-        for (p in s["selfPlan"].arr()) { if (p !is Obj) continue; val a = maxOf(0.0, num(p["amount"]))
-            t += when (p.s("per")) { "week" -> a * 52 / 12; "pay" -> a * regCount; else -> a } }
-        return round2(t) }
+    /**
+     * One Personal Expenses item's share of a month (settings.selfPlan is a list of things bought for yourself:
+     * [{name, amount, times, per: day | week | month | pay}], "a $3 coffee, 5 times a week"): amount × times, per day
+     * (365/12 a month), week (52/12), payday (this month's main paydays) or month. Same as the web's selfItemMonthly.
+     */
+    fun selfItemMonthly(p: J?, regCount: Int): Double { if (p !is Obj) return 0.0
+        val a = maxOf(0.0, num(p["amount"])); val t = num(p["times"]).let { if (it > 0) it else 1.0 }
+        return when (p.s("per")) { "day" -> a * t * 365 / 12; "week" -> a * t * 52 / 12; "pay" -> a * t * regCount; else -> a * t } }
+    /** The monthly Personal Expenses amount: every item in settings.selfPlan together. */
+    fun selfPlanFor(s: J, regCount: Int): Double { var t = 0.0; for (p in s["selfPlan"].arr()) t += selfItemMonthly(p, regCount); return round2(t) }
 
     /* ---------- bank holidays ---------- */
     private val PROV_FEB = mapOf("ON" to "Family Day", "AB" to "Family Day", "BC" to "Family Day", "NB" to "Family Day", "SK" to "Family Day", "MB" to "Louis Riel Day", "PE" to "Islander Day", "NS" to "Heritage Day")

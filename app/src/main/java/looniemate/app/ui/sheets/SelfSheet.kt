@@ -47,48 +47,28 @@ import looniemate.engine.ymOf
 import looniemate.engine.*
 
 /**
- * Personal Expenses: a little money each person can spend on themselves, planned openly so it doesn't turn up later as
- * "unlogged spending". Never asks what it's for. docs/plans/personal-expenses.md.
+ * Personal Expenses: the list of things bought for yourself and how often, planned openly so it doesn't turn up later
+ * as "unlogged spending". What's spent this month is on the Spending tab. docs/plans/personal-expenses.md.
  */
 @Composable
-fun SelfSheet(vm: MainViewModel, close: () -> Unit, open: (Sheet) -> Unit) {
-    val docs by vm.repo.docs.collectAsStateWithLifecycle()
-    val today by vm.today.collectAsStateWithLifecycle()
-    val ym = ymOf(today); val c = Core.monthCalc(ym, Docs.toStore(docs, today), today)
+fun SelfSheet(vm: MainViewModel, close: () -> Unit, @Suppress("UNUSED_PARAMETER") open: (Sheet) -> Unit) {
     SheetTitle("Personal Expenses")
-    if (c.n("selfPlanned") > 0 || c.n("selfSpent") > 0) {
-        Text("This month", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        LineRow("Planned for ${Fmt.monthOnly(ym)}", Fmt.money(c.n("selfPlanned")))
-        if (c.n("selfHold") > 0) Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) { LineRow("Held back this month", "−" + Fmt.money(c.n("selfHold"))) }
-            TextButton(onClick = { vm.holdSelf(ym, 0.0) }) { Text("Put it back") } }
-        LineRow("Logged so far", Fmt.money(c.n("selfSpent")))
-        val left = c.n("self") - c.n("selfSpent")
-        LineRow(if (left >= 0) "Left this month" else "More than planned", Fmt.money(Math.abs(left)), total = true)
-        val logged = c["expenses"].arr().filterIsInstance<Obj>().filter { !it.t("oneTime") && it.s("category") == Core.SELF }
-        Column {
-            if (logged.isEmpty()) EmptyNote("Nothing logged under Personal Expenses this month. Logging it is up to you.")
-            logged.forEach { e -> ExpenseRow(e, c.t("closed")) { vm.deleteExpense(e) } }
-        }
-        FilledTonalButton(onClick = { open(Sheet.Log(category = Core.SELF)) }) { Text("+ Log Personal Expenses") }
-        HorizontalDivider(Modifier.padding(vertical = 6.dp))
-        Text("Your plan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-    }
     SelfPlanEditor(vm, "Save", onSaved = close)
 }
 
-/** The words used wherever the plan is set: kind, and clear that nobody has to say what it's for. */
+/** The words used wherever the list is set: kind, and clear that nobody has to say what each thing is. */
 @Composable
 fun SelfIntro() {
-    Text("Most people spend a little on themselves: a coffee, smokes, a game, a night out. Whatever yours is, you don't need to say. " +
-        "Planning \$20 a week beats planning \$0 and spending \$80.", style = MaterialTheme.typography.bodyMedium)
-    Text("It's set aside after bills and food, before savings. Leave it blank for none, and change it any time in Settings.",
+    Text("Most people spend a little on themselves: a coffee, smokes, a game, a night out. List what you usually get and how often. " +
+        "Planning for it beats pretending it isn't there.", style = MaterialTheme.typography.bodyMedium)
+    Text("It's set aside after bills and food, before savings. Naming each one is up to you, and you can change the list any time on the Spending tab.",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 /**
- * One line per person (or one for everyone): how much, and per week, per paycheque or per month. Blank means $0.
- * Used by the Personal Expenses page and by a step of getting on track.
+ * The list: one card per thing, with what it is (optional), how much each time, and how often (so many times a day,
+ * week, month or payday). Items left without an amount are skipped. Used by the Personal Expenses page and by a step of
+ * getting on track.
  */
 @Composable
 fun SelfPlanEditor(vm: MainViewModel, saveLabel: String, onSaved: () -> Unit) {
@@ -99,25 +79,30 @@ fun SelfPlanEditor(vm: MainViewModel, saveLabel: String, onSaved: () -> Unit) {
     rows.forEachIndexed { i, r ->
         Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextFieldRow(r.name, { rows[i] = r.copy(name = it.take(30)); err = null }, "Who (optional)", placeholder = "Me, Alex, both of us…")
-                MoneyField(r.amount, { rows[i] = r.copy(amount = it); err = null }, "How much", modifier = Modifier.fillMaxWidth().testTag("self-amount-$i"))
+                TextFieldRow(r.name, { rows[i] = r.copy(name = it.take(30)); err = null }, "What is it? (optional)", placeholder = "Coffee, smokes, a game…")
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+                    MoneyField(r.amount, { rows[i] = r.copy(amount = it); err = null }, "Each time", modifier = Modifier.weight(1f).testTag("self-amount-$i"))
+                    TextFieldRow(r.times, { v -> rows[i] = r.copy(times = v.filter { it.isDigit() || it == '.' || it == ',' }.take(4)); err = null }, "How many",
+                        modifier = Modifier.weight(0.7f).testTag("self-times-$i"), number = true)
+                }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("week" to "Per week", "pay" to "Per paycheque", "month" to "Per month").forEach { (k, l) ->
-                        FilterChip(r.per == k, { page?.mark(); rows[i] = r.copy(per = k) }, label = { Text(l) }) } }
-                if (rows.size > 1) TextButton(onClick = { page?.mark(); rows.removeAt(i) }) { Text("Remove this line") }
+                    vm.SELF_PERS.forEach { (k, l) -> FilterChip(r.per == k, { page?.mark(); rows[i] = r.copy(per = k) }, label = { Text(l) }) } }
+                vm.selfRowMonthly(r)?.takeIf { it > 0 }?.let { m ->
+                    Text("About ${Fmt.money(m)} a month", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                if (rows.size > 1) TextButton(onClick = { page?.mark(); rows.removeAt(i) }) { Text("Remove this one") }
             }
         }
     }
-    TextButton(onClick = { rows.add(SelfRow()) }) { Text("+ Add another person") }
+    TextButton(onClick = { rows.add(SelfRow()) }, modifier = Modifier.testTag("self-add")) { Text("+ Add another") }
     val (plan, _) = vm.readSelf(rows)
-    if (plan != null && plan.isNotEmpty()) Text("That's about ${Fmt.money(vm.selfMonthly(plan))} in ${Fmt.monthOnly(ymOf(vm.today.value))}.",
+    if (plan != null && plan.isNotEmpty()) Text("Altogether about ${Fmt.money(vm.selfMonthly(plan))} in ${Fmt.monthOnly(ymOf(vm.today.value))}.",
         style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
     ErrorText(err)
     Button(onClick = { val (p, e) = vm.readSelf(rows); if (p == null) err = e else { vm.saveSelf(p); page?.saved(); onSaved() } },
         Modifier.fillMaxWidth().testTag("self-save")) { Text(saveLabel) }
 }
 
-/** The plan's lines saved with the page (S1). */
+/** The list saved with the page (polish-and-audit S1). */
 private val selfRowsSaver = androidx.compose.runtime.saveable.Saver<androidx.compose.runtime.snapshots.SnapshotStateList<SelfRow>, ArrayList<String>>(
-    save = { l -> ArrayList(l.flatMap { listOf(it.name, it.amount, it.per) }) },
-    restore = { a -> mutableStateListOf<SelfRow>().apply { a.chunked(3).forEach { add(SelfRow(it[0], it[1], it[2])) } } })
+    save = { l -> ArrayList(l.flatMap { listOf(it.name, it.amount, it.times, it.per) }) },
+    restore = { a -> mutableStateListOf<SelfRow>().apply { a.chunked(4).forEach { add(SelfRow(it[0], it[1], it[2], it[3])) } } })

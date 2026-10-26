@@ -9,11 +9,13 @@ before the next. **All stages done; released in 0.8.0.**
 ## Decisions
 
 - **Name:** "Personal Expenses".
-- **Never asks what it's for.** One amount per adult (or one for the household), per week, per paycheque or per month.
-  Blank means $0; $0 turns the whole thing off.
+- **A list of what you get and how often** (changed 2026-10-26, was one amount per person): each item has what it is
+  (optional), how much each time, and how many times a day, week, month or payday ("a $3.25 coffee, 5 times a week").
+  Items without an amount are left out; an empty list turns the whole thing off.
 - **Setup:** a step after bills in first-time setup, worded without judgement: "Most people spend a little on
   themselves: a coffee, smokes, a game, a night out. Whatever yours is, you don't need to say. Planning $20 a week beats
-  planning $0 and spending $80." Changeable any time in Settings.
+  planning $0 and spending $80." Lives on the **Spending tab** (moved from Settings 2026-10-26), where each item can
+  also be logged with one tap.
 - **In the plan:** taken out after bills and food (like food money), before what goes to savings. Shown as its own line
   on the Month screen.
 - **On Today: what's gone on Personal Expenses this month** (added 2026-10-26). A small, plain card: "Personal
@@ -64,3 +66,9 @@ before the next. **All stages done; released in 0.8.0.**
   Month: a Personal Expenses tile. Log spending already lists the category.
 - Stage 3 (done): Where you stand offers "Hold back some Personal Expenses" (all of what's still unspent up to the
   shortfall, or half), after giving up a non-essential and before Emergency Savings. Web month summary shows the line.
+- List and Spending tab (2026-10-26): `selfPlan` items gain `times` (default 1) and `per: "day"` (365/12 a month);
+  `selfItemMonthly(p, regCount)` in both engines, `selfPlanFor` sums it; parity covers day, week, pay, month, bad and
+  zero `times`. Android: `SelfPlanEditor` is the list (what, each time, how many, a day / week / month / each payday,
+  "about $X a month" under each); `SelfSpendingCard` on the Spending tab (planned vs logged, held back with Put it back,
+  each item with "Log $X" for today via `MainViewModel.logSelfItem`, Change the list, Log something else). The Settings
+  card is gone; Today's card links to the Spending tab.

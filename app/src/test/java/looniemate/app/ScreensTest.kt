@@ -103,9 +103,12 @@ class ScreensTest {
         tab("Bills"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-bill", sheet = true); closePage()
         tab("More"); rule.onNodeWithTag("account-0").performClick(); shot("$theme-sheet-account", sheet = true); closePage()
         tab("More"); rule.onNodeWithTag("food-settings").performClick(); shot("$theme-sheet-food", sheet = true); closePage()
-        /* Personal Expenses: the page from Settings, and the card on Today */
-        tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("self-settings")); settle()
-        rule.onNodeWithTag("self-settings").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); shot("$theme-sheet-self", sheet = true); closePage()
+        /* Personal Expenses: the card on the Spending tab (logging one item with a tap), the list page, and the card on Today */
+        tab("Spending"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("self-edit")); settle()
+        shot("$theme-Spending-self")
+        if (rule.onAllNodesWithTag("self-log-0").fetchSemanticsNodes().isNotEmpty()) { rule.onNodeWithTag("self-log-0").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle() }
+        else problems.add("$theme: no Log button on the first Personal Expenses item")
+        rule.onNodeWithTag("self-edit").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); shot("$theme-sheet-self", sheet = true); closePage()
         tab("Today"); if (runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("self-open")) }.isSuccess) shot("$theme-Today-self")
         else problems.add("$theme: no Personal Expenses card on Today")
         /* these sit further down a scrolling list, so they're drawn only when they're on screen */

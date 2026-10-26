@@ -138,7 +138,7 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
                 TextButton(onClick = { open(Sheet.Food(model.today.take(7))) }, modifier = Modifier.testTag("food-open")) { Text("Food plan and settings") }
             }
         }
-        model.self?.let { c -> item { SelfCard(c, open) } }
+        model.self?.let { c -> item { SelfCard(c) { go(Tab.Spending) } } }
         if (model.hasAccounts) item {
             val ck = model.lastCheck; val days = ck?.let { diffDays(it.s("date"), model.today) }
             SectionCard("Balances", Icons.Rounded.AccountBalance, "gold", trailing = when (days) { null -> "Not checked yet"; 0 -> "Checked today"; 1 -> "Checked yesterday"; else -> "Checked $days days ago" }, index = 3) {
@@ -359,7 +359,7 @@ private fun StorageProblemCard(vm: MainViewModel, open: (Sheet) -> Unit) {
  * telling-off: a calm colour whatever happens, and going over is said plainly, not as a warning.
  */
 @Composable
-private fun SelfCard(c: looniemate.engine.Obj, open: (Sheet) -> Unit) {
+private fun SelfCard(c: looniemate.engine.Obj, toSpending: () -> Unit) {
     val plan = c.n("self"); val spent = c.n("selfSpent"); val left = plan - spent; val (fg, _) = toneColors("sky")
     SectionCard("Personal Expenses", Icons.Rounded.LocalCafe, "sky", trailing = Fmt.monthOnly(c.s("ym")), index = 2) {
         FlowRow(verticalArrangement = Arrangement.Center, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -370,13 +370,13 @@ private fun SelfCard(c: looniemate.engine.Obj, open: (Sheet) -> Unit) {
         if (plan > 0) { Spacer(Modifier.height(10.dp)); GrowBar(minOf(1.0, spent / plan).toFloat(), fg) }
         Spacer(Modifier.height(6.dp))
         Text(when {
-            plan <= 0 -> "Logged under Personal Expenses. Plan an amount for it and it's set aside each month."
+            plan <= 0 -> "Logged under Personal Expenses. List what you usually get on the Spending tab and it's set aside each month."
             spent == 0.0 -> "${Fmt.money(plan)} is set aside for you this month. Logging it is up to you."
             left >= 0 -> "${Fmt.money(left)} left for you this month."
             else -> "${Fmt.money(-left)} more than planned this month."
         } + (if (c.n("selfHold") > 0) " ${Fmt.money(c.n("selfHold"))} is held back this month." else ""),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        TextButton(onClick = { open(Sheet.Self) }, modifier = Modifier.testTag("self-open")) { Text("Personal Expenses") }
+        TextButton(onClick = toSpending, modifier = Modifier.testTag("self-open")) { Text("See the list") }
     }
 }
 
