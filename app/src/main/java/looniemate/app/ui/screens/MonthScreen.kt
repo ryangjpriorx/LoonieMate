@@ -233,7 +233,7 @@ fun CategoryCard(ym: String, byCat: List<Pair<String, Double>>, index: Int) {
         val max = byCat.maxOfOrNull { it.second } ?: 1.0
         byCat.forEach { (k, v) ->
             Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(Labels.SPENDL[k] ?: k, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(118.dp), maxLines = 1)
+                Text(Labels.SPENDL[k] ?: k, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(118.dp), maxLines = 2)
                 GrowBar((v / max).toFloat(), if (Core.FOOD.contains(k)) x.good else MaterialTheme.colorScheme.primary, Modifier.weight(1f))
                 Text(Fmt.money(v), style = MaterialTheme.typography.bodyMedium.merge(Numbers))
             }
