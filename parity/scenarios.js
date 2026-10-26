@@ -133,6 +133,29 @@ const onStart = JSON.parse(JSON.stringify(on));
 onStart['months/2026-11'] = Object.assign({}, onStart['months/2026-11'] || {}, { starting: true });
 onStart['settings/main'].catchUp = [{ id: 'cu1', name: 'Bell (behind)', amount: 180.5, added: '2026-11-14' }, { id: 'cu2', name: 'Landlord', amount: 300, added: '2026-11-14' }];
 
+/* 7. Ontario Works: pay counted from the 16th to the 15th lowers the next payment; EI that ends; other income counted or not */
+const ow = {
+  'settings/main': household({ startYm: '2026-11', trackFrom: '2026-11-01',
+    accounts: [{ id: 'm', name: 'Main', type: 'chequing', purposes: ['main', 'rent'] }],
+    incomes: [{ id: 'ow', name: 'Ontario Works', amount: 1150, assist: 'ow', sched: { type: 'odsp' }, account: 'm', role: 'rent', ded: { couple: true, deps: 2 } },
+              { id: 'job', name: "Alex's job", amount: 410.25, kind: 'pay', sched: { type: 'biweekly', anchor: '2026-11-13' }, account: 'm', role: 'main', person: 'Alex' },
+              { id: 'ei', name: "Sam's EI", amount: 388, kind: 'ei', sched: { type: 'biweekly', anchor: '2026-11-04' }, account: 'm', role: 'other', person: 'Sam', end: '2026-12-16' },
+              { id: 'sup', name: 'Spousal support', amount: 150, kind: 'other', odsp: 'full', sched: { type: 'monthly', day: 15 }, account: 'm', role: 'other' },
+              { id: 'cs', name: 'Child support', amount: 220, kind: 'other', sched: { type: 'monthly', day: 16 }, account: 'm', role: 'other' }] }),
+  'bills/rent': { name: 'Rent', category: 'housing', amount: 1200, day: 1, account: 'm' },
+  'months/2026-11': { income: { amt: { job: 455 } } },
+};
+
+/* 8. ODSP with EI that ends mid-month and work pay of the person with a disability */
+const odspEi = {
+  'settings/main': household({ startYm: '2026-11', trackFrom: '2026-11-01',
+    accounts: [{ id: 'm', name: 'Main', type: 'chequing', purposes: ['main', 'rent'] }],
+    incomes: [{ id: 'od', name: 'ODSP', amount: 1408, assist: 'odsp', sched: { type: 'odsp' }, account: 'm', role: 'rent' },
+              { id: 'w', name: 'Part-time', amount: 640, kind: 'pay', odsp: 'dis', sched: { type: 'semimonthly' }, account: 'm', role: 'main', person: 'Alex' },
+              { id: 'e', name: 'EI', amount: 512.5, kind: 'ei', sched: { type: 'biweekly', anchor: '2026-10-29' }, account: 'm', role: 'other', person: 'Sam', end: '2026-12-10', start: '2026-10-01' }] }),
+  'bills/rent': { name: 'Rent', category: 'housing', amount: 1300, day: 1, account: 'm' },
+};
+
 module.exports = [
   { name: 'ontario', docs: on, todays: ['2026-10-25', '2026-11-16', '2026-12-31', '2027-03-15'] },
   { name: 'legacy-locked', docs: legacy, todays: ['2026-10-05', '2026-11-30'] },
@@ -140,4 +163,6 @@ module.exports = [
   { name: 'nova-scotia', docs: ns, todays: ['2026-11-03', '2026-12-24'] },
   { name: 'empty', docs: empty, todays: ['2026-11-01'] },
   { name: 'ontario-starting', docs: onStart, todays: ['2026-11-16', '2026-12-31'] },
+  { name: 'ontario-works', docs: ow, todays: ['2026-11-20', '2026-12-31', '2027-01-16'] },
+  { name: 'odsp-ei', docs: odspEi, todays: ['2026-11-05', '2027-01-02', '2027-02-10'] },
 ];

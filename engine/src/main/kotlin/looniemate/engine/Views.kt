@@ -163,8 +163,19 @@ object Views {
     /** whether to remind about reporting this income, and the day of the month it's due */
     fun reportCfg(src: J): Pair<Boolean, Int> {
         val r = src["report"]; if (truthy(r)) return r.t("on") to (r.n("day").toInt().takeIf { it > 0 } ?: 7)
+        if (src.s("kind") == "ei") return true to 0
         val k = Core.assistOf(src); val rep = k?.let { Core.ASSIST[it]?.report } ?: 0
         return if (rep > 0) true to rep else false to 7
+    }
+
+    /** The day EI reports are counted from: the saved one, or 3 days before a payday. */
+    fun eiReportAnchor(src: J): String? { val r = src["report"]; if (truthy(r)) return if (r.t("on") && isDate(r!!["anchor"])) r.s("anchor") else null
+        val a = src["sched"]?.get("anchor"); return if (isDate(a)) addDays(str(a), -3) else null }
+    /** EI is reported every two weeks: the latest report day on or before today (shown for 6 days), or null. */
+    fun eiReportDay(src: J, today: String): String? {
+        val a = eiReportAnchor(src) ?: return null; if (today < a) return null
+        val d = addDays(today, -(diffDays(a, today) % 14))
+        return if (diffDays(d, today) <= 6 && (!isDate(src["end"]) || d <= addDays(src.s("end"), 14)) && (!isDate(src["start"]) || d >= src.s("start"))) d else null
     }
 
     /** Banners at the top: backup, tax season, and reporting income for social assistance. */
@@ -183,6 +194,11 @@ object Views {
                 "Free ways to file", "We've filed", "tax-filed", y.toString())) }
         val ym = ymOf(today); val prevYm = ymAdd(ym, -1); val mm = st.months[ym]; val cPrev = Core.monthCalc(prevYm, st, today); val dom = today.substring(8, 10).toInt()
         for (src in Core.incomesOf(s)) { val (on, day) = reportCfg(src); if (!on) continue
+            if (src.s("kind") == "ei") { val rd = eiReportDay(src, today) ?: continue; val key = src.s("id") + "@" + rd
+                if (rd < s.s("trackFrom") || truthy(st.months[ymOf(rd)]?.get("reported")?.get(key))) continue; val late = diffDays(rd, today) > 2
+                out.add(Reminder(if (late) "bad" else "warn", "Do your EI report for ${src.s("name")} ${if (late) "(was due ${Fmt.dShort(rd)})" else if (rd == today) "today" else "(due ${Fmt.dShort(rd)})"}.",
+                    "Every two weeks: any work and pay, and any days you were sick or away. The payment follows the report.", emptyList(), "", "Reported", "reported", key, ymOf(rd)))
+                continue }
             val due = minOf(28, maxOf(1, day)); val dueDate = "$ym-${pad(due)}"
             if (truthy(mm?.get("reported")?.get(src.s("id"))) || dom < due - 6 || dueDate < s.s("trackFrom")) continue
             val late = dom > due

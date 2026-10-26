@@ -149,14 +149,16 @@ object Core {
 
     /* ---------- social assistance programs ---------- */
     class Assets(val single: Double, val couple: Double, val dep: Double)
-    class Program(val key: String, val name: String, val short: String, val prov: String, val sched: Obj, val pays: String, val report: Int, val assets: Assets?, val rule: String)
+    /** lag: months from the pay that counts to the payment it lowers; from16: the pay that counts runs from the 16th to the 15th (Ontario Works) */
+    class Program(val key: String, val name: String, val short: String, val prov: String, val sched: Obj, val pays: String, val report: Int, val assets: Assets?, val rule: String,
+        val lag: Int, val from16: Boolean = false)
     val ASSIST: Map<String, Program> = linkedMapOf(
-        "odsp" to Program("odsp", "Ontario Disability Support Program (ODSP)", "ODSP", "ON", J.obj("type" to "odsp"), "next", 7, Assets(40000.0, 50000.0, 500.0), "odsp"),
-        "ow" to Program("ow", "Ontario Works (OW)", "Ontario Works", "ON", J.obj("type" to "odsp"), "next", 15, Assets(10000.0, 15000.0, 500.0), "ow"),
-        "qcsa" to Program("qcsa", "Québec Social Assistance Program", "Social Assistance", "QC", J.obj("type" to "qc"), "same", 0, null, "qc"),
-        "qcss" to Program("qcss", "Québec Social Solidarity Program", "Social Solidarity", "QC", J.obj("type" to "qc"), "same", 0, null, "qc"),
-        "qcrb" to Program("qcrb", "Québec Basic Income Program", "Basic Income", "QC", J.obj("type" to "qc"), "same", 0, null, "custom"),
-        "nsia" to Program("nsia", "Nova Scotia Income Assistance (ESIA)", "Income Assistance", "NS", J.obj("type" to "ns"), "next", 10, null, "ns"),
+        "odsp" to Program("odsp", "Ontario Disability Support Program (ODSP)", "ODSP", "ON", J.obj("type" to "odsp"), "next", 7, Assets(40000.0, 50000.0, 500.0), "odsp", 2),
+        "ow" to Program("ow", "Ontario Works (OW)", "Ontario Works", "ON", J.obj("type" to "odsp"), "next", 15, Assets(10000.0, 15000.0, 500.0), "ow", 1, true),
+        "qcsa" to Program("qcsa", "Québec Social Assistance Program", "Social Assistance", "QC", J.obj("type" to "qc"), "same", 0, null, "qc", 1),
+        "qcss" to Program("qcss", "Québec Social Solidarity Program", "Social Solidarity", "QC", J.obj("type" to "qc"), "same", 0, null, "qc", 1),
+        "qcrb" to Program("qcrb", "Québec Basic Income Program", "Basic Income", "QC", J.obj("type" to "qc"), "same", 0, null, "custom", 1),
+        "nsia" to Program("nsia", "Nova Scotia Income Assistance (ESIA)", "Income Assistance", "NS", J.obj("type" to "ns"), "next", 10, null, "ns", 2),
     )
     fun assistOf(src: J?): String? {
         if (src == null) return null
@@ -164,6 +166,14 @@ object Core {
         if (src["sched"].s("type") == "odsp") return "odsp"
         return null
     }
+    /** An income's first and last payday (a new job's start, the end of EI). */
+    fun inRange(src: J, d: String) = (!isDate(src["start"]) || d >= src.s("start")) && (!isDate(src["end"]) || d <= src.s("end"))
+    /**
+     * How social assistance counts an income: EI in full, a paycheque as work pay ("dis" for someone on ODSP for a
+     * disability), other income in full or not at all; incomes saved before kinds existed keep their own choice.
+     */
+    fun countsAs(src: J): String { if (assistOf(src) != null) return ""; val o = src.or("odsp", "")
+        return when (src.s("kind")) { "ei" -> "full"; "other" -> if (o == "full") "full" else ""; "pay" -> if (o == "dis") "dis" else "spouse"; else -> o } }
     fun assistSched(src: J): J? {
         val k = assistOf(src) ?: return src["sched"]
         val o = ASSIST.getValue(k).sched.copy() as Obj
@@ -231,7 +241,7 @@ object Core {
         else if (truthy(i["credits"]) && present(c2) != null) c2 else null }
 
     fun mainPaydays(s: J, ym: String): List<String> = incomesOf(s).filter { it.s("role") == "main" }
-        .flatMap { x -> schedDates(assistSched(x), ym).filter { d -> !isDate(x["start"]) || d >= x.s("start") } }.sorted()
+        .flatMap { x -> schedDates(assistSched(x), ym).filter { d -> inRange(x, d) } }.sorted()
 
     fun effectiveStart(b: J, s: J?): String? {
         if (isDate(b["start"])) return b.s("start")
@@ -407,7 +417,7 @@ object Core {
         }
         /* incomes: each one's dates this month; extra bi-weekly or weekly paydays beyond the usual count are bonus */
         val incomes = incomesOf(s).map { src -> val sch = assistSched(src)
-            var dates = schedDates(sch, ym).filter { d -> !isDate(src["start"]) || d >= src.s("start") }
+            var dates = schedDates(sch, ym).filter { d -> inRange(src, d) }
             val ovd = if (m["income"] != null && m["income"].t("date")) m["income"]!!["date"]?.get(src.s("id")) else null
             if (isDate(ovd) && dates.size <= 1 && ymOf(str(ovd)) == ym) dates = listOf(str(ovd))
             val per = schedPerMonth(sch); val r = resolve(months, ym, incAmtGet(src.s("id")), src["amount"]); val amount = round2(maxOf(0.0, r.value))
@@ -420,18 +430,21 @@ object Core {
         val assistCalc = Obj(); var odspCalc: J = J.Null
         for (A in incomes.filter { it.t("assist") && it["dates"].arr().isNotEmpty() }) {
             val P = ASSIST.getValue(A.s("assist")); val srcA = incomesOf(s).find { it.s("id") == A.s("id") }!!; val cfg = dedCfg(s, srcA)
-            if (!(cfg.t("dis") || cfg.t("work") || cfg.t("full"))) continue
+            if (incomesOf(s).none { countsAs(it).isNotEmpty() }) continue
             val d0 = str(A["dates"].arr()[0])
             val B = if (P.pays == "next") ymAdd(ymOf(d0), 1) else ymOf(addDays(d0, 7))
-            val L = cfg["lag"].let { if (it != null && it != J.Null && !(it is J.S && it.v.isEmpty())) num(it).toInt() else if (P.prov == "QC") 1 else 2 }
-            val earnYm = ymAdd(B, -L)
+            val L = P.lag; val earnYm = ymAdd(B, -L)
+            /* the pay that counts: a calendar month, or the 16th to the 15th for Ontario Works */
+            val earnFrom = if (P.from16) ymAdd(earnYm, -1) + "-16" else "$earnYm-01"; val earnTo = if (P.from16) "$earnYm-15" else "$earnYm-${pad(dim(earnYm))}"
             val groups = LinkedHashMap<String, Obj>()
             for (src in incomesOf(s)) {
-                var t = src.or("odsp", ""); if (t.isEmpty() || assistOf(src) != null) continue
+                var t = countsAs(src); if (t.isEmpty()) continue
                 if (t == "dis" && P.rule != "odsp") t = "spouse"
-                if ((t == "dis" && !cfg.t("dis")) || (t == "spouse" && !cfg.t("work")) || (t == "full" && !cfg.t("full"))) continue
-                val n = schedDates(assistSched(src), earnYm).filter { d -> !isDate(src["start"]) || d >= src.s("start") }.size
-                val amt = round2(resolve(months, earnYm, incAmtGet(src.s("id")), src["amount"]).value * n); if (amt <= 0) continue
+                var sum = 0.0
+                for (em in if (P.from16) listOf(ymAdd(earnYm, -1), earnYm) else listOf(earnYm)) {
+                    val n = schedDates(assistSched(src), em).count { d -> d >= earnFrom && d <= earnTo && inRange(src, d) }
+                    if (n > 0) sum += resolve(months, em, incAmtGet(src.s("id")), src["amount"]).value * n }
+                val amt = round2(sum); if (amt <= 0) continue
                 val key = if ((P.rule == "qc" || P.rule == "custom") && t != "full") "work|household" else t + "|" + src.or("person", src.s("id"))
                 val g = groups.getOrPut(key) { J.obj("type" to t, "person" to src.or("person", ""), "names" to emptyList<String>(), "amount" to 0) }
                 (g["names"] as J.A).list.add(js(src.or("name", "Income"))); g["amount"] = js(round2(g.n("amount") + amt))
@@ -454,7 +467,7 @@ object Core {
             if (P.rule == "odsp" && !cfg["wrb"].isFalse()) wrb = 100.0 * workers.size
             val base = round2(srcA.n("amount")); val calc = round2(maxOf(0.0, base - ded + wrb)); val manual = A.s("from") == ym && A["from"] != J.Null
             val ac = J.obj("id" to A["id"], "name" to A["name"], "program" to A["assist"], "base" to base, "lines" to lines, "deduct" to round2(ded), "wrb" to wrb, "calc" to calc,
-                "earnYm" to earnYm, "benefitYm" to B, "lag" to L, "manual" to manual, "applied" to !manual)
+                "earnYm" to earnYm, "earnFrom" to earnFrom, "earnTo" to earnTo, "benefitYm" to B, "lag" to L, "manual" to manual, "applied" to !manual)
             assistCalc[A.s("id")] = ac
             if (!manual) { A["amount"] = js(calc); A["total"] = js(round2(calc * A["regular"].arr().size)); A["bonus"] = js(round2(calc * A["bonusDates"].arr().size)) }
             if (odspCalc == J.Null) odspCalc = ac

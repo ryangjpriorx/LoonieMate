@@ -608,12 +608,12 @@ function schedDates(sch,ym){
 function schedEstimated(sch,ym){if(!sch)return false;const mo=+ym.slice(5,7);return(sch.type==='odsp'&&mo===12)||(sch.type==='cwb'&&[1,7,10].includes(mo)&&!PUBLISHED.cwb[ym])}
 /* provincial social assistance programs (sources: ODSP and OW policy directives, Québec.ca, novascotia.ca) */
 const ASSIST={
-  odsp:{name:'Ontario Disability Support Program (ODSP)',short:'ODSP',prov:'ON',sched:{type:'odsp'},pays:'next',report:7,assets:{single:40000,couple:50000,dep:500},rule:'odsp'},
-  ow:{name:'Ontario Works (OW)',short:'Ontario Works',prov:'ON',sched:{type:'odsp'},pays:'next',report:15,assets:{single:10000,couple:15000,dep:500},rule:'ow'},
-  qcsa:{name:'Québec Social Assistance Program',short:'Social Assistance',prov:'QC',sched:{type:'qc'},pays:'same',report:0,rule:'qc'},
-  qcss:{name:'Québec Social Solidarity Program',short:'Social Solidarity',prov:'QC',sched:{type:'qc'},pays:'same',report:0,rule:'qc'},
-  qcrb:{name:'Québec Basic Income Program',short:'Basic Income',prov:'QC',sched:{type:'qc'},pays:'same',report:0,rule:'custom'},
-  nsia:{name:'Nova Scotia Income Assistance (ESIA)',short:'Income Assistance',prov:'NS',sched:{type:'ns'},pays:'next',report:10,rule:'ns'}};
+  odsp:{name:'Ontario Disability Support Program (ODSP)',short:'ODSP',prov:'ON',sched:{type:'odsp'},pays:'next',report:7,assets:{single:40000,couple:50000,dep:500},rule:'odsp',lag:2},
+  ow:{name:'Ontario Works (OW)',short:'Ontario Works',prov:'ON',sched:{type:'odsp'},pays:'next',report:15,assets:{single:10000,couple:15000,dep:500},rule:'ow',lag:1,from16:true},
+  qcsa:{name:'Québec Social Assistance Program',short:'Social Assistance',prov:'QC',sched:{type:'qc'},pays:'same',report:0,rule:'qc',lag:1},
+  qcss:{name:'Québec Social Solidarity Program',short:'Social Solidarity',prov:'QC',sched:{type:'qc'},pays:'same',report:0,rule:'qc',lag:1},
+  qcrb:{name:'Québec Basic Income Program',short:'Basic Income',prov:'QC',sched:{type:'qc'},pays:'same',report:0,rule:'custom',lag:1},
+  nsia:{name:'Nova Scotia Income Assistance (ESIA)',short:'Income Assistance',prov:'NS',sched:{type:'ns'},pays:'next',report:10,rule:'ns',lag:2}};
 function assistOf(src){if(!src)return null;if(src.assist&&ASSIST[src.assist])return src.assist;if((src.sched||{}).type==='odsp')return'odsp';return null}
 function assistSched(src){const k=assistOf(src);if(!k)return src.sched;return Object.assign({},ASSIST[k].sched,k==='nsia'?{slot:(src.sched||{}).slot||3}:{})}
 /* deduction settings for one assistance income (older ODSP settings carried over) */
@@ -621,6 +621,12 @@ function dedCfg(s,src){if(src.ded)return src.ded;const k=assistOf(src);
   if(k==='odsp'&&s.odsp){const o=s.odsp;return{dis:!!o.dis,work:!!o.spouse,full:!!o.full,wrb:o.wrb!==false,lag:(o.lag===0||o.lag==='0')?1:2,couple:!!o.couple,deps:num(o.deps)}}
   return{}}
 function nsExempt(E,sup){const t=sup?450:350,a=sup?[487.5,612.5]:[462.5,587.5];if(E<=t)return E;if(E<=500)return t+(E-t)*0.75;if(E<=750)return a[0]+(E-500)*0.5;return a[1]+(E-750)*0.25}
+/* an income's first and last payday (a new job's start, the end of EI) */
+function inRange(src,d){return(!isDate(src.start)||d>=src.start)&&(!isDate(src.end)||d<=src.end)}
+/* how social assistance counts an income: EI in full, a paycheque as work pay ('dis' for someone on ODSP for a disability),
+   other income in full or not at all; incomes saved before kinds existed keep their own choice */
+function countsAs(src){if(assistOf(src))return'';const k=src.kind,o=src.odsp||'';
+  if(k==='ei')return'full';if(k==='other')return o==='full'?'full':'';if(k==='pay')return o==='dis'?'dis':'spouse';return o}
 function schedPerMonth(sch){return sch&&sch.type==='weekly'?4:sch&&sch.type==='biweekly'?2:99}
 
 /* government benefits and credits: payment rules follow the CRA and Service Canada published calendars */
@@ -653,7 +659,7 @@ function creditName(cr){return cr.type==='other'||!CREDIT_TYPES[cr.type]?(cr.nam
 /* month-by-month amounts: new keys, plus the older ones saved before incomes were configurable */
 const incAmtGet=id=>x=>{const i=x.income||{};if(i.amt&&i.amt[id]!=null&&i.amt[id]!=='')return i.amt[id]};
 const crAmtGet=cr=>x=>{const i=x.income||{};if(i.cr&&i.cr[cr.id]!=null&&i.cr[cr.id]!=='')return i.cr[cr.id];if(cr.type==='ccb'&&i.ccb!=null&&i.ccb!=='')return i.ccb;if(i.credits&&i.credits[cr.id]!=null&&i.credits[cr.id]!=='')return i.credits[cr.id]};
-function mainPaydays(s,ym){return incomesOf(s).filter(x=>x.role==='main').flatMap(x=>schedDates(assistSched(x),ym).filter(d=>!isDate(x.start)||d>=x.start)).sort()}
+function mainPaydays(s,ym){return incomesOf(s).filter(x=>x.role==='main').flatMap(x=>schedDates(assistSched(x),ym).filter(d=>inRange(x,d))).sort()}
 function effectiveStart(b,s){
   if(isDate(b.start))return b.start;
   if(b.group==='baby'&&s&&isDate(s.babyDue))return s.babyDue;
@@ -763,7 +769,7 @@ function monthCalc(ym,st,today){
   const n=dim(ym);
   /* incomes: each one's dates this month; extra bi-weekly or weekly paydays beyond the usual count are bonus */
   const incomes=incomesOf(s).map(src=>{const sch=assistSched(src);
-    let dates=schedDates(sch,ym).filter(d=>!isDate(src.start)||d>=src.start);
+    let dates=schedDates(sch,ym).filter(d=>inRange(src,d));
     const ovd=m.income&&m.income.date?m.income.date[src.id]:null;if(isDate(ovd)&&dates.length<=1&&ymOf(ovd)===ym)dates=[ovd];
     const per=schedPerMonth(sch),r=resolve(months,ym,incAmtGet(src.id),src.amount),amount=round2(Math.max(0,r.value));
     const reg=dates.slice(0,per),bon=dates.slice(per);
@@ -772,14 +778,17 @@ function monthCalc(ym,st,today){
   const assistCalc={};let odspCalc=null;
   for(const A of incomes.filter(x=>x.assist&&x.dates.length)){
     const P=ASSIST[A.assist],srcA=incomesOf(s).find(x=>x.id===A.id),cfg=dedCfg(s,srcA);
-    if(!(cfg.dis||cfg.work||cfg.full))continue;
-    const B=P.pays==='next'?ymAdd(ymOf(A.dates[0]),1):ymOf(addDays(A.dates[0],7)),L=cfg.lag!=null&&cfg.lag!==''?+cfg.lag:(P.prov==='QC'?1:2),earnYm=ymAdd(B,-L);
+    if(!incomesOf(s).some(x=>countsAs(x)))continue;
+    const B=P.pays==='next'?ymAdd(ymOf(A.dates[0]),1):ymOf(addDays(A.dates[0],7)),L=P.lag,earnYm=ymAdd(B,-L);
+    /* the pay that counts: a calendar month, or the 16th to the 15th for Ontario Works */
+    const earnFrom=P.from16?ymAdd(earnYm,-1)+'-16':earnYm+'-01',earnTo=P.from16?earnYm+'-15':earnYm+'-'+String(dim(earnYm)).padStart(2,'0');
     const groups={};
-    for(const src of incomesOf(s)){let t=src.odsp||'';if(!t||assistOf(src))continue;
+    for(const src of incomesOf(s)){let t=countsAs(src);if(!t)continue;
       if(t==='dis'&&P.rule!=='odsp')t='spouse';
-      if((t==='dis'&&!cfg.dis)||(t==='spouse'&&!cfg.work)||(t==='full'&&!cfg.full))continue;
-      const n=schedDates(assistSched(src),earnYm).filter(d=>!isDate(src.start)||d>=src.start).length;
-      const amt=round2(resolve(months,earnYm,incAmtGet(src.id),src.amount).value*n);if(amt<=0)continue;
+      let amt=0;for(const em of P.from16?[ymAdd(earnYm,-1),earnYm]:[earnYm]){
+        const n=schedDates(assistSched(src),em).filter(d=>d>=earnFrom&&d<=earnTo&&inRange(src,d)).length;
+        if(n)amt+=resolve(months,em,incAmtGet(src.id),src.amount).value*n}
+      amt=round2(amt);if(amt<=0)continue;
       const key=(P.rule==='qc'||P.rule==='custom')&&t!=='full'?'work|household':t+'|'+(src.person||src.id);
       (groups[key]=groups[key]||{type:t,person:src.person||'',names:[],amount:0});groups[key].names.push(src.name||'Income');groups[key].amount=round2(groups[key].amount+amt)}
     const lines=[];let ded=0,wrb=0;const workers=new Set();
@@ -793,7 +802,7 @@ function monthCalc(ym,st,today){
       ch=round2(Math.max(0,ch));ded+=ch;lines.push(Object.assign({deduct:ch,how},g));if(g.type!=='full')workers.add(g.person||g.names[0])}
     if(P.rule==='odsp'&&cfg.wrb!==false)wrb=100*workers.size;
     const base=round2(num(srcA.amount)),calc=round2(Math.max(0,base-ded+wrb)),manual=A.from===ym;
-    assistCalc[A.id]={id:A.id,name:A.name,program:A.assist,base,lines,deduct:round2(ded),wrb,calc,earnYm,benefitYm:B,lag:L,manual,applied:!manual};
+    assistCalc[A.id]={id:A.id,name:A.name,program:A.assist,base,lines,deduct:round2(ded),wrb,calc,earnYm,earnFrom,earnTo,benefitYm:B,lag:L,manual,applied:!manual};
     if(!manual){A.amount=calc;A.total=round2(calc*A.regular.length);A.bonus=round2(calc*A.bonusDates.length)}
     if(!odspCalc)odspCalc=assistCalc[A.id];
   }
@@ -1050,7 +1059,7 @@ function foodPeriod(c,today,s){
   const spent=first?c.foodH1:c.foodH2,left=round2(allow-spent),daysLeft=len-idx+1;
   return{half:first?1:2,allow,spent,left,target:round2(allow/len),expected:round2(allow*idx/len),daysLeft,perDay:round2(Math.max(0,left)/Math.max(1,daysLeft)),end:first?ym+'-15':dayIn(ym,31),len};
 }
-root.Core={SELF,selfPlanFor,selfItemMonthly,pad,num,round2,ymd,parse,ymOf,ymAdd,dim,addDays,diffDays,dayIn,isYm,isDate,sum,billDates,billPlanForMonth,resolve,listExp,monthCalc,snapshot,savingsState,targetsThrough,projection,upcoming,foodPeriod,FOOD,billEvents,moneyMoves,startingMonth,runway,debtInfo,debtParts,ASSIST,assistOf,assistSched,dedCfg,fundsOf,fundOf,holidaysOf,isBiz,schedDates,schedEstimated,CREDIT_TYPES,incomesOf,creditsOf,creditSched,creditName,mainPaydays,accountsOf,acctById,acctId,acctFor};
+root.Core={SELF,selfPlanFor,selfItemMonthly,pad,num,round2,ymd,parse,ymOf,ymAdd,dim,addDays,diffDays,dayIn,isYm,isDate,sum,billDates,billPlanForMonth,resolve,listExp,monthCalc,snapshot,savingsState,targetsThrough,projection,upcoming,foodPeriod,FOOD,billEvents,moneyMoves,startingMonth,runway,debtInfo,debtParts,ASSIST,assistOf,assistSched,dedCfg,countsAs,inRange,fundsOf,fundOf,holidaysOf,isBiz,schedDates,schedEstimated,CREDIT_TYPES,incomesOf,creditsOf,creditSched,creditName,mainPaydays,accountsOf,acctById,acctId,acctFor};
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 
@@ -1458,7 +1467,10 @@ function reminders(today){const out=[];
 }
 const TAX_HELP='https://www.canada.ca/en/revenue-agency/campaigns/free-tax-help.html',SIMPLEFILE='https://www.canada.ca/en/revenue-agency/campaigns/file-my-return',STUDIOTAX='https://www.studiotax.com/paymentpage.html';
 const REPORT_HELP='https://stepstojustice.ca/steps/income-assistance/5-tell-odsp-about-money-you-make-and-life-changes/';
-function reportCfg(src){if(src.report)return src.report;const k=C.assistOf(src);return k&&C.ASSIST[k].report?{on:true,day:C.ASSIST[k].report}:{on:false,day:7}}
+/* EI is reported every two weeks: the latest report day on or before today (shown for 6 days), or null */
+function eiReportDay(src,today){const r=reportCfg(src),a=r.anchor;if(!r.on||!isDate(a)||today<a)return null;const d=addDays(today,-(diffDays(a,today)%14));
+  return diffDays(d,today)<=6&&(!isDate(src.end)||d<=addDays(src.end,14))&&(!isDate(src.start)||d>=src.start)?d:null}
+function reportCfg(src){if(src.report)return src.report;if(src.kind==='ei'){const a=(src.sched||{}).anchor;return{on:true,every:14,anchor:isDate(a)?addDays(a,-3):''}}const k=C.assistOf(src);return k&&C.ASSIST[k].report?{on:true,day:C.ASSIST[k].report}:{on:false,day:7}}
 function extraReminders(today){
   const s=settings(),out=[],y=+today.slice(0,4),md=today.slice(5),T=st();
   /* tax filing season: benefits depend on filing every year */
@@ -1472,7 +1484,11 @@ function extraReminders(today){
       btn:`<button class="btn sm" data-act="tax-filed" data-y="${y}">We've filed</button>`})}
   /* assistance income reporting */
   const ym=ymOf(today),prevYm=ymAdd(ym,-1),mm=S.months[ym]||{},cPrev=C.monthCalc(prevYm,T,today),dom=+today.slice(8,10);
-  for(const src of C.incomesOf(s)){const r=reportCfg(src);if(!r.on)continue;const due=Math.min(28,Math.max(1,num(r.day)||7));
+  for(const src of C.incomesOf(s)){const r=reportCfg(src);if(!r.on)continue;
+    if(src.kind==='ei'){const rd=eiReportDay(src,today);if(!rd||rd<s.trackFrom||((S.months[ymOf(rd)]||{}).reported||{})[src.id+'@'+rd])continue;const late=diffDays(rd,today)>2;
+      out.push({tone:late?'bad':'warn',html:`<b>Do your EI report for ${esc(src.name)} ${late?`(was due ${dShort(rd)})`:rd===today?'today':`(due ${dShort(rd)})`}.</b> <span class="muted">Every two weeks: any work and pay, and any days you were sick or away. The payment follows the report.</span>`,
+        btn:`<button class="btn sm" data-act="reported" data-id="${esc(src.id+'@'+rd)}" data-ym="${ymOf(rd)}">Reported</button>`});continue}
+    const due=Math.min(28,Math.max(1,num(r.day)||7));
     const dueDate=ym+'-'+String(due).padStart(2,'0');if((mm.reported||{})[src.id]||dom<due-6||dueDate<s.trackFrom)continue;const late=dom>due;
     const others=(cPrev.incomes||[]).filter(x=>x.id!==src.id&&x.dates.length);
     out.push({tone:late?'bad':'warn',html:`<b>Report ${monthOnly(prevYm)}'s income for ${esc(src.name)} ${late?`(was due ${dShort(ym+'-'+String(due).padStart(2,'0'))})`:`by ${dShort(ym+'-'+String(due).padStart(2,'0'))}`}.</b>
