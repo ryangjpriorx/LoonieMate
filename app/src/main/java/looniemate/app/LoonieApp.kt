@@ -10,6 +10,10 @@ class LoonieApp : Application() {
     lateinit var repo: Repository; private set
     lateinit var prefs: Prefs; private set
     lateinit var updater: Updater; private set
+    /** for work that should carry on when the screen is left, like downloading an update */
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
+    /** whether LoonieMate is on screen (set by MainActivity) */
+    @Volatile var foreground = false
 
     override fun onCreate() {
         super.onCreate()

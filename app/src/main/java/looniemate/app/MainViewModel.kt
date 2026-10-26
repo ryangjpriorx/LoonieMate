@@ -89,8 +89,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshNotif() { notifOk.value = looniemate.app.notify.Notifs.enabled(getApplication()) }
     fun snoozeNotifCard() { prefs.notifAsked = true; prefs.notifSnoozeUntil = System.currentTimeMillis() + 30L * 86_400_000; refreshNotif(); notifTick.value++ }
     val notifTick = MutableStateFlow(0)
-    /** set when the app was opened from the "update available" notification */
-    val openUpdate = MutableStateFlow(false)
+    /** set when the app was opened from an update notification: "update" or "install" */
+    val openUpdate = MutableStateFlow<String?>(null)
 
     fun refreshDay() { val t = todayStr(); if (t != today.value) today.value = t }
 
@@ -461,7 +461,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun hasData(): Boolean = repo.docs.value.keys.any { it != "meta/tombstones" }
 
     fun checkUpdates(manual: Boolean) { viewModelScope.launch { if (manual) updater.check(true) else updater.checkIfDue() } }
-    fun downloadUpdate(r: looniemate.app.update.Updater.Release) { viewModelScope.launch { updater.download(r) } }
+    /**
+     * Start update: downloads and checks the new version, then installs it. The download carries on if the
+     * person leaves the app; then a "Ready to install" notification brings them back (Android only shows its
+     * install prompt while the app is on screen).
+     */
+    fun startUpdate(r: looniemate.app.update.Updater.Release) { la.scope.launch {
+        updater.download(r)
+        val s = updater.state.value
+        if (s is looniemate.app.update.Updater.State.Ready) {
+            if (la.foreground) updater.install(s.r, s.file) else looniemate.app.notify.UpdateCheck.notifyReady(getApplication(), s.r)
+        }
+    } }
+    fun downloadUpdate(r: looniemate.app.update.Updater.Release) = startUpdate(r)
+
+    /** opened from a notification: show the update, and install right away if it was "Ready to install" */
+    fun openedForUpdate(install: Boolean) {
+        val s = updater.state.value
+        if (install && s is looniemate.app.update.Updater.State.Ready) updater.install(s.r, s.file)
+        else if (s is looniemate.app.update.Updater.State.Idle || s is looniemate.app.update.Updater.State.UpToDate || s is looniemate.app.update.Updater.State.Failed) checkUpdates(true)
+    }
 
     /* the first check happens in MainActivity.onResume, which also runs on a fresh start */
 

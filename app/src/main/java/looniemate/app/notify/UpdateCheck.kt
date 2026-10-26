@@ -39,7 +39,7 @@ class UpdateCheckWorker(ctx: Context, params: WorkerParameters) : CoroutineWorke
 }
 
 object UpdateCheck {
-    const val EXTRA_OPEN = "open"; const val OPEN_UPDATE = "update"
+    const val EXTRA_OPEN = "open"; const val OPEN_UPDATE = "update"; const val OPEN_INSTALL = "install"
     private const val ID = 2
 
     /** Starts the twice-a-day background check (kept across restarts by WorkManager). */
@@ -51,8 +51,8 @@ object UpdateCheck {
         } catch (_: Exception) { /* no WorkManager (some test setups): the check on opening the app still runs */ }
     }
 
-    fun openIntent(ctx: Context): PendingIntent = PendingIntent.getActivity(ctx, 20,
-        Intent(ctx, MainActivity::class.java).putExtra(EXTRA_OPEN, OPEN_UPDATE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+    fun openIntent(ctx: Context, what: String = OPEN_UPDATE): PendingIntent = PendingIntent.getActivity(ctx, if (what == OPEN_INSTALL) 21 else 20,
+        Intent(ctx, MainActivity::class.java).putExtra(EXTRA_OPEN, what).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
     /** "LoonieMate X is available" with a Download button that opens the app to the update. Returns whether it was shown. */
@@ -68,6 +68,23 @@ object UpdateCheck {
             .setContentText(first).setStyle(NotificationCompat.BigTextStyle().bigText(first))
             .setContentIntent(open).setAutoCancel(true).setOnlyAlertOnce(true)
             .addAction(0, "Download", open)
+            .build()
+        NotificationManagerCompat.from(ctx).notify(ID, n)
+        return true
+    }
+
+    /** The download finished while LoonieMate wasn't on screen: "Ready to install" with an Install button. */
+    @SuppressLint("MissingPermission")
+    fun notifyReady(ctx: Context, r: Updater.Release): Boolean {
+        if (Notifs.needsPermission() && ContextCompat.checkSelfPermission(ctx, Notifs.PERMISSION) != PackageManager.PERMISSION_GRANTED) return false
+        if (!Notifs.enabled(ctx, Notifs.UPDATES)) return false
+        val open = openIntent(ctx, OPEN_INSTALL)
+        val n = NotificationCompat.Builder(ctx, Notifs.UPDATES)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setContentTitle("LoonieMate ${r.versionName} is ready to install")
+            .setContentText("Downloaded and checked. Your budget stays exactly as it is.")
+            .setContentIntent(open).setAutoCancel(true).setOnlyAlertOnce(true)
+            .addAction(0, "Install", open)
             .build()
         NotificationManagerCompat.from(ctx).notify(ID, n)
         return true

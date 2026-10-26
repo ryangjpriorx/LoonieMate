@@ -96,6 +96,7 @@ sealed class Sheet {
     class Income(val id: String?, val assist: String? = null) : Sheet()
     class Credit(val id: String?, val type: String? = null) : Sheet()
     class MonthIncome(val ym: String) : Sheet()
+    object Update : Sheet()
     object Export : Sheet()
     object Import : Sheet()
 }
@@ -118,7 +119,7 @@ fun LoonieMateApp(vm: MainViewModel) {
     }
     BackHandler(enabled = tab != Tab.Today) { tab = Tab.Today }
     val openUpdate by vm.openUpdate.collectAsStateWithLifecycle()
-    LaunchedEffect(openUpdate) { if (openUpdate) { tab = Tab.More; vm.openUpdate.value = false } }
+    LaunchedEffect(openUpdate) { openUpdate?.let { w -> vm.openUpdate.value = null; sheet = Sheet.Update; vm.openedForUpdate(w == "install") } }
 
     val open: (Sheet) -> Unit = { sheet = it }
     val monthTabs = tab == Tab.Month || tab == Tab.Bills || tab == Tab.Spending || tab == Tab.Savings

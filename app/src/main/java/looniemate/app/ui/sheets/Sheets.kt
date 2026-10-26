@@ -37,6 +37,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -91,6 +92,8 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
                 is Sheet.Income -> IncomeSheet(vm, sheet.id, sheet.assist, close)
                 is Sheet.Credit -> CreditSheet(vm, sheet.id, sheet.type, close)
                 is Sheet.MonthIncome -> MonthIncomeSheet(vm, sheet.ym, close)
+                is Sheet.Update -> { SheetTitle("Update LoonieMate")
+                    val st by vm.updater.state.collectAsStateWithLifecycle(); looniemate.app.ui.screens.UpdatePanel(st, vm, inSheet = true) }
                 is Sheet.Export -> ExportSheet(vm, close)
                 is Sheet.Import -> ImportSheet(vm, close)
             }

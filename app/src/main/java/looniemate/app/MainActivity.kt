@@ -28,14 +28,18 @@ class MainActivity : ComponentActivity() {
 
     /** opened from the "update available" notification: go straight to the update */
     private fun handleOpen(intent: android.content.Intent?) {
-        if (intent?.getStringExtra(looniemate.app.notify.UpdateCheck.EXTRA_OPEN) == looniemate.app.notify.UpdateCheck.OPEN_UPDATE) {
-            intent.removeExtra(looniemate.app.notify.UpdateCheck.EXTRA_OPEN); vm.openUpdate.value = true
+        val what = intent?.getStringExtra(looniemate.app.notify.UpdateCheck.EXTRA_OPEN) ?: return
+        if (what == looniemate.app.notify.UpdateCheck.OPEN_UPDATE || what == looniemate.app.notify.UpdateCheck.OPEN_INSTALL) {
+            intent.removeExtra(looniemate.app.notify.UpdateCheck.EXTRA_OPEN); vm.openUpdate.value = what
             looniemate.app.notify.UpdateCheck.clear(this)
         }
     }
 
+    override fun onPause() { super.onPause(); (application as LoonieApp).foreground = false }
+
     override fun onResume() {
         super.onResume()
+        (application as LoonieApp).foreground = true
         vm.refreshDay()
         vm.refreshNotif()
         vm.checkUpdates(false)

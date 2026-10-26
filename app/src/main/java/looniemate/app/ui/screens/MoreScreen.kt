@@ -161,7 +161,7 @@ fun SwitchRow(title: String, note: String, checked: Boolean, onChange: (Boolean)
 }
 
 @Composable
-private fun UpdatePanel(st: Updater.State, vm: MainViewModel) {
+fun UpdatePanel(st: Updater.State, vm: MainViewModel, inSheet: Boolean = false) {
     val ctx = LocalContext.current
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     fun notes(r: Updater.Release) = r.notes.trim().take(1200)
@@ -169,15 +169,16 @@ private fun UpdatePanel(st: Updater.State, vm: MainViewModel) {
         is Updater.State.Available -> {
             Text("LoonieMate ${st.r.versionName} is available.", fontWeight = FontWeight.Bold)
             if (st.r.notes.isNotBlank()) Text(notes(st.r), style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(top = 4.dp))
+            if (st.r.size > 0) Text("About ${String.format(java.util.Locale.US, "%.1f", st.r.size / 1_000_000.0)} MB. Your budget stays exactly as it is.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(top = 6.dp))
             Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Button(onClick = { vm.downloadUpdate(st.r) }) { Text("Download" + if (st.r.size > 0) " (${st.r.size / 1_000_000} MB)" else "") }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Button(onClick = { vm.startUpdate(st.r) }, modifier = Modifier.testTag("start-update")) { Text("Start update") }
                 TextButton(onClick = { vm.updater.skip(st.r) }) { Text("Skip this version") } }
         }
         is Updater.State.Downloading -> { Text("Downloading ${st.r.versionName}…"); Spacer(Modifier.height(8.dp)); LinearProgressIndicator(progress = { st.progress }, modifier = Modifier.fillMaxWidth()) }
         is Updater.State.Ready -> {
             Text("Version ${st.r.versionName} is downloaded and checked.", fontWeight = FontWeight.Bold)
             if (st.r.notes.isNotBlank()) Text(notes(st.r), style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(top = 4.dp))
-            Spacer(Modifier.height(10.dp)); Button(onClick = { vm.updater.install(st.r, st.file) }) { Text("Install now") }
+            Spacer(Modifier.height(10.dp)); Button(onClick = { vm.updater.install(st.r, st.file) }) { Text("Install") }
             Text("Your budget stays exactly as it is.", style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(top = 6.dp))
         }
         is Updater.State.NeedsPermission -> {
@@ -194,6 +195,7 @@ private fun UpdatePanel(st: Updater.State, vm: MainViewModel) {
         else -> { Text(if (vm.updater.enabled) "LoonieMate checks GitHub for new versions twice a day." else "This test build doesn't update itself.", style = MaterialTheme.typography.bodySmall, color = muted)
             Spacer(Modifier.height(8.dp)); FilledTonalButton(onClick = { vm.checkUpdates(true) }, enabled = vm.updater.enabled) { Text("Check now") } }
     }
+    if (inSheet) return
     Spacer(Modifier.height(10.dp))
     var auto by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(vm.prefs.autoUpdate) }
     SwitchRow("Check for updates automatically", "Only checks; nothing installs without you.", auto) { auto = it; vm.prefs.autoUpdate = it }
