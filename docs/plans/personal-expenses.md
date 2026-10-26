@@ -4,7 +4,7 @@ The plan agreed on 2026-10-26. Everyone spends a little on themselves: a coffee,
 doesn't make it go away; it just turns up later as "unlogged spending" and a plan that never matches reality. So the
 budget plans for it openly, as **Personal Expenses**, without ever asking what it's for.
 **Queued after docs/plans/pages-and-blanks.md.** Work in small stages; each is committed, built and tested on GitHub
-before the next.
+before the next. **All stages done; released in 0.8.0.**
 
 ## Decisions
 
