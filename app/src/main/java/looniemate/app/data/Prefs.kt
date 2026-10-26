@@ -114,6 +114,11 @@ class Prefs(context: Context) {
         get() = sp.getString("reminderShown", null)
         set(v) { sp.edit().putString("reminderShown", v).apply() }
 
+    /** whether the getting-on-track steps have been done on this phone (first-time setup) */
+    var onboarded: Boolean
+        get() = sp.getBoolean("onboarded", false)
+        set(v) { sp.edit().putBoolean("onboarded", v).apply() }
+
     var group: String
         get() = sp.getString("billGroup", "adults")!!
         set(v) { sp.edit().putString("billGroup", v).apply() }

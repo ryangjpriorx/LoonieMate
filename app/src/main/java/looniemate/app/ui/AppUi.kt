@@ -97,6 +97,7 @@ sealed class Sheet {
     class Credit(val id: String?, val type: String? = null) : Sheet()
     class MonthIncome(val ym: String) : Sheet()
     object Update : Sheet()
+    class CatchUp(val first: Boolean) : Sheet()
     object Export : Sheet()
     object Import : Sheet()
 }

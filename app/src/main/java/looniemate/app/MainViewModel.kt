@@ -372,6 +372,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun catchUpUnsure(name: String, amount: Double) = change("Added ${name.trim()}", listOf("settings/main")) {
         saveSettings(J.obj("catchUp" to CatchUp.unsure(settings(), "cu" + repo.newId(), name, amount, today.value))) }
 
+    /**
+     * Pay [amount] of a bill on [date] instead (part of rent on the next payday, or a bill pushed to next month).
+     * The engine only moves bills that can be paid late, so this marks the bill that way too.
+     */
+    fun catchUpSplit(ym: String, id: String, date: String, amount: Double) { val b = "bills/$id"; val name = repo.get(b).s("name")
+        change("${Fmt.money(amount)} of $name moved to ${Fmt.dShort(date)}", listOf(b, "months/$ym")) {
+            if (!repo.get(b).t("deferrable")) repo.update(b, J.obj("deferrable" to true))
+            patchMonth(ym, J.obj("deferred" to J.obj(id to J.obj("date" to date, "amount" to round2(amount))))) } }
+    fun catchUpPush(ym: String, id: String, date: String, amount: Double) = catchUpSplit(ym, id, date, amount)
+
+    /**
+     * Finishing the steps: this month becomes a starting month (no savings target). First-time setup also starts
+     * tracking from the 1st, so bills left unticked this month show as things to catch up on.
+     */
+    fun finishCatchUp(first: Boolean) { val ym = ymOf(today.value)
+        change(if (first) "You're all set from today" else "Back on track from today", listOf("settings/main", "months/$ym")) {
+            if (first) saveSettings(J.obj("trackFrom" to "$ym-01"))
+            patchMonth(ym, J.obj("starting" to true)) }
+        prefs.onboarded = true }
+
     /** An undecided item was paid, or turned into a date or a payment plan. */
     fun catchUpResolve(id: String, message: String = "") = change(message, listOf("settings/main")) {
         saveSettings(J.obj("catchUp" to CatchUp.undecided(settings()).filter { it.s("id") != id }.map { it.copy() })) }

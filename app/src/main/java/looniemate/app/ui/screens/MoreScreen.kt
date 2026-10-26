@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Schedule
@@ -143,11 +144,27 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
             }
         }
         item {
+            SectionCard("Need a fresh start?", Icons.Rounded.Refresh, "teal", index = 4) {
+                Text("A missed paycheque or a surprise bill? Start again from today: what's in your accounts, what's paid, what you're behind on, and how to get to the next payday.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = { open(Sheet.CatchUp(first = false)) }, modifier = Modifier.testTag("get-on-track")) { Text("Get back on track") }
+            }
+        }
+        item {
             SectionCard("About LoonieMate", Icons.Rounded.Info, index = 4) {
                 Text("A budget planner for families on a tight budget in Canada. No account, no ads, nothing sent anywhere: your budget stays on this phone unless you export it. iPhone users can use the web version.",
                     style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(8.dp))
                 TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(vm.updater.repoUrl))) }) { Text("LoonieMate on GitHub") }
+            }
+        }
+        /* for testing: runs the getting-on-track steps as if for the first time (docs/plans/getting-on-track.md) */
+        item {
+            Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("For testing", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = { vm.prefs.onboarded = false; open(Sheet.CatchUp(first = true)) }, modifier = Modifier.testTag("redo-setup")) {
+                    Text("Redo first-time setup", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
     }

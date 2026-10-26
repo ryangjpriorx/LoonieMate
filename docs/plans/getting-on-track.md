@@ -45,11 +45,11 @@ Tracking starts today (`settings.trackFrom`), so nothing earlier shows as overdu
 ## Stages
 
 - [x] **Stage 0**: this plan.
-- [ ] **Stage 1**: web engine first, then the Kotlin port, checked by the parity tests:
+- [x] **Stage 1**: web engine first, then the Kotlin port, checked by the parity tests:
   - the day-by-day look from today with the first short day (`Core` function, e.g. `runway(st, today, balances)`);
   - the starting-month marker on `months/<ym>` (no savings target that month in `monthCalc` / `targetsThrough`),
     understood by the web version's status card too.
-- [ ] **Stage 2**: how catch-up items are saved (one-time expense, debt bill, or "not sure yet"), using data the web
+- [x] **Stage 2**: how catch-up items are saved (one-time expense, debt bill, or "not sure yet"), using data the web
   version already reads; mark them so both versions can show them as catch-up items.
 - [ ] **Stage 3**: Android screens for steps 2 to 5 (balances, this month so far, behind on, food so far).
 - [ ] **Stage 4**: Android "Where you stand" (step 6) with the fixes.
@@ -59,6 +59,16 @@ Tracking starts today (`settings.trackFrom`), so nothing earlier shows as overdu
   **Redo first-time setup** at the very bottom. Then release.
 
 ## Notes for picking up
+
+- Stage 1 (done): `startingMonth(st, ym)` in both engines (web `Core.startingMonth`, Kotlin `Core.startingMonth`):
+  `months/<ym>.starting` gives that month no emergency target (`targetsThrough`, `projection`) and no extra-payday,
+  "what's left" or "cover the shortfall" moves; Child Benefit moves and targets are unchanged. `runway(st, today, bal)`
+  in both engines: days from today to the month's end (or next month's first main payday if later) with items
+  (in / overdue / bill / oneoff / food), running balance, `low`, `lowDate`, `short {date, amount, nextIn}`.
+  Parity household `ontario-starting` covers both.
+- Stage 2 (done): `engine/.../CatchUp.kt` (`oneTime`, `plan` with the payoff date as `end`, `unsure`, `undecided`);
+  `settings.catchUp` entries count as owed today in `runway`. App: `MainViewModel.catchUpOnDate`, `catchUpPlan`,
+  `catchUpUnsure`, `catchUpResolve`. Test: `CatchUpTest`.
 
 - Existing pieces to reuse: balance checks (`engine/.../Checkins.kt`, `ui/sheets/CheckinSheet.kt`), paid ticks
   (`months/<ym>.paid[key]`), one-time expenses (`months/<ym>/expenses/<id>` with `oneTime`), debts (`bills/<id>.debt`,
