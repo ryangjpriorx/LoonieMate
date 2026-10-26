@@ -120,6 +120,9 @@ early versions), so the legacy keys and old snapshot names aren't read any more.
 
 ### Web and Android side by side (checked 2026-10-26, after 0.10.0)
 
+**Status:** W1–W4, W8 and W9 are done on branch `polish-1-settings` (built and tested, not released or merged yet);
+the web version's start-up also ran twice (`init()` at the end of the page), now once. Next, step 2: W5–W7 and N1–N10.
+
 The first audit covered the risky code (money maths, sync, backups, updater, saving, reminders, web escaping); it was not
 a line-by-line read of every screen, and it didn't compare the two versions feature by feature. This pass did that
 comparison (every web action and Settings section against the Android screens and view model). The money maths and the
@@ -186,3 +189,9 @@ status messages are already checked identical by the parity tests; these are the
 - S6: web `iosNotice()` (iPhone/iPad, not when opened from the Home Screen, dismissed with `rs-ios-ok`), shown on
   the welcome view, the month overview and Today; `navigator.storage.persist()`; pages.yml adds
   `apple-touch-icon.png` (docs/assets) and web-app meta tags.
+- Step 1 (branch `polish-1-settings`): `ui/sheets/HouseholdSheet.kt` (`Sheet.Household`): name, people (commas, as on
+  the web), province (`Labels.PROVINCES`) and "show programs from all provinces", the next bank holidays, first month
+  of the plan, start tracking from, baby's due date; `MainViewModel.saveHousehold`. Settings: `HouseholdCard` at the
+  top, `QuickButtonsCard` under Food (`MainViewModel.removeQuick`); "Coming to the app next" removed. Web: `copyLegacy`,
+  the `legacy-load` banner and the `rs-budget-local` fallback removed; `init()` runs once. Build workflow: a run on
+  another branch publishes its screenshots to `screens-<branch>`. Test: `ScreensTest.householdProvinceAndQuickButtons`.
