@@ -107,6 +107,17 @@ class ScreensTest {
     @Test fun light() = tour("light", false)
     @Test fun dark() = tour("dark", true)
 
+    /** At Android's largest text size every tab still draws (docs/plans/accessibility.md, stage 1). */
+    @Test fun largestText() {
+        seed(dark = false, effects = false)
+        org.robolectric.RuntimeEnvironment.setFontScale(2f)
+        try {
+            rule.activityRule.scenario.recreate(); settle()
+            for (t in listOf("Today", "Month", "Bills", "Spending", "Savings", "More")) { tab(t); shot("big-$t") }
+        } finally { org.robolectric.RuntimeEnvironment.setFontScale(1f) }
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
     /** With Visual effects on, the animations run without crashing and settle into place. */
     @Test fun effects() {
         rule.mainClock.autoAdvance = false

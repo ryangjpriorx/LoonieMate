@@ -41,6 +41,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -127,7 +133,7 @@ fun SectionCard(
         Column(Modifier.background(Brush.verticalGradient(0f to lerp(surface, bg, 0.55f), 0.35f to surface)).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconBadge(icon, tone)
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).semantics { heading() }, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (trailing != null) Text(trailing, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 trailingContent?.invoke(this)
             }
@@ -155,8 +161,10 @@ fun StatusBadge(tone: String, label: String, big: Boolean = false) {
     } else 1f
     Surface(color = bg, shape = CircleShape) {
         Row(Modifier.padding(horizontal = if (big) 14.dp else 10.dp, vertical = if (big) 8.dp else 5.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(if (big) 12.dp else 9.dp).graphicsLayer { alpha = pulse }.clip(CircleShape).background(fg))
-            Spacer(Modifier.width(8.dp))
+            /* an icon as well as the colour and the word, so status never depends on colour alone */
+            Icon(when (tone) { "good" -> Icons.Rounded.CheckCircle; "warn" -> Icons.Rounded.Warning; "bad" -> Icons.Rounded.Error; else -> Icons.Rounded.Info }, null,
+                tint = fg, modifier = Modifier.size(if (big) 18.dp else 15.dp).graphicsLayer { alpha = pulse })
+            Spacer(Modifier.width(6.dp))
             Text(label, style = if (big) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge, color = fg, fontWeight = FontWeight.Bold)
         }
     }
@@ -208,7 +216,7 @@ fun DoneButton(done: Boolean, label: String, doneLabel: String, onClick: () -> U
 @Composable
 fun DayHeader(text: String, highlight: Boolean = false) {
     Text(text.uppercase(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
-        color = if (highlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
+        color = if (highlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp).semantics { heading() })
 }
 
 @Composable
