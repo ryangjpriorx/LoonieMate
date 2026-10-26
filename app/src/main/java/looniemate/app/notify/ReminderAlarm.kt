@@ -130,7 +130,9 @@ object ReminderAlarm {
         val date = LocalDate.parse(day); val dow = date.dayOfWeek.value; val dom = date.dayOfMonth
         val out = mutableListOf<Row>()
         for (r in Views.reminders(st, day, app.prefs.lastBackup)) when (r.action) {
-            "reported" -> { val src = Core.incomesOf(s).find { it.s("id") == r.arg } ?: continue
+            "reported" -> { if (r.arg.contains("@")) { val rd = r.arg.substringAfter("@"); val gap = diffDays(rd, day)
+                    if (gap == 0 || (gap > 0 && gap % 3 == 0)) out.add(Row("report", "note:report:${r.arg}:${r.arg2}", r.arg2, r.title, "Tap Reported once it's done.", "", 0.0, false, r.arg)); continue }
+                val src = Core.incomesOf(s).find { it.s("id") == r.arg } ?: continue
                 val due = minOf(28, maxOf(1, Views.reportCfg(src).second))
                 if (dom == due || dom == due - 3 || (dom > due && (dom - due) % 3 == 0))
                     out.add(Row("report", "note:report:${r.arg}:${r.arg2}", r.arg2, r.title, "Tap Reported once it's done.", "", 0.0, false, r.arg)) }

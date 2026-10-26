@@ -44,26 +44,25 @@ import looniemate.engine.Views
 import looniemate.engine.*
 
 @Composable
-private fun DedToggle(ded: MutableMap<String, Boolean>, k: String, l: String, d: String, def: Boolean = false) = SwitchRow(l, d, ded[k] ?: def) { ded[k] = it }
-
-@Composable
 private fun Hint2(t: String) = Text(t, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
 private fun acctOptions(s: J) = listOf("" to "Main account") + Core.accountsOf(s).map { it.s("id") to it.s("name") }
 
 /**
- * A paycheque or other income ([assist0] null), or social assistance (a program key). Edits a copy
- * of the saved income so fields this version doesn't know about are kept.
+ * A paycheque, EI or other income ([assist0] null, or [IncomeSetup.EI] for new EI), or social assistance (a program
+ * key). Edits a copy of the saved income so fields this version doesn't know about are kept.
  */
 @Composable
 fun IncomeSheet(vm: MainViewModel, id: String?, assist0: String?, close: () -> Unit) {
     val s = vm.settings(); val today = vm.today.value; val list = Core.incomesOf(s)
     val base: Obj = remember { id?.let { i -> list.find { it.s("id") == i }?.copy() as? Obj }
-        ?: if (assist0 != null) IncomeSetup.newAssist(list, "as" + vm.repo.newId(), assist0) else IncomeSetup.newIncome(list, "i" + vm.repo.newId()) }
+        ?: when (assist0) { null -> IncomeSetup.newIncome(list, "i" + vm.repo.newId()); IncomeSetup.EI -> IncomeSetup.newEi(list, "i" + vm.repo.newId(), today)
+            else -> IncomeSetup.newAssist(list, "as" + vm.repo.newId(), assist0) } }
     val isNew = id == null
     var prog by rememberSaveable { mutableStateOf(Core.assistOf(base)) }
     val P = prog?.let { Core.ASSIST[it] }
     val sc = base["sched"] as? Obj ?: Obj()
+    var kind by rememberSaveable { mutableStateOf(IncomeSetup.kindOf(base)) }
     var name by rememberSaveable { mutableStateOf(base.s("name")) }
     var amount by rememberSaveable { mutableStateOf(money2(base.n("amount"))) }
     var type by rememberSaveable { mutableStateOf(sc.or("type", "monthly")) }
@@ -72,82 +71,92 @@ fun IncomeSheet(vm: MainViewModel, id: String?, assist0: String?, close: () -> U
     var slot by rememberSaveable { mutableStateOf(if (sc.t("slot")) Math.round(sc.n("slot")).toInt() else 3) }
     var account by rememberSaveable { mutableStateOf(Core.acctId(s, base.s("account"))) }
     var role by rememberSaveable { mutableStateOf(base.or("role", "other")) }
-    var counts by rememberSaveable { mutableStateOf(base.s("odsp")) }
+    /* pay: someone on ODSP for a disability; other income: assistance counts it in full */
+    var disabled by rememberSaveable { mutableStateOf(base.s("odsp") == "dis") }
+    var counted by rememberSaveable { mutableStateOf(base.s("odsp") == "full") }
     var person by rememberSaveable { mutableStateOf(base.s("person")) }
+    var end by rememberSaveable { mutableStateOf(base.s("end")) }
     val rep0 = IncomeSetup.reportCfg(base)
-    var repOn by rememberSaveable { mutableStateOf(rep0.t("on")) }; var repDay by rememberSaveable { mutableStateOf(Math.round(rep0.n("day").takeIf { it > 0 } ?: 7.0).toString()) }
-    /* assistance deductions */
+    var repOn by rememberSaveable { mutableStateOf(if (base.s("kind") == "ei" && base["report"] == null) true else rep0.t("on")) }
+    var repDay by rememberSaveable { mutableStateOf(Math.round(rep0.n("day").takeIf { it > 0 } ?: 7.0).toString()) }
+    var repAnchor by rememberSaveable { mutableStateOf(Views.eiReportAnchor(base) ?: "") }
+    /* assistance: what's still asked */
     val ded0 = if (prog != null) Core.dedCfg(s, base) else Obj()
-    val ded = rememberSaveable(saver = stateMapSaver<Boolean>()) { mutableStateMapOf<String, Boolean>().apply { listOf("dis", "work", "full", "wrb", "supported", "couple").forEach { k -> ded0[k]?.let { put(k, truthy(it)) } } } }
-    var lag by rememberSaveable { mutableStateOf(ded0["lag"]?.takeIf { it != J.Null && str(it) != "" }?.let { Math.round(num(it)).toInt() }) }
+    var couple by rememberSaveable { mutableStateOf(ded0.t("couple")) }
+    var supported by rememberSaveable { mutableStateOf(ded0.t("supported")) }
     var deps by rememberSaveable { mutableStateOf(if (ded0["deps"] != null) Math.round(ded0.n("deps")).toString() else "0") }
     var flat by rememberSaveable { mutableStateOf(ded0["flat"]?.let { if (it == J.Null || str(it) == "") "" else money2(num(it)) } ?: "") }
     var rate by rememberSaveable { mutableStateOf(ded0["rate"]?.let { if (it == J.Null || str(it) == "") "" else Math.round(num(it)).toString() } ?: "") }
     var err by rememberSaveable { mutableStateOf<String?>(null) }; var confirm by rememberSaveable { mutableStateOf(false) }
     val ctx = LocalContext.current
+    val ei = P == null && kind == "ei"
+    val progsHere = Core.incomesOf(s).mapNotNull { Core.assistOf(it)?.let { k -> Core.ASSIST[k] } }.distinctBy { it.key }
+    val progNames = progsHere.joinToString(" and ") { it.short }
 
-    SheetTitle(when { isNew && P != null -> "Add ${P.short}"; isNew -> "Add income"; else -> "Edit ${base.s("name")}" })
+    SheetTitle(when { isNew && P != null -> "Add ${P.short}"; isNew && ei -> "Add Employment Insurance"; isNew -> "Add income"; else -> "Edit ${base.s("name")}" })
     if (P != null) {
         val progs = IncomeSetup.programs(s).let { if (it.any { p -> p.key == prog }) it else it + P }
         SelectField(prog!!, progs.map { it.key to it.name }, { prog = it; if (!isNew || name == P.short) name = Core.ASSIST.getValue(it).short }, "Program")
-    }
-    TextFieldRow(name, { name = it.take(40) }, "Name", placeholder = "Work")
-    MoneyField(amount, { amount = it }, if (P != null) "Usual amount before deductions" else "Usual amount each time", hint = "Change a single month on the Month tab.")
+    } else SelectField(kind, IncomeSetup.KINDS, { k -> kind = k
+        if (k == "ei") { type = "biweekly"; if (!isDate(anchor)) anchor = IncomeSetup.schedFor("biweekly", today).s("anchor"); if (name == "New income") name = "EI"
+            if (!isDate(repAnchor)) repAnchor = addDays(anchor, -3); repOn = true } }, "What kind of income")
+    TextFieldRow(name, { name = it.take(40) }, "Name", placeholder = if (ei) "EI" else "Work")
+    MoneyField(amount, { amount = it }, when { P != null -> "Your full payment before income is taken off"; ei -> "Usual amount each payment (after tax)"; else -> "Usual amount each time" },
+        hint = "When it goes up or down, change it on the Month tab from that month on. Earlier months keep what they were.")
     if (P == null) {
-        SelectField(type, IncomeSetup.TYPES, { t -> type = t; IncomeSetup.schedFor(t, today).let { d -> if (d.t("day")) day = "1"; if (d.t("anchor")) anchor = d.s("anchor") } }, "How often")
-        if (type == "monthly") TextFieldRow(day, { v -> day = v.filter { it.isDigit() }.take(2) }, "Day of the month", number = true)
-        if (type == "weekly" || type == "biweekly") {
+        if (!ei) SelectField(type, IncomeSetup.TYPES, { t -> type = t; IncomeSetup.schedFor(t, today).let { d -> if (d.t("day")) day = "1"; if (d.t("anchor")) anchor = d.s("anchor") } }, "How often")
+        else Hint2("EI is paid every 2 weeks, usually a couple of days after each report.")
+        if (type == "monthly" && !ei) TextFieldRow(day, { v -> day = v.filter { it.isDigit() }.take(2) }, "Day of the month", number = true)
+        if (type == "weekly" || type == "biweekly" || ei) {
             val wd = if (isDate(anchor)) IncomeSetup.weekday(anchor) else 1
             SelectField(wd.toString(), IncomeSetup.WEEKDAYS.mapIndexed { i, w -> i.toString() to w }, { w -> anchor = IncomeSetup.withWeekday(J.obj("anchor" to anchor), w.toInt(), today).s("anchor") }, "Day of the week")
         }
-        if (type == "biweekly") DateField(anchor, { anchor = it }, "A payday in the cycle", hint = "Tells LoonieMate which week it's paid. Any real payday works.")
+        if (type == "biweekly" || ei) DateField(anchor, { anchor = it }, "A payday in the cycle", hint = "Tells LoonieMate which week it's paid. Any real payday works.")
+        if (ei) DateField(end, { end = it }, "Last payment (optional)", hint = "When your benefits run out. Nothing is planned after it.")
     } else if (prog == "nsia") SelectField(slot.toString(), listOf("1" to "First of the three dates", "2" to "Second of the three dates", "3" to "Last of the three dates"), { slot = it.toInt() },
         "Which payment day is yours", hint = "Nova Scotia pays on one of the last three business days of the month.")
     SelectField(account, acctOptions(s), { account = it }, "Lands in")
     SelectField(role, IncomeSetup.ROLES, { role = it }, "What it's for")
-    if (P == null && IncomeSetup.hasAssist(s)) {
-        val hasOdsp = looniemate.engine.SavingsViews.hasOdsp(s)
-        SelectField(counts, IncomeSetup.COUNTS.filter { it.first != "dis" || hasOdsp || counts == "dis" }, { counts = it }, "How assistance counts it", hint = "Used by the assistance deductions.")
+    if (P == null) {
         val people = s.strList("people").filter { it.isNotBlank() }
-        if (people.isNotEmpty()) SelectField(person, listOf("" to "—") + people.map { it to it }, { person = it }, "Whose income", hint = "Two jobs for one person share one exemption.")
+        if (people.isNotEmpty() && kind != "other") SelectField(person, listOf("" to "—") + people.map { it to it }, { person = it }, "Whose income", hint = "Two jobs for one person share one exemption.")
+        if (progsHere.isNotEmpty()) when (kind) {
+            "pay" -> if (progsHere.any { it.rule == "odsp" }) SwitchRow("Paid to someone on ODSP for a disability", "Their first \$1,000 a month isn't counted and ODSP takes 75% of the rest. Anyone else's work pay: the first \$200, then 50%.", disabled) { disabled = it }
+                else Hint2("$progNames counts this as work pay.")
+            "ei" -> Hint2("$progNames takes EI off dollar for dollar. LoonieMate does that for you.")
+            else -> SwitchRow("$progNames counts it", "Spousal support, CPP and most pensions count in full. Child support and child benefits don't.", counted) { counted = it }
+        }
     }
-    SwitchRow("Remind us to report income", if (P != null && P.report > 0) "${P.short} usually wants it by the ${P.report}th." else "For programs that need a monthly income report.", repOn) { repOn = it }
-    if (repOn) TextFieldRow(repDay, { v -> repDay = v.filter { it.isDigit() }.take(2) }, "Report due by day", number = true)
+    if (ei) {
+        SwitchRow("Remind me to do my EI reports", "Every two weeks. The payment follows the report.", repOn) { repOn = it }
+        if (repOn) DateField(repAnchor, { repAnchor = it }, "A report day", hint = "Any day you report. Reminders come every 2 weeks from it.")
+    } else {
+        SwitchRow("Remind us to report income", if (P != null && P.report > 0) "${P.short} usually wants it by the ${P.report}th." else "For programs that need a monthly income report.", repOn) { repOn = it }
+        if (repOn) TextFieldRow(repDay, { v -> repDay = v.filter { it.isDigit() }.take(2) }, "Report due by day", number = true)
+    }
 
     /* how assistance works out the payment */
     if (P != null) {
         HorizontalDivider(Modifier.padding(vertical = 4.dp))
-        Text("${P.short} deductions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Hint2("Turn on the deductions that apply. LoonieMate works out the payment from the usual amount using ${P.short}'s rules. Typing a real amount for a month on the Month tab always wins.")
-        when (P.rule) {
-            "odsp" -> { DedToggle(ded, "dis", "Work pay of a person with a disability", "The first \$1,000 of take-home pay each month is not counted. ODSP takes 75% of the rest. Each person with a disability gets their own \$1,000.")
-                DedToggle(ded, "work", "Work pay of a spouse or adult without a disability", "The first \$200 each month is not counted. ODSP takes 50% of the rest.")
-                DedToggle(ded, "full", "Income counted in full", "EI, CPP and spousal support come off dollar for dollar. Child support, the CCB and the Trillium Benefit are not counted.")
-                DedToggle(ded, "wrb", "Add the \$100 work-related benefit", "ODSP adds \$100 a month for each adult with work pay.", true) }
-            "ow" -> { DedToggle(ded, "work", "Work pay", "Each adult keeps the first \$200 of take-home pay a month, then OW takes 50% of the rest. This starts after 3 months in a row on assistance; before that, work pay counts in full.")
-                DedToggle(ded, "full", "Income counted in full", "EI and most other income come off dollar for dollar.") }
-            "qc" -> { DedToggle(ded, "work", "Work income", "\$200 a month for an adult alone, or \$300 for a couple, is not counted. Above that, the benefit drops by the difference, but 25% of it is added back.")
-                DedToggle(ded, "full", "Income counted in full", "EI and other income come off dollar for dollar.") }
-            "custom" -> { DedToggle(ded, "work", "Work income", "Quebec didn't publish the exact figures on its page. Enter the rule from your notice.")
-                MoneyField(flat, { flat = it }, "Not counted each month")
-                TextFieldRow(rate, { v -> rate = v.filter { it.isDigit() }.take(3) }, "Share taken above that (%)", number = true)
-                DedToggle(ded, "full", "Income counted in full", "EI and other income come off dollar for dollar.") }
-            "ns" -> { DedToggle(ded, "work", "Work pay", "On a sliding scale: the first \$350 of net pay each month is kept, then 75% of pay up to \$500, 50% up to \$750, and 25% above that.")
-                DedToggle(ded, "supported", "Supported employment", "For people who need ongoing support to work: the first \$450 is kept instead.")
-                DedToggle(ded, "full", "Income counted in full", "EI and other chargeable income come off dollar for dollar.") }
+        Text("How ${P.short} counts income", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(IncomeSetup.ruleText(P, today), style = MaterialTheme.typography.bodyMedium)
+        Hint2(IncomeSetup.countsText(P))
+        Hint2("LoonieMate works out the payment from your other incomes. Set what kind each one is (pay, EI or other) on its own page. Typing a real amount for a month on the Month tab always wins.")
+        if (P.rule == "custom") {
+            MoneyField(flat, { flat = it }, "Not counted each month")
+            TextFieldRow(rate, { v -> rate = v.filter { it.isDigit() }.take(3) }, "Share taken above that (%)", number = true)
         }
-        val L = lag ?: if (P.prov == "QC") 1 else 2
-        SelectField(L.toString(), listOf("2" to "The payment for two months later (January pay → March payment)", "1" to "The payment for the next month (January pay → February payment)"),
-            { lag = it.toInt() }, "Which payment a month's pay reduces", hint = "${P.short} payments are ${if (P.pays == "next") "paid at the end of the month before" else "paid on the 1st"} they cover. Check this against your own statements.")
+        if (P.rule == "ns") SwitchRow("Supported employment", "For people who need ongoing support to work: the first \$450 is kept instead.", supported) { supported = it }
         SwitchRow("We're a couple", P.assets?.let { "Asset limit: ${Fmt.money(it.couple)} for a couple, ${Fmt.money(it.single)} single." } ?: if (P.rule == "qc") "A couple can earn \$300 before it counts." else "Used for household rules.",
-            ded["couple"] ?: false) { ded["couple"] = it }
+            couple) { couple = it }
         if (P.assets != null) TextFieldRow(deps, { v -> deps = v.filter { it.isDigit() }.take(2) }, "Dependants (not counting a spouse)", number = true, hint = "Adds ${Fmt.money(P.assets!!.dep)} each to the asset limit.")
         if (!isNew) { val c = Core.monthCalc(ymOf(today), Docs.toStore(vm.repo.docs.value, today), today); val oc = c["assistCalc"]?.get(base.s("id"))
             if (oc is Obj) Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
-                    Text("${Fmt.monthName(ymOf(today))} · based on ${Fmt.monthOnly(oc.s("earnYm"))} income (saved settings)", fontWeight = FontWeight.SemiBold)
-                    LineRow("Usual amount before deductions", Fmt.money(oc.n("base")))
+                    Text("${Fmt.monthName(ymOf(today))} · based on pay from ${Fmt.dShort(oc.s("earnFrom"))} to ${Fmt.dShort(oc.s("earnTo"))} (saved settings)", fontWeight = FontWeight.SemiBold)
+                    LineRow("Full payment before income is taken off", Fmt.money(oc.n("base")))
                     oc["lines"].arr().forEach { l -> LineRow("${l["names"].arr().joinToString(" + ") { str(it) }}: ${Fmt.money(l.n("amount"))} (${l.s("how")})", "−" + Fmt.money(l.n("deduct"))) }
+                    if (oc["lines"].arr().isEmpty()) LineRow("No counted income then", Fmt.money(0.0))
                     if (oc.n("wrb") > 0) LineRow("Work-related benefit", "+" + Fmt.money(oc.n("wrb")))
                     LineRow(if (oc.t("manual")) "Worked out (you typed the real amount this month)" else "Expected payment", Fmt.money(oc.n("calc")), total = true)
                 }
@@ -162,11 +171,12 @@ fun IncomeSheet(vm: MainViewModel, id: String?, assist0: String?, close: () -> U
         draftSched = if (prog == Core.assistOf(base)) (sc.copy() as Obj) else J.obj("type" to P.sched.s("type"))
         if (prog == "nsia") draftSched["slot"] = J.N(slot.toDouble())
     } else {
-        draftSched = J.obj("type" to type)
-        if (type == "monthly") draftSched["day"] = J.N((day.toIntOrNull() ?: 1).toDouble())
-        if ((type == "weekly" || type == "biweekly") && isDate(anchor)) draftSched["anchor"] = J.S(anchor)
+        val t = if (ei) "biweekly" else type
+        draftSched = J.obj("type" to t)
+        if (t == "monthly") draftSched["day"] = J.N((day.toIntOrNull() ?: 1).toDouble())
+        if ((t == "weekly" || t == "biweekly") && isDate(anchor)) draftSched["anchor"] = J.S(anchor)
     }
-    val nxt = IncomeSetup.nextDates(if (P != null) Core.assistSched(J.obj("assist" to prog, "sched" to draftSched)) else draftSched, today)
+    val nxt = IncomeSetup.nextDates(if (P != null) Core.assistSched(J.obj("assist" to prog, "sched" to draftSched)) else draftSched, today).filter { !ei || !isDate(end) || it <= end }
     Hint2("Next: " + (nxt.joinToString(", ") { Fmt.dShort(it) }.ifEmpty { "—" }))
 
     ErrorText(err)
@@ -176,9 +186,10 @@ fun IncomeSheet(vm: MainViewModel, id: String?, assist0: String?, close: () -> U
             err = when {
                 name.isBlank() -> "Give it a name."
                 amt == null || amt.isNaN() -> "Enter a dollar amount."
-                P == null && type == "monthly" && (dn == null || dn !in 1..31) -> "Enter a day from 1 to 31."
-                P == null && type == "biweekly" && !isDate(anchor) -> "Pick a date."
-                repOn && (rd == null || rd !in 1..28) -> "Enter a report day from 1 to 28."
+                P == null && !ei && type == "monthly" && (dn == null || dn !in 1..31) -> "Enter a day from 1 to 31."
+                P == null && (type == "biweekly" || ei) && !isDate(anchor) -> "Pick a date."
+                ei && repOn && !isDate(repAnchor) -> "Pick a report day."
+                !ei && repOn && (rd == null || rd !in 1..28) -> "Enter a report day from 1 to 28."
                 P?.assets != null && (dp == null || dp !in 0..12) -> "Enter a number of dependants from 0 to 12."
                 P?.rule == "custom" && rate.isNotEmpty() && (rt == null || rt !in 0..100) -> "Enter a percentage from 0 to 100."
                 P?.rule == "custom" && fl != null && fl.isNaN() -> "Enter a dollar amount for what's not counted."
@@ -188,15 +199,25 @@ fun IncomeSheet(vm: MainViewModel, id: String?, assist0: String?, close: () -> U
                 val o = base.copy() as Obj
                 o["name"] = J.S(name.trim()); o["amount"] = J.N(amt!!); o["sched"] = draftSched; o["account"] = J.S(account); o["role"] = J.S(role)
                 if (P != null) o["assist"] = J.S(prog!!)
-                if (P == null && IncomeSetup.hasAssist(s)) { o["odsp"] = J.S(counts); if (s.strList("people").any { it.isNotBlank() }) o["person"] = J.S(person) }
-                val rep = J.obj("day" to (if (repOn) rd!! else Math.round(rep0.n("day")).toInt()), "on" to repOn)
-                if (base["report"] != null || repOn != rep0.t("on") || (repOn && rd != Math.round(rep0.n("day")).toInt())) o["report"] = rep
-                if (P != null && prog != Core.assistOf(base) && base["report"] == null) o.map.remove("report")
+                else {
+                    o["kind"] = J.S(kind)
+                    o["odsp"] = J.S(when (kind) { "ei" -> "full"; "pay" -> if (disabled && progsHere.any { it.rule == "odsp" }) "dis" else "spouse"; else -> if (counted) "full" else "" })
+                    if (kind != "other" && s.strList("people").any { it.isNotBlank() }) o["person"] = J.S(person) else o.map.remove("person")
+                    if (ei && isDate(end)) o["end"] = J.S(end) else o.map.remove("end")
+                }
+                if (ei) o["report"] = J.obj("on" to repOn, "every" to 14, "anchor" to repAnchor)
+                else {
+                    if (base.s("kind") == "ei") o.map.remove("report")
+                    val rep = J.obj("day" to (if (repOn) rd!! else Math.round(rep0.n("day")).toInt()), "on" to repOn)
+                    if (base["report"] != null || repOn != rep0.t("on") || (repOn && rd != Math.round(rep0.n("day")).toInt())) o["report"] = rep
+                    if (P != null && prog != Core.assistOf(base) && base["report"] == null) o.map.remove("report")
+                }
                 if (P != null) {
-                    val cfg = (ded0.copy() as Obj); ded.forEach { (k, v) -> cfg[k] = J.B(v) }
-                    if (lag != null) cfg["lag"] = J.N(lag!!.toDouble()); if (P.assets != null) cfg["deps"] = J.N(dp!!.toDouble())
+                    val cfg = (ded0.copy() as Obj); listOf("dis", "work", "full", "wrb", "lag").forEach { cfg.map.remove(it) }
+                    cfg["couple"] = J.B(couple); if (P.rule == "ns") cfg["supported"] = J.B(supported)
+                    if (P.assets != null) cfg["deps"] = J.N(dp!!.toDouble())
                     if (P.rule == "custom") { cfg["flat"] = if (fl == null) J.S("") else J.N(fl); cfg["rate"] = if (rt == null) J.S("") else J.N(rt.toDouble()) }
-                    if (isNew || Json.stringify(cfg) != Json.stringify(ded0)) o["ded"] = cfg
+                    o["ded"] = cfg
                 }
                 vm.saveIncome(isNew, o); close()
             }

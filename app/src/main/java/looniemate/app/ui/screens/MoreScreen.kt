@@ -352,10 +352,12 @@ private fun IncomeCard(vm: MainViewModel, open: (Sheet) -> Unit) {
                 looniemate.app.ui.sheets.SelectField(pick, progs.map { it.key to it.name }, { pick = it }, "Program", Modifier.weight(1f))
                 OutlinedButton(onClick = { open(Sheet.Income(null, pick)) }) { Text("Add") } } }
 
-        Head("Paycheques and other income")
+        Head("Paycheques, EI and other income")
         if (pays.isEmpty()) Text("No paycheques yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        pays.forEach { x -> RowOf("income-${x.s("id")}", x.s("name"), "${Fmt.money(x.n("amount"))} · ${IncomeSetup.typeLabel(x["sched"].s("type").ifEmpty { "monthly" })}" + next(IncomeSetup.nextDates(x["sched"], today, 1))) { open(Sheet.Income(x.s("id"))) } }
+        pays.forEach { x -> RowOf("income-${x.s("id")}", x.s("name"), "${Fmt.money(x.n("amount"))} · " + (if (x.s("kind") == "ei") "EI every 2 weeks" + (if (isDate(x["end"])) ", until ${Fmt.dShort(x.s("end"))}" else "")
+            else IncomeSetup.typeLabel(x["sched"].s("type").ifEmpty { "monthly" })) + next(IncomeSetup.nextDates(x["sched"], today, 1).filter { Core.inRange(x, it) })) { open(Sheet.Income(x.s("id"))) } }
         FilledTonalButton(onClick = { open(Sheet.Income(null)) }, modifier = Modifier.testTag("add-income")) { Text("+ Add a paycheque or other income") }
+        OutlinedButton(onClick = { open(Sheet.Income(null, IncomeSetup.EI)) }, modifier = Modifier.testTag("add-ei")) { Text("+ Add Employment Insurance (EI)") }
 
         Head("Government benefits and credits")
         Core.creditsOf(s).forEach { x -> RowOf("credit-${x.s("id")}", Core.creditName(x), Fmt.money(x.n("amount")) + (if (x.t("protect")) " · protected" else "") +

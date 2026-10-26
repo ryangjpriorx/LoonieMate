@@ -11,8 +11,30 @@ object IncomeSetup {
         "lastbiz" to "Last business day of the month", "firstbiz" to "First business day of the month")
     /** Keep in step with ROLES in web/index.html. */
     val ROLES = listOf("rent" to "Covers rent first", "main" to "Main paycheque (bills and food are split across these paydays)", "other" to "Extra income")
-    /** How assistance counts an income (keep in step with ODSP_T). */
-    val COUNTS = listOf("" to "Not counted", "dis" to "Work pay of a person with a disability (ODSP)", "spouse" to "Work pay", "full" to "Counted in full (EI, CPP, spousal support)")
+    /** The kinds of income besides assistance (keep in step with INCOME_KINDS in web/index.html). */
+    val KINDS = listOf("pay" to "Pay from a job", "ei" to "Employment Insurance (EI)", "other" to "Other income (support payments, a pension, gifts)")
+    /** Passed as the program when adding EI. */
+    const val EI = "ei"
+
+    /** The kind of a saved income; incomes saved before kinds existed are pay unless assistance counted them in full or not at all. */
+    fun kindOf(src: J): String = src.s("kind").ifEmpty { when (src.s("odsp")) { "full" -> "other"; else -> "pay" } }
+
+    /** Which pay lowers which payment, as a plain sentence with real months ("Pay from September lowers the November payment."). */
+    fun ruleText(p: Core.Program, today: String): String {
+        val b = ymAdd(ymOf(today), 1); val e = ymAdd(b, -p.lag)
+        return if (p.from16) "Pay from ${Fmt.dShort(ymAdd(e, -1) + "-16")} to ${Fmt.dShort("$e-15")} lowers the ${Fmt.monthOnly(b)} payment, and so on each month."
+        else "Pay from ${Fmt.monthOnly(e)} lowers the ${Fmt.monthOnly(b)} payment, and so on each month."
+    }
+
+    /** How the program treats income, in a few words. */
+    fun countsText(p: Core.Program): String = when (p.rule) {
+        "odsp" -> "Work pay: the first \$200 a month isn't counted, then ODSP takes 50% of the rest. For someone on ODSP for a disability it's the first \$1,000, then 75%. ODSP adds \$100 a month for each adult who works. EI, CPP and spousal support come off dollar for dollar; child support and child benefits don't count."
+        "ow" -> "Work pay: each adult keeps the first \$200 a month, then OW takes 50% of the rest (after 3 months in a row on assistance; before that it counts in full). EI and most other income come off dollar for dollar."
+        "qc" -> "Work income: \$200 a month for an adult alone, or \$300 for a couple, isn't counted. Above that, the benefit drops by the difference, with 25% added back. EI and other income come off dollar for dollar."
+        "custom" -> "Quebec didn't publish the exact figures for work income. Enter the rule from your notice below. EI and other income come off dollar for dollar."
+        "ns" -> "Work pay on a sliding scale: the first \$350 of net pay each month is kept, then 75% of pay up to \$500, 50% up to \$750, and 25% above that. EI and other chargeable income come off dollar for dollar."
+        else -> ""
+    }
     val WEEKDAYS = listOf("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
     const val ODSP_DIRECTIVE = "https://ontario.ca/document/ontario-disability-support-program-policy-directives-income-support/53-deductions"
 
@@ -37,7 +59,11 @@ object IncomeSetup {
     }
 
     /** A new paycheque, as the web version adds one. */
-    fun newIncome(list: List<Obj>, id: String): Obj = J.obj("id" to id, "name" to "New income", "amount" to 0, "sched" to J.obj("type" to "monthly", "day" to 1), "account" to "",
+    fun newIncome(list: List<Obj>, id: String): Obj = J.obj("id" to id, "name" to "New income", "kind" to "pay", "amount" to 0, "sched" to J.obj("type" to "monthly", "day" to 1), "account" to "",
+        "role" to (if (list.any { it.s("role") == "main" }) "other" else "main"))
+
+    /** New Employment Insurance: every 2 weeks, counted in full by assistance, reported every 2 weeks. */
+    fun newEi(list: List<Obj>, id: String, today: String): Obj = J.obj("id" to id, "name" to "EI", "kind" to "ei", "odsp" to "full", "amount" to 0, "sched" to schedFor("biweekly", today), "account" to "",
         "role" to (if (list.any { it.s("role") == "main" }) "other" else "main"))
 
     /** New social assistance, as the web version adds it. */

@@ -28,6 +28,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
+import looniemate.engine.Core
+import looniemate.engine.t
 
 /**
  * Draws every screen with a made-up household (the same one the engine checks use) and saves
@@ -180,6 +182,25 @@ class ScreensTest {
         shot("More-quick")
         rule.onNodeWithTag("quick-del-0").performClick(); settle()
         assertTrue("the quick button is gone", vm.settings()["quick"].arr().isEmpty())
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
+
+    /** Settings → income: ODSP explains its rule instead of asking it; EI can be added and is counted in full (docs/plans/income-and-assistance.md). */
+    @Test fun assistanceAndEi() {
+        seed(dark = false, effects = false)
+        val vm = androidx.lifecycle.ViewModelProvider(rule.activity)[MainViewModel::class.java]
+        tab("More"); rule.onNodeWithTag("income-i-odsp").performScrollTo().performClick(); settle(); shot("sheet-odsp", sheet = true)
+        assertTrue("no lag question", rule.onAllNodesWithText("Which payment a month's pay reduces").fetchSemanticsNodes().isEmpty())
+        assertTrue("the rule as a sentence", rule.onAllNodes(androidx.compose.ui.test.hasText("lowers the", substring = true)).fetchSemanticsNodes().isNotEmpty())
+        closePage()
+        tab("Today"); tab("More"); rule.onNodeWithTag("add-ei").performScrollTo().performClick(); settle()
+        rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[1].performScrollTo().performTextInput("455")
+        shot("sheet-ei", sheet = true)
+        rule.onNodeWithText("Add").performScrollTo().performClick(); settle()
+        val ei = Core.incomesOf(vm.settings()).find { it.s("kind") == "ei" }
+        org.junit.Assert.assertNotNull("EI saved", ei)
+        org.junit.Assert.assertEquals("full", ei!!.s("odsp"))
+        assertTrue("EI report reminder on", ei["report"].t("on"))
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 
