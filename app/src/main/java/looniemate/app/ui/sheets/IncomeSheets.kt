@@ -102,7 +102,7 @@ fun IncomeSheet(vm: MainViewModel, id: String?, assist0: String?, close: () -> U
             if (!isDate(repAnchor)) repAnchor = addDays(anchor, -3); repOn = true } }, "What kind of income")
     TextFieldRow(name, { name = it.take(40) }, "Name", placeholder = if (ei) "EI" else "Work")
     MoneyField(amount, { amount = it }, when { P != null -> "Your full payment before income is taken off"; ei -> "Usual amount each payment (after tax)"; else -> "Usual amount each time" },
-        hint = "When it goes up or down, change it on the Month tab from that month on. Earlier months keep what they were.")
+        hint = if (P != null) "Change it here when your payment goes up, like the yearly increase." else "When it goes up or down, change it on the Month tab from that month on. Earlier months keep what they were.")
     if (P == null) {
         if (!ei) SelectField(type, IncomeSetup.TYPES, { t -> type = t; IncomeSetup.schedFor(t, today).let { d -> if (d.t("day")) day = "1"; if (d.t("anchor")) anchor = d.s("anchor") } }, "How often")
         else Hint2("EI is paid every 2 weeks, usually a couple of days after each report.")
@@ -153,7 +153,7 @@ fun IncomeSheet(vm: MainViewModel, id: String?, assist0: String?, close: () -> U
         if (!isNew) { val c = Core.monthCalc(ymOf(today), Docs.toStore(vm.repo.docs.value, today), today); val oc = c["assistCalc"]?.get(base.s("id"))
             if (oc is Obj) Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
-                    Text("${Fmt.monthName(ymOf(today))} · based on pay from ${Fmt.dShort(oc.s("earnFrom"))} to ${Fmt.dShort(oc.s("earnTo"))} (saved settings)", fontWeight = FontWeight.SemiBold)
+                    Text("The ${Fmt.monthOnly(oc.s("benefitYm"))} payment · based on pay from ${Fmt.dShort(oc.s("earnFrom"))} to ${Fmt.dShort(oc.s("earnTo"))}", fontWeight = FontWeight.SemiBold)
                     LineRow("Full payment before income is taken off", Fmt.money(oc.n("base")))
                     oc["lines"].arr().forEach { l -> LineRow("${l["names"].arr().joinToString(" + ") { str(it) }}: ${Fmt.money(l.n("amount"))} (${l.s("how")})", "−" + Fmt.money(l.n("deduct"))) }
                     if (oc["lines"].arr().isEmpty()) LineRow("No counted income then", Fmt.money(0.0))
