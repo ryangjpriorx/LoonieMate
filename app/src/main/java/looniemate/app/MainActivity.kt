@@ -26,6 +26,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         vm.refreshDay()
+        vm.checkUpdates(false)
         vm.updater.onPermissionMaybeGranted()
     }
 }

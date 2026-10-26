@@ -455,7 +455,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun checkUpdates(manual: Boolean) { viewModelScope.launch { if (manual) updater.check(true) else updater.checkIfDue() } }
     fun downloadUpdate(r: looniemate.app.update.Updater.Release) { viewModelScope.launch { updater.download(r) } }
 
-    init { checkUpdates(false) }
+    /* the first check happens in MainActivity.onResume, which also runs on a fresh start */
 
     companion object { fun groupLabel(g: String) = Labels.GROUPS[g]?.label ?: Labels.OGROUPS[g] ?: "Adults"
         fun nextPaydays(s: J, ym: String): List<String> = (Core.mainPaydays(s, ymAdd(ym, 1)) + Core.mainPaydays(s, ymAdd(ym, 2))).take(3)

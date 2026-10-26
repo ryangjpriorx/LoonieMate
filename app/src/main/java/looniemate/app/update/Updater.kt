@@ -57,8 +57,8 @@ class Updater(private val ctx: Context, private val prefs: Prefs) {
 
     init { cleanOld() }
 
-    /** Checks at most every 12 hours on its own; a tap on "Check now" always checks. */
-    suspend fun checkIfDue() { if (enabled && prefs.autoUpdate && System.currentTimeMillis() - prefs.lastUpdateCheck > 12 * 3_600_000L) check(false) }
+    /** Checks on its own at most once an hour (each time the app comes to the front); a tap on "Check now" always checks. */
+    suspend fun checkIfDue() { if (enabled && prefs.autoUpdate && System.currentTimeMillis() - prefs.lastUpdateCheck > 3_600_000L) check(false) }
 
     suspend fun check(manual: Boolean) {
         if (!enabled) { _state.value = State.Failed("Updates come with the release version of LoonieMate."); return }
