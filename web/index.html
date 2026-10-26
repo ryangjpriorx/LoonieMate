@@ -1688,10 +1688,10 @@ function todoRow(e,first){
     return`<div class="trow ${first?'first':''}" data-key="${esc(e.key)}">${tick(!!e.done,'move-done',dd,'Done: '+(e.cash?'take out cash':'move money'))}
       <button class="tap" data-act="why" data-key="${esc(e.key)}" data-ym="${e.ym}"><div class="nm">${e.cash?'🏧 ':''}${moveTitle(e)}${od}</div><div class="meta">From ${esc(e.from)}${e.fromAcct?' ('+esc(e.fromAcct)+')':''}${e.cash&&e.items&&e.items.length?' · for '+esc(e.items.map(x=>x.name).join(', ')):e.cash?'':' · '+esc(e.why)}</div></button>
       <span></span>${menu([[e.done?'Not done after all':'Done','move-done',dd],[e.cash?'About this cash':'Why this move?','why',`data-key="${esc(e.key)}" data-ym="${e.ym}"`],['Change the accounts it uses','tab','data-tab="accounts"']])}</div>`}
-  const t={report:[e.ei?`Do your EI report for ${e.name}`:`Report ${monthOnly(e.forYm||e.ym)}'s income for ${e.name}`,e.overdue?'Was due '+dShort(e.date):e.date===todayStr()?'Due today':'Due '+dShort(e.date),'reported',`data-id="${esc(e.key)}" data-ym="${e.ym}"`,'Reported'],
-    tax:[`File your ${+e.year-1} taxes`,e.overdue?'As soon as you can. Benefits depend on it.':'By April 30. Benefits depend on it, even with no income.','tax-filed',`data-y="${esc(e.year)}"`,"We've filed"],
-    lock:[`Lock ${monthName(e.ym)}`,"It's finished. Locking keeps its numbers as they were.",'goto',`data-ym="${e.ym}" data-tab="income"`,'Review and lock'],
-    check:['Check your balances',e.days!=null?`Last checked ${e.days} days ago`:'Once a week keeps the plan honest','checkin','','Check them now']}[e.kind];
+  const K={report:()=>[e.ei?`Do your EI report for ${e.name}`:`Report ${monthOnly(e.forYm||e.ym)}'s income for ${e.name}`,e.overdue?'Was due '+dShort(e.date):e.date===todayStr()?'Due today':'Due '+dShort(e.date),'reported',`data-id="${esc(e.key)}" data-ym="${e.ym}"`,'Reported'],
+    tax:()=>[`File your ${+e.year-1} taxes`,e.overdue?'As soon as you can. Benefits depend on it.':'By April 30. Benefits depend on it, even with no income.','tax-filed',`data-y="${esc(e.year)}"`,"We've filed"],
+    lock:()=>[`Lock ${monthName(e.ym)}`,"It's finished. Locking keeps its numbers as they were.",'goto',`data-ym="${e.ym}" data-tab="income"`,'Review and lock'],
+    check:()=>['Check your balances',e.days!=null?`Last checked ${e.days} days ago`:'Once a week keeps the plan honest','checkin','','Check them now']},t=K[e.kind]&&K[e.kind]();
   if(!t)return'';
   return`<div class="trow ${first?'first':''}">${tick(false,t[2],t[3],t[4])}<div><div class="nm">${esc(t[0])}${od}</div><div class="meta">${esc(t[1])}</div></div><span></span>${menu([[t[4],t[2],t[3]]])}</div>`;
 }
