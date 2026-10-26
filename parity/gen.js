@@ -58,10 +58,13 @@ const out = { generatedFrom: 'web/index.html', defaults: DEFAULTS, scenarios: []
 for (const sc of scenarios) {
   const docs = JSON.parse(JSON.stringify(sc.docs));
   /* months marked lockMe are locked with a snapshot made by the web engine, the way the app does it */
-  for (const k of Object.keys(docs)) if (docs[k] && docs[k].lockMe) {
-    delete docs[k].lockMe; const ym = k.slice(7);
+  for (const k of Object.keys(docs)) if (docs[k] && (docs[k].lockMe || docs[k].lockOld)) {
+    const old = docs[k].lockOld; delete docs[k].lockMe; delete docs[k].lockOld; const ym = k.slice(7);
     const st0 = fromDocs(Object.assign({}, docs, { [k]: Object.assign({}, docs[k], { closed: false }) }), ym + '-28');
-    docs[k] = Object.assign({}, docs[k], { closed: true, closedOn: ym + '-28', snapshot: C.snapshot(C.monthCalc(ym, st0, ym + '-28')) });
+    const snap = C.snapshot(C.monthCalc(ym, st0, ym + '-28'));
+    /* lockOld: saved the way versions before 0.9 did, under the first family's names */
+    if (old) for (const [a, b] of [['ryan', 'rentIncome'], ['ryanDate', 'rentDate'], ['ryanLeft', 'rentLeft'], ['staceyPer', 'mainPer'], ['staceyRegular', 'mainRegular']]) { snap[a] = snap[b]; delete snap[b]; }
+    docs[k] = Object.assign({}, docs[k], { closed: true, closedOn: ym + '-28', snapshot: snap });
   }
   const res = {};
   for (const today of sc.todays) {

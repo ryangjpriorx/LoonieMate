@@ -215,7 +215,7 @@ object Core {
     private fun present(v: J?): J? = if (v != null && v != J.Null && !(v is J.S && v.v.isEmpty())) v else null
     /** month-by-month amounts: new keys, plus the older ones saved before incomes were configurable */
     private fun incAmtGet(id: String): (J) -> J? = { x -> val i = x["income"] ?: Obj()
-        val a = i["amt"]?.get(id); if (truthy(i["amt"]) && present(a) != null) a else if (id == "ryan") i["ryan"] else if (id == "stacey") i["staceyPer"] else null }
+        val a = i["amt"]?.get(id); if (truthy(i["amt"]) && present(a) != null) a else LEGACY_INC_KEYS[id]?.let { i[it] } }
     private fun crAmtGet(cr: J): (J) -> J? = { x -> val i = x["income"] ?: Obj(); val id = cr.s("id")
         val c1 = i["cr"]?.get(id); val c2 = i["credits"]?.get(id)
         if (truthy(i["cr"]) && present(c1) != null) c1
@@ -385,6 +385,11 @@ object Core {
     }
 
     private val SNAP_SKIP = setOf("expenses", "paid", "moved", "expensesLoaded", "closed", "ym")
+    /** Months saved by the first version kept two incomes' amounts under their own keys; still read so old budgets keep working. */
+    private val LEGACY_INC_KEYS = mapOf("ryan" to "ryan", "stacey" to "staceyPer")
+    /** Months locked by older versions saved these figures under the first family's names (web SNAP_RENAMED). */
+    private val SNAP_RENAMED = listOf("ryan" to "rentIncome", "ryanDate" to "rentDate", "ryanLeft" to "rentLeft", "staceyPer" to "mainPer", "staceyRegular" to "mainRegular")
+    private fun snapNames(o: Obj): Obj { for ((a, b) in SNAP_RENAMED) if (o.map.containsKey(a)) { if (!o.map.containsKey(b)) o[b] = o.map[a]!!; o.map.remove(a) }; return o }
 
     fun monthCalc(ym: String, st: Store, today: String): Obj {
         val s = st.settings; val months = st.months; val m: Obj = months[ym] ?: Obj()
@@ -392,7 +397,7 @@ object Core {
         val paid = m["paid"].let { if (truthy(it)) it!! else Obj() }
         val expenses = listExp(st.expenses[ym]); val expensesLoaded = st.expenses.containsKey(ym)
         if (m.t("closed") && m.t("snapshot")) {
-            val o = (m["snapshot"]!!.copy() as? Obj) ?: Obj()
+            val o = snapNames((m["snapshot"]!!.copy() as? Obj) ?: Obj())
             o["ym"] = js(ym); o["closed"] = js(true); o["moved"] = moved; o["paid"] = paid; o["expenses"] = js(expenses); o["expensesLoaded"] = js(expensesLoaded)
             return o
         }
@@ -451,9 +456,9 @@ object Core {
             if (odspCalc == J.Null) odspCalc = ac
         }
         val rentInc = incomes.filter { it.s("role") == "rent" }; val mainInc = incomes.filter { it.s("role") == "main" }
-        val ryan = sumOf2(rentInc.map { it.n("total") }); val ryanDate = rentInc.flatMap { it.strList("dates") }.sorted().firstOrNull() ?: "$ym-01"
+        val rentIncome = sumOf2(rentInc.map { it.n("total") }); val rentDate = rentInc.flatMap { it.strList("dates") }.sorted().firstOrNull() ?: "$ym-01"
         val paydays = mainInc.flatMap { it.strList("dates") }.sorted(); val regularDays = mainInc.flatMap { it.strList("regular") }.sorted(); val bonusDays = incomes.flatMap { it.strList("bonusDates") }.sorted()
-        val staceyPer = if (mainInc.isNotEmpty()) mainInc[0].n("amount") else 0.0; val staceyRegular = sumOf2(mainInc.map { it.n("total") })
+        val mainPer = if (mainInc.isNotEmpty()) mainInc[0].n("amount") else 0.0; val mainRegular = sumOf2(mainInc.map { it.n("total") })
         val otherIncome = sumOf2(incomes.filter { it.s("role") != "rent" && it.s("role") != "main" }.map { it.n("total") }); val bonus = sumOf2(incomes.map { it.n("bonus") })
         /* benefits and credits */
         val crAll = creditsOf(s).map { cr -> val sch = creditSched(cr); val started = !isYm(cr["start"]) || ym >= cr.s("start")
@@ -483,10 +488,10 @@ object Core {
         val housing = sumOf2(billLines.filter { it.s("category") == "housing" }.map { it.n("amount") })
         val billsTotal = sumOf2(billLines.map { it.n("amount") }); val otherBills = round2(billsTotal - housing)
         val byGroup = J.obj("adults" to 0, "baby" to 0, "pets" to 0); billLines.forEach { l -> byGroup[l.s("group")] = js(round2(byGroup.n(l.s("group")) + l.n("amount"))) }
-        val rentGap = round2(maxOf(0.0, housing - ryan)); val ryanLeft = round2(maxOf(0.0, ryan - housing))
+        val rentGap = round2(maxOf(0.0, housing - rentIncome)); val rentLeft = round2(maxOf(0.0, rentIncome - housing))
         val regCount = regularDays.size
         val perPayBills = round2((otherBills + rentGap) / maxOf(1, regCount))
-        val spendable = round2(ryan + staceyRegular + otherIncome + creditsTotal)
+        val spendable = round2(rentIncome + mainRegular + otherIncome + creditsTotal)
         /* food: a share of what is left after fixed bills (worked out before skips or deferrals), never below the minimum */
         val leftAfterBills = round2(spendable - (billsTotal + skippedTotal + deferredTotal))
         val pct = minOf(100.0, maxOf(0.0, s.n("foodPct"))) / 100
@@ -513,9 +518,9 @@ object Core {
         val net = round2(liveSurplus + bonus); val target = round2(maxOf(0.0, net))
         return J.obj("ym" to ym, "closed" to false, "moved" to moved, "paid" to paid, "expenses" to expenses, "expensesLoaded" to expensesLoaded,
             "incomes" to incomes, "crAll" to crAll, "odspCalc" to odspCalc, "assistCalc" to assistCalc, "otherIncome" to otherIncome, "paydays" to paydays, "regularDays" to regularDays, "bonusDays" to bonusDays,
-            "ryan" to ryan, "ryanDate" to ryanDate, "staceyPer" to staceyPer, "staceyRegular" to staceyRegular, "bonus" to bonus,
+            "rentIncome" to rentIncome, "rentDate" to rentDate, "mainPer" to mainPer, "mainRegular" to mainRegular, "bonus" to bonus,
             "credits" to credits, "otherCredit" to otherCredit, "creditsTotal" to creditsTotal, "ccb" to ccb, "ccbToEm" to ccbToEm, "ccbChild" to ccbChild, "ccbOn" to ccbOn, "ccbDate" to ccbDate,
-            "billLines" to billLines, "housing" to housing, "billsTotal" to billsTotal, "otherBills" to otherBills, "byGroup" to byGroup, "rentGap" to rentGap, "ryanLeft" to ryanLeft,
+            "billLines" to billLines, "housing" to housing, "billsTotal" to billsTotal, "otherBills" to otherBills, "byGroup" to byGroup, "rentGap" to rentGap, "rentLeft" to rentLeft,
             "skippedTotal" to skippedTotal, "deferredTotal" to deferredTotal, "perPayBills" to perPayBills, "food" to food, "foodHalf" to foodHalf, "foodPct" to jsRound(pct * 100).toInt(),
             "leftAfterBills" to leftAfterBills, "perPayFood" to perPayFood, "spendable" to spendable, "plannedSurplus" to plannedSurplus, "net" to net, "foodH1" to h1, "foodH2" to h2,
             "otherSpent" to other, "oneTimeSpent" to oneTime, "byCat" to byCat, "foodOver" to foodOver, "liveSurplus" to liveSurplus, "target" to target,

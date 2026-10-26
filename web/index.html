@@ -639,7 +639,9 @@ function creditsOf(s){return(Array.isArray(s&&s.credits)?s.credits:[]).filter(x=
 function creditSched(cr){return cr.type==='other'?Object.assign({type:'monthly',day:15},cr.sched||{}):(CREDIT_TYPES[cr.type]||CREDIT_TYPES.other).sched}
 function creditName(cr){return cr.type==='other'||!CREDIT_TYPES[cr.type]?(cr.name||'Other credit'):CREDIT_TYPES[cr.type].name}
 /* month-by-month amounts: new keys, plus the older ones saved before incomes were configurable */
-const incAmtGet=id=>x=>{const i=x.income||{};if(i.amt&&i.amt[id]!=null&&i.amt[id]!=='')return i.amt[id];if(id==='ryan')return i.ryan;if(id==='stacey')return i.staceyPer};
+/* months saved by the first version kept two incomes' amounts under their own keys; still read so old budgets keep working */
+const LEGACY_INC_KEYS={ryan:'ryan',stacey:'staceyPer'};
+const incAmtGet=id=>x=>{const i=x.income||{};if(i.amt&&i.amt[id]!=null&&i.amt[id]!=='')return i.amt[id];if(LEGACY_INC_KEYS[id])return i[LEGACY_INC_KEYS[id]]};
 const crAmtGet=cr=>x=>{const i=x.income||{};if(i.cr&&i.cr[cr.id]!=null&&i.cr[cr.id]!=='')return i.cr[cr.id];if(cr.type==='ccb'&&i.ccb!=null&&i.ccb!=='')return i.ccb;if(i.credits&&i.credits[cr.id]!=null&&i.credits[cr.id]!=='')return i.credits[cr.id]};
 function mainPaydays(s,ym){return incomesOf(s).filter(x=>x.role==='main').flatMap(x=>schedDates(assistSched(x),ym).filter(d=>!isDate(x.start)||d>=x.start)).sort()}
 function effectiveStart(b,s){
@@ -747,7 +749,7 @@ function monthCalc(ym,st,today){
   const paid=m.paid||{};
   const expenses=listExp(st.expenses&&st.expenses[ym]);
   const expensesLoaded=!!(st.expenses&&st.expenses[ym]);
-  if(m.closed&&m.snapshot)return Object.assign({},m.snapshot,{ym,closed:true,moved,paid,expenses,expensesLoaded});
+  if(m.closed&&m.snapshot)return Object.assign(snapNames(m.snapshot),{ym,closed:true,moved,paid,expenses,expensesLoaded});
   const n=dim(ym);
   /* incomes: each one's dates this month; extra bi-weekly or weekly paydays beyond the usual count are bonus */
   const incomes=incomesOf(s).map(src=>{const sch=assistSched(src);
@@ -786,9 +788,9 @@ function monthCalc(ym,st,today){
     if(!odspCalc)odspCalc=assistCalc[A.id];
   }
   const rentInc=incomes.filter(x=>x.role==='rent'),mainInc=incomes.filter(x=>x.role==='main');
-  const ryan=sum(rentInc.map(x=>x.total)),ryanDate=rentInc.flatMap(x=>x.dates).sort()[0]||ym+'-01';
+  const rentIncome=sum(rentInc.map(x=>x.total)),rentDate=rentInc.flatMap(x=>x.dates).sort()[0]||ym+'-01';
   const paydays=mainInc.flatMap(x=>x.dates).sort(),regularDays=mainInc.flatMap(x=>x.regular).sort(),bonusDays=incomes.flatMap(x=>x.bonusDates).sort();
-  const staceyPer=mainInc.length?mainInc[0].amount:0,staceyRegular=sum(mainInc.map(x=>x.total));
+  const mainPer=mainInc.length?mainInc[0].amount:0,mainRegular=sum(mainInc.map(x=>x.total));
   const otherIncome=sum(incomes.filter(x=>x.role!=='rent'&&x.role!=='main').map(x=>x.total)),bonus=sum(incomes.map(x=>x.bonus));
   /* benefits and credits */
   const crAll=creditsOf(s).map(cr=>{const sch=creditSched(cr),started=!isYm(cr.start)||ym>=cr.start;
@@ -815,10 +817,10 @@ function monthCalc(ym,st,today){
   const billsTotal=sum(billLines.map(l=>l.amount));
   const otherBills=round2(billsTotal-housing);
   const byGroup={adults:0,baby:0,pets:0};billLines.forEach(l=>{byGroup[l.group]=round2((byGroup[l.group]||0)+l.amount)});
-  const rentGap=round2(Math.max(0,housing-ryan)),ryanLeft=round2(Math.max(0,ryan-housing));
+  const rentGap=round2(Math.max(0,housing-rentIncome)),rentLeft=round2(Math.max(0,rentIncome-housing));
   const regCount=regularDays.length;
   const perPayBills=round2((otherBills+rentGap)/Math.max(1,regCount));
-  const spendable=round2(ryan+staceyRegular+otherIncome+creditsTotal);
+  const spendable=round2(rentIncome+mainRegular+otherIncome+creditsTotal);
   /* Food scales with what is left after fixed bills: a share of it, never below the minimum */
   /* worked out from the bills before any skips or deferrals, so money freed by those clears the shortfall instead of growing the food budget */
   const leftAfterBills=round2(spendable-(billsTotal+skippedTotal+deferredTotal));
@@ -847,12 +849,15 @@ function monthCalc(ym,st,today){
   const net=round2(liveSurplus+bonus);
   const target=round2(Math.max(0,net));
   return{ym,closed:false,moved,paid,expenses,expensesLoaded,
-    incomes,crAll,odspCalc,assistCalc,otherIncome,paydays,regularDays,bonusDays,ryan,ryanDate,staceyPer,staceyRegular,bonus,
+    incomes,crAll,odspCalc,assistCalc,otherIncome,paydays,regularDays,bonusDays,rentIncome,rentDate,mainPer,mainRegular,bonus,
     credits,otherCredit,creditsTotal,ccb,ccbToEm,ccbChild,ccbOn,ccbDate,
-    billLines,housing,billsTotal,otherBills,byGroup,rentGap,ryanLeft,skippedTotal,deferredTotal,perPayBills,food,foodHalf,foodPct:Math.round(pct*100),leftAfterBills,perPayFood,
+    billLines,housing,billsTotal,otherBills,byGroup,rentGap,rentLeft,skippedTotal,deferredTotal,perPayBills,food,foodHalf,foodPct:Math.round(pct*100),leftAfterBills,perPayFood,
     spendable,plannedSurplus,net,foodH1:h1,foodH2:h2,otherSpent:other,oneTimeSpent:oneTime,byCat,foodOver,liveSurplus,target,
     selfPlanned,selfHold,self,perPaySelf,selfSpent,selfOver};
 }
+/* months locked by older versions saved these figures under the first family's names */
+const SNAP_RENAMED=[['ryan','rentIncome'],['ryanDate','rentDate'],['ryanLeft','rentLeft'],['staceyPer','mainPer'],['staceyRegular','mainRegular']];
+function snapNames(snap){const o=Object.assign({},snap);for(const[a,b]of SNAP_RENAMED)if(a in o){if(!(b in o))o[b]=o[a];delete o[a]}return o}
 function snapshot(c){const o={};for(const k in c){if(['expenses','paid','moved','expensesLoaded','closed','ym'].includes(k))continue;o[k]=c[k]}return JSON.parse(JSON.stringify(o))}
 function savingsState(st){
   const s=st.settings,funds={};
@@ -1584,9 +1589,9 @@ function planCard(c,phase){
   const rent=c.incomes.filter(x=>x.role==='rent'),main=c.incomes.filter(x=>x.role==='main'),other=c.incomes.filter(x=>x.role==='other');
   const pays=main.flatMap(inc=>inc.regular.map(d=>({d,inc}))).sort((a,b)=>a.d<b.d?-1:1);
   const rentCard=rent.length?`<div class="pay"><div class="pay-h"><b>${rent.map(x=>esc(x.name)).join(' + ')}</b><span class="small muted">${rent.flatMap(x=>x.dates).map(dLabel).join(', ')}</span></div>
-      <div class="line"><span>Comes in</span><span class="num">${fmt(c.ryan)}</span></div>
+      <div class="line"><span>Comes in</span><span class="num">${fmt(c.rentIncome)}</span></div>
       <div class="line"><span>Rent &amp; housing</span><span class="num">${neg(c.housing)}</span></div>
-      <div class="line total"><span>${c.rentGap>0?'Rent gap (from the main paychecks)':'Left over'}</span><span class="num" style="color:var(--${c.rentGap>0?'bad':'ink'})">${c.rentGap>0?fmt(-c.rentGap):fmt(c.ryanLeft)}</span></div></div>`
+      <div class="line total"><span>${c.rentGap>0?'Rent gap (from the main paychecks)':'Left over'}</span><span class="num" style="color:var(--${c.rentGap>0?'bad':'ink'})">${c.rentGap>0?fmt(-c.rentGap):fmt(c.rentLeft)}</span></div></div>`
     :(c.housing>0?`<div class="pay"><div class="pay-h"><b>Rent &amp; housing</b></div><div class="line"><span>Paid from the main paychecks</span><span class="num">${fmt(c.housing)}</span></div></div>`:'');
   const reg=pays.map(({d,inc},i)=>{const left=round2(inc.amount-c.perPayBills-c.perPayFood-num(c.perPaySelf));
     return`<div class="pay"><div class="pay-h"><b>${esc(inc.name)}${pays.length>1?' · payday '+(i+1):''}</b><span class="small muted">${dLabel(d)}</span></div>

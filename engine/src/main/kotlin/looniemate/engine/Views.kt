@@ -174,8 +174,8 @@ object Views {
         val inc = c["incomes"].arr(); val rent = inc.filter { it.s("role") == "rent" }; val main = inc.filter { it.s("role") == "main" }; val other = inc.filter { it.s("role") == "other" }
         val out = mutableListOf<PayCard>()
         if (rent.isNotEmpty()) out.add(PayCard(rent.joinToString(" + ") { it.s("name") }, rent.flatMap { it.strList("dates") }.joinToString(", ") { Fmt.dLabel(it) }, listOf(
-            Line("Comes in", money(c.n("ryan"))), Line("Rent & housing", neg(c.n("housing"))),
-            if (c.n("rentGap") > 0) Line("Rent gap (from the main paychecks)", money(-c.n("rentGap")), true, "bad") else Line("Left over", money(c.n("ryanLeft")), true))))
+            Line("Comes in", money(c.n("rentIncome"))), Line("Rent & housing", neg(c.n("housing"))),
+            if (c.n("rentGap") > 0) Line("Rent gap (from the main paychecks)", money(-c.n("rentGap")), true, "bad") else Line("Left over", money(c.n("rentLeft")), true))))
         else if (c.n("housing") > 0) out.add(PayCard("Rent & housing", "", listOf(Line("Paid from the main paychecks", money(c.n("housing"))))))
         val pays = main.flatMap { i -> i.strList("regular").map { d -> d to i } }.sortedBy { it.first }
         pays.forEachIndexed { idx, (d, i) -> val left = round2(i.n("amount") - c.n("perPayBills") - c.n("perPayFood") - c.n("perPaySelf"))
