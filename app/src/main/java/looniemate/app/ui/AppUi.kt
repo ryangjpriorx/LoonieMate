@@ -90,7 +90,7 @@ enum class Tab(val label: String, val icon: ImageVector) {
  * fields matched up with it.
  */
 sealed class Sheet {
-    data class Log(val oneTime: Boolean = false, val category: String = "", val note: String = "") : Sheet()
+    data class Log(val oneTime: Boolean = false, val category: String = "", val note: String = "", val edit: String = "") : Sheet()
     data class Food(val ym: String) : Sheet()
     data class Bill(val id: String?, val group: String) : Sheet()
     data class Adjust(val ym: String, val id: String, val defer: Boolean) : Sheet()
@@ -117,25 +117,28 @@ sealed class Sheet {
     data object Import : Sheet()
     /** One Settings page: accounts, income, food, quick, reminders, look, access, backup, sync, updates, about. */
     data class Settings(val section: String) : Sheet()
+    /** Add a savings fund: ready-made ones or a blank one. */
+    data object AddFund : Sheet()
 }
 
 /** Saves which page is open as plain values (polish-and-audit S1). */
 private fun sheetToList(s: Sheet): ArrayList<Any?> = when (s) {
-    is Sheet.Log -> arrayListOf("Log", s.oneTime, s.category, s.note); is Sheet.Food -> arrayListOf("Food", s.ym); is Sheet.Bill -> arrayListOf("Bill", s.id, s.group)
+    is Sheet.Log -> arrayListOf("Log", s.oneTime, s.category, s.note, s.edit); is Sheet.Food -> arrayListOf("Food", s.ym); is Sheet.Bill -> arrayListOf("Bill", s.id, s.group)
     is Sheet.Adjust -> arrayListOf("Adjust", s.ym, s.id, s.defer); is Sheet.Transfer -> arrayListOf("Transfer", s.kind, s.amount); is Sheet.Account -> arrayListOf("Account", s.id)
     Sheet.Checkin -> arrayListOf("Checkin"); is Sheet.Fund -> arrayListOf("Fund", s.key); is Sheet.UseFund -> arrayListOf("UseFund", s.key); is Sheet.Ccb -> arrayListOf("Ccb", s.ym)
     is Sheet.Income -> arrayListOf("Income", s.id, s.assist); is Sheet.Credit -> arrayListOf("Credit", s.id, s.type); is Sheet.MonthIncome -> arrayListOf("MonthIncome", s.ym)
     Sheet.Update -> arrayListOf("Update"); is Sheet.CatchUp -> arrayListOf("CatchUp", s.first); is Sheet.Access -> arrayListOf("Access", s.next?.let { sheetToList(it) })
     Sheet.Self -> arrayListOf("Self"); Sheet.Export -> arrayListOf("Export"); Sheet.Import -> arrayListOf("Import"); Sheet.Reset -> arrayListOf("Reset"); Sheet.Household -> arrayListOf("Household")
     is Sheet.Settings -> arrayListOf("Settings", s.section)
+    Sheet.AddFund -> arrayListOf("AddFund")
 }
 private fun listToSheet(l: List<Any?>): Sheet? = try { when (l[0]) {
-    "Log" -> Sheet.Log(l[1] as Boolean, l[2] as String, (l.getOrNull(3) as? String) ?: ""); "Food" -> Sheet.Food(l[1] as String); "Bill" -> Sheet.Bill(l[1] as String?, l[2] as String)
+    "Log" -> Sheet.Log(l[1] as Boolean, l[2] as String, (l.getOrNull(3) as? String) ?: "", (l.getOrNull(4) as? String) ?: ""); "Food" -> Sheet.Food(l[1] as String); "Bill" -> Sheet.Bill(l[1] as String?, l[2] as String)
     "Adjust" -> Sheet.Adjust(l[1] as String, l[2] as String, l[3] as Boolean); "Transfer" -> Sheet.Transfer(l[1] as String, l[2] as Double?); "Account" -> Sheet.Account(l[1] as String?)
     "Checkin" -> Sheet.Checkin; "Fund" -> Sheet.Fund(l[1] as String?); "UseFund" -> Sheet.UseFund(l[1] as String); "Ccb" -> Sheet.Ccb(l[1] as String)
     "Income" -> Sheet.Income(l[1] as String?, l[2] as String?); "Credit" -> Sheet.Credit(l[1] as String?, l[2] as String?); "MonthIncome" -> Sheet.MonthIncome(l[1] as String)
     "Update" -> Sheet.Update; "CatchUp" -> Sheet.CatchUp(l[1] as Boolean); "Access" -> Sheet.Access((l[1] as List<*>?)?.let { listToSheet(it) })
-    "Self" -> Sheet.Self; "Export" -> Sheet.Export; "Import" -> Sheet.Import; "Reset" -> Sheet.Reset; "Household" -> Sheet.Household; "Settings" -> Sheet.Settings(l[1] as String); else -> null
+    "Self" -> Sheet.Self; "Export" -> Sheet.Export; "Import" -> Sheet.Import; "Reset" -> Sheet.Reset; "Household" -> Sheet.Household; "Settings" -> Sheet.Settings(l[1] as String); "AddFund" -> Sheet.AddFund; else -> null
 } } catch (_: Exception) { null }
 private val SheetSaver = androidx.compose.runtime.saveable.Saver<Sheet?, ArrayList<Any?>>(save = { it?.let(::sheetToList) }, restore = { listToSheet(it) })
 /** The open pages, oldest first: closing one goes back to the page under it (Settings → Accounts → an account). */

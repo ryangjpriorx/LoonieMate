@@ -24,6 +24,9 @@ import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.School
 import androidx.compose.material.icons.rounded.ShowChart
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.animation.animateContentSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
@@ -163,8 +166,11 @@ private fun ClbCard(m: SavingsModel, vm: MainViewModel) {
 @Composable
 private fun ProgramsCard(p: SavingsViews.Programs) {
     val ctx = LocalContext.current; val x = LocalExtra.current
-    SectionCard("Savings programs", Icons.Rounded.CardGiftcard, "gold", index = 2) {
+    var unfold by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    SectionCard("Savings programs", Icons.Rounded.CardGiftcard, "gold", index = 2, modifier = Modifier.animateContentSize(androidx.compose.animation.core.tween(looniemate.app.ui.Motion.FOLD)),
+        trailingContent = { FoldButton(unfold) { unfold = !unfold } }) {
         Muted("Free government money and tax-free savings")
+        if (!unfold) return@SectionCard
         Spacer(Modifier.height(8.dp))
         p.rows.forEach { r ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { Text(r.name, fontWeight = FontWeight.SemiBold); Pill(looniemate.engine.Accounts.kindLabel(r.kind)) }
@@ -198,8 +204,12 @@ private fun ProgramsCard(p: SavingsViews.Programs) {
 @Composable
 private fun ProjectionCard(m: SavingsModel) {
     val goal = m.s.n("emergencyGoal"); val max = maxOf(goal, m.projection.maxOfOrNull { maxOf(0.0, it.n("em")) } ?: 0.0, 1.0)
-    SectionCard("Next 6 months", Icons.Rounded.ShowChart, "accent", trailing = "If you stick to the plan", index = 3) {
-        Muted("Emergency Savings at each month's end" + (if (goal > 0) ", against the ${fmt0(goal)} goal." else "."))
+    var unfold by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    SectionCard("Next 6 months", Icons.Rounded.ShowChart, "accent", index = 3, modifier = Modifier.animateContentSize(androidx.compose.animation.core.tween(looniemate.app.ui.Motion.FOLD)),
+        trailingContent = { FoldButton(unfold) { unfold = !unfold } }) {
+        m.projection.lastOrNull()?.let { Muted("If you stick to the plan: ${Fmt.money(it.n("em"))} in Emergency Savings by the end of ${Fmt.monthName(it.s("ym"))}.") }
+        if (!unfold) return@SectionCard
+        Spacer(Modifier.height(4.dp)); Muted("Emergency Savings at each month's end" + (if (goal > 0) ", against the ${fmt0(goal)} goal." else "."))
         Spacer(Modifier.height(8.dp))
         m.projection.forEach { r ->
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -232,14 +242,35 @@ private fun FundsCard(m: SavingsModel, vm: MainViewModel, open: (Sheet) -> Unit)
             }
         }
         Spacer(Modifier.height(8.dp))
-        FilledTonalButton(onClick = { open(Sheet.Fund(null)) }) { Text("+ Add a blank fund") }
-        Spacer(Modifier.height(14.dp))
-        Text("Add a ready-made fund", fontWeight = FontWeight.SemiBold)
-        Muted("For costs that come every year and catch families off guard. Each one adds a monthly savings amount you can change on the Bills tab. It's tagged non-essential, so it can be skipped in a tight month.")
-        var pick by remember { mutableStateOf(SavingsViews.READY.first().key) }
-        Spacer(Modifier.height(6.dp))
-        SelectField(pick, SavingsViews.READY.map { it.key to "${it.name} · about ${fmt0(it.yearly)} a year" }, { pick = it }, "Ready-made fund")
-        Button(onClick = { SavingsViews.READY.find { it.key == pick }?.let { vm.addReadyFund(it) } }) { Text("Add") }
+        FilledTonalButton(onClick = { open(Sheet.AddFund) }, modifier = Modifier.testTag("add-fund")) { Text("+ Add a fund") }
     }
 }
 
+
+
+/** The small expand / fold button on a card's title row. */
+@Composable
+private fun FoldButton(open: Boolean, toggle: () -> Unit) = androidx.compose.material3.IconButton(onClick = toggle) {
+    Icon(if (open) androidx.compose.material.icons.Icons.Rounded.ExpandLess else androidx.compose.material.icons.Icons.Rounded.ExpandMore, if (open) "Fold up" else "Show more") }
+
+/**
+ * Adding a savings fund: a page of choices (docs/plans/overhaul.md) instead of a drop-down and an Add button. A blank
+ * fund, or a ready-made one for a cost that comes every year, each with what it's for and about what it costs.
+ */
+@Composable
+fun AddFundSheet(vm: MainViewModel, open: (Sheet) -> Unit, close: () -> Unit) {
+    looniemate.app.ui.sheets.SheetTitle("Add a savings fund")
+    Muted("Ready-made funds are for costs that come every year and catch families off guard. Each adds a monthly amount you can change on the Bills tab, and it can be skipped in a tight month.")
+    SavingsViews.READY.forEach { r ->
+        ClickRow({ vm.addReadyFund(r); close() }) {
+            IconBadge(Icons.Rounded.Savings, "pets", 32.dp)
+            Column(Modifier.weight(1f)) { Text(r.name, fontWeight = FontWeight.SemiBold); Muted("About ${fmt0(r.yearly)} a year") }
+            Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    ClickRow({ close(); open(Sheet.Fund(null)) }) {
+        IconBadge(Icons.Rounded.Savings, "accent", 32.dp)
+        Column(Modifier.weight(1f)) { Text("A blank fund", fontWeight = FontWeight.SemiBold); Muted("Name it and set a goal yourself") }
+        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}

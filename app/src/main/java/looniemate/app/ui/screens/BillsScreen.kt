@@ -22,6 +22,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -64,47 +69,51 @@ import looniemate.engine.s
 import looniemate.engine.t
 import looniemate.engine.*
 
+/**
+ * Bills (docs/plans/overhaul.md): one list in the order they're next due, with filter chips (All, Adults, Kids, Pets,
+ * Debts). Debts get their rings and payoff dates under Debts, and a one-line summary on the others.
+ */
 @Composable
 fun BillsScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, state: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
     val bm by vm.billsModel.collectAsStateWithLifecycle()
     val m = bm ?: return
-    var group by rememberSaveable { mutableStateOf(vm.prefs.group) }
-    val s = vm.settings()
+    var filter by rememberSaveable { mutableStateOf("all") }
+    val s = vm.settings(); val x = looniemate.app.ui.theme.LocalExtra.current
+    val all = m.rows.values.flatten()
+    val shown = (if (filter == "all" || filter == "debts") all else m.rows[filter].orEmpty()).let { l -> if (filter == "debts") l.filter { it.bill.t("debt") } else l }
+        .sortedWith(compareBy<BillRow> { if (it.bill["active"].isFalse()) 1 else 0 }.thenBy { it.next ?: "9999" }.thenBy { it.bill.s("name").lowercase() })
+    val total = if (filter == "all" || filter == "debts") shown.sumOf { it.line?.n("amount") ?: 0.0 } else (m.totals[filter] ?: 0.0)
     LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        if (m.debts.isNotEmpty()) item { PayingOffCard(m.debts) }
         item {
-            Row(Modifier.enter(1), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Labels.GROUPS.forEach { (k, g) ->
-                    val sel = k == group; val (fg, bg) = toneColors(if (k == "baby") "baby" else if (k == "pets") "pets" else "adults")
-                    Surface(onClick = { group = k; vm.prefs.group = k }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium,
-                        color = if (sel) bg else MaterialTheme.colorScheme.surfaceContainerLow, border = if (sel) BorderStroke(1.5.dp, fg) else null) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text(g.label, fontWeight = FontWeight.Bold, color = if (sel) fg else MaterialTheme.colorScheme.onSurface)
-                            Text(Fmt.money(m.totals[k] ?: 0.0) + "/mo", style = MaterialTheme.typography.bodySmall.merge(Numbers))
-                            Text("${m.counts[k] ?: 0} bill${if ((m.counts[k] ?: 0) == 1) "" else "s"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).enter(0), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                (listOf("all" to "All") + Labels.GROUPS.map { it.key to it.value.label } + (if (m.debts.isNotEmpty()) listOf("debts" to "Debts") else emptyList())).forEach { (k, l) ->
+                    FilterChip(filter == k, { filter = k; if (k in Labels.GROUPS) vm.prefs.group = k }, label = { Text(l) }, modifier = Modifier.testTag("bills-$k")) }
+            }
+        }
+        if (filter == "debts") item { PayingOffCard(m.debts) }
+        else if (m.debts.isNotEmpty()) item {
+            Surface(onClick = { filter = "debts" }, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth().enter(1)) {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Flag, null, tint = toneColors("sky").first); Spacer(Modifier.width(10.dp))
+                    Text("Paying off ${m.debts.size} debt${if (m.debts.size == 1) "" else "s"} · ${Fmt.money(m.debts.sumOf { it.info.n("remaining") })} left", modifier = Modifier.weight(1f))
+                    Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
         item {
-            val g = Labels.GROUPS.getValue(group); val (fg, bg) = toneColors(if (group == "baby") "baby" else if (group == "pets") "pets" else "adults")
             Card(Modifier.fillMaxWidth().enter(2), shape = MaterialTheme.shapes.large, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                Column(Modifier.fillMaxWidth().background(bg).padding(16.dp)) {
-                    Text(g.label, style = MaterialTheme.typography.headlineSmall, color = fg)
-                    Text(g.desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    val rows = m.rows[group].orEmpty()
-                    if (rows.isEmpty()) { Spacer(Modifier.height(8.dp)); EmptyNote("No ${g.label.lowercase()} bills yet. Add the ones that repeat, like ${if (group == "baby") "diapers and wipes" else if (group == "pets") "pet food and litter" else "rent and phone plans"}.") }
-                    rows.forEachIndexed { i, r -> if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)); BillLine(r, m.ym, s, billMenu(r, m.ym, vm, open)) { open(Sheet.Bill(r.id, group)) } }
-                    LineRow("${g.label} total for ${Fmt.monthName(m.ym)}", Fmt.money(m.totals[group] ?: 0.0), total = true)
+                    if (shown.isEmpty()) { Spacer(Modifier.height(8.dp)); EmptyNote(when (filter) { "baby" -> "No kids bills yet, like diapers and wipes."; "pets" -> "No pet bills yet, like pet food and litter."
+                        "debts" -> "No debts."; else -> "No bills yet. Add the ones that repeat, like rent and phone plans." }); Spacer(Modifier.height(8.dp)) }
+                    shown.forEachIndexed { i, r -> if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                        BillLine(r, m.ym, s, billMenu(r, m.ym, vm, open)) { open(Sheet.Bill(r.id, r.bill.or("group", "adults"))) } }
+                    if (shown.isNotEmpty()) LineRow("In ${Fmt.monthName(m.ym)}", Fmt.money(total), total = true)
                     Spacer(Modifier.height(8.dp))
                 }
             }
         }
         item {
-            Text("Bills that come every 3 months or yearly are set aside a little each month, so the money is there when they're due. Tag a bill non-essential or deferrable and you can skip it or pay it later in a month that comes up short.",
+            Text("Bills that come every 3 months or yearly are set aside a little each month. Long-press a bill to pay part of it later, give it up for a month, or pause it.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp))
         }
     }
@@ -121,31 +130,27 @@ fun billMenu(r: BillRow, ym: String, vm: MainViewModel, open: (Sheet) -> Unit): 
 
 @Composable
 private fun BillLine(r: BillRow, ym: String, s: looniemate.engine.J, menu: List<looniemate.app.ui.MenuItem>, onClick: () -> Unit) {
-    val b = r.bill; val p = r.line; val mon = Fmt.monthShort(ym)
+    val b = r.bill; val p = r.line; val mon = Fmt.monthShort(ym); val x = looniemate.app.ui.theme.LocalExtra.current
     looniemate.app.ui.MenuRow(menu, onClick = onClick, clickLabel = "Change", vertical = 6.dp) {
+        looniemate.app.ui.Dot(x.group(b.or("group", "adults")))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(b.or("name", "Bill"), fontWeight = FontWeight.Bold)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (b.t("example")) Pill("Example", "warn")
-                if (b["active"].let { it is looniemate.engine.J.B && !it.v }) Pill("Paused")
-                if (b["essential"].let { it is looniemate.engine.J.B && !it.v }) Pill("Non-essential", "warn")
-                if (b.t("deferrable")) Pill("Deferrable")
-                if (b.t("fund")) Pill("Saves into " + Core.fundOf(s, b.s("fund")).s("name"), "good")
-                if (b.t("debt")) Pill("Debt")
-                if (p != null && p.t("skipped")) Pill("Skipped in $mon", "bad")
-                if (p != null && p.t("deferredTo")) Pill("${Fmt.money(p.n("deferredAmt"))} deferred to ${Fmt.dShort(p.s("deferredTo"))}", "warn")
-                if (r.inFrom > 0 && r.inMonth != null) Pill("+${Fmt.money(r.inFrom)} deferred from ${Fmt.monthShort(r.inMonth)}", "warn")
-            }
+            val paused = b["active"].isFalse()
             val acct = Core.acctById(s, b.s("account"))?.s("name") ?: (if (b.s("account").isNotEmpty()) b.s("account") + " (removed)" else "")
-            Text(listOf(Labels.CATL[b.s("category")] ?: "Other", r.freq, acct, Labels.shortMethod(b.s("method"))).filter { it.isNotEmpty() }.joinToString(" · "),
+            Text(listOf(if (paused) "" else r.next?.let { "next ${Fmt.dShort(it)}" } ?: "", r.freq, acct).filter { it.isNotEmpty() }.joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (p != null && p.t("setAside")) Text("Set aside ${Fmt.money(p.n("amount"))} each month", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (b.s("category") == "housing") Text("Covered first by income set to \"Covers rent first\"", style = MaterialTheme.typography.bodySmall, color = toneColors("adults").first)
+            val pills = buildList {
+                if (b.t("example")) add("Example" to "warn"); if (paused) add("Paused" to "")
+                if (p != null && p.t("skipped")) add("Given up in $mon" to "bad")
+                if (p != null && p.t("deferredTo")) add("${Fmt.money(p.n("deferredAmt"))} put off to ${Fmt.dShort(p.s("deferredTo"))}" to "warn")
+                if (r.inFrom > 0 && r.inMonth != null) add("+${Fmt.money(r.inFrom)} from ${Fmt.monthShort(r.inMonth)}" to "warn")
+                if (b.t("fund")) add("Saves into " + Core.fundOf(s, b.s("fund")).s("name") to "good")
+            }
+            if (pills.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { pills.forEach { (t, tone) -> Pill(t, tone) } }
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(Fmt.money(b.n("amount")), style = MaterialTheme.typography.bodyLarge.merge(Numbers), fontWeight = FontWeight.SemiBold)
-            Text(if (p != null) (if (p.t("skipped")) "skipped" else Fmt.money(p.n("amount")) + " in $mon") else if (r.inFrom > 0) Fmt.money(r.inFrom) + " in $mon" else "not this month",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (p != null && p.t("setAside")) Text("${Fmt.money(p.n("amount"))}/mo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

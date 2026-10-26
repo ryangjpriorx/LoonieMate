@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -73,7 +74,7 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
     val onClose: () -> Unit = (sheet as? Sheet.Access)?.next?.let { n -> { replace(n) } } ?: onDismiss
     key(sheet) { Page(onClose = onClose) {
             when (sheet) {
-                is Sheet.Log -> LogSheet(vm, sheet.oneTime, close, sheet.category, sheet.note)
+                is Sheet.Log -> LogSheet(vm, sheet.oneTime, close, sheet.category, sheet.note, sheet.edit)
                 is Sheet.Food -> FoodSheet(vm, sheet.ym, close, open)
                 is Sheet.Bill -> BillSheet(vm, sheet.id, sheet.group, close)
                 is Sheet.Adjust -> AdjustSheet(vm, sheet, close)
@@ -96,6 +97,7 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
                 is Sheet.Household -> HouseholdSheet(vm, close)
                 is Sheet.Import -> ImportSheet(vm, close)
                 is Sheet.Settings -> looniemate.app.ui.screens.SettingsPage(vm, sheet.section, open)
+                is Sheet.AddFund -> looniemate.app.ui.screens.AddFundSheet(vm, open, close)
             }
     } }
 }
@@ -105,14 +107,17 @@ fun ErrorText(e: String?) { if (e != null) Text(e, color = toneColors("bad").fir
 
 /* ---------- log spending: three quick steps ---------- */
 @Composable
-private fun LogSheet(vm: MainViewModel, oneTime: Boolean, close: () -> Unit, category: String = "", note0: String = "") {
+private fun LogSheet(vm: MainViewModel, oneTime: Boolean, close: () -> Unit, category: String = "", note0: String = "", edit: String = "") {
     val today = vm.today.value; val s = vm.settings(); val people = s.strList("people").filter { it.isNotBlank() }
-    var amt by rememberSaveable { mutableStateOf("") }; var cat by rememberSaveable { mutableStateOf(category) }; var date by rememberSaveable { mutableStateOf(today) }
-    var note by rememberSaveable { mutableStateOf(note0) }; var who by rememberSaveable { mutableStateOf("") }; var fav by rememberSaveable { mutableStateOf(false) }
-    var group by rememberSaveable { mutableStateOf("household") }; var err by rememberSaveable { mutableStateOf<String?>(null) }
+    /* changing a logged entry (edit is its path) starts from what was saved */
+    val e0 = if (edit.isNotEmpty()) vm.repo.get(edit) else null
+    var amt by rememberSaveable { mutableStateOf(e0?.let { money2(it.n("amount")) } ?: "") }; var cat by rememberSaveable { mutableStateOf(e0?.s("category")?.takeIf { it != "oneoff" } ?: category) }
+    var date by rememberSaveable { mutableStateOf(e0?.s("date")?.takeIf { isDate(it) } ?: today) }
+    var note by rememberSaveable { mutableStateOf(e0?.s("note") ?: note0) }; var who by rememberSaveable { mutableStateOf(e0?.s("who") ?: "") }; var fav by rememberSaveable { mutableStateOf(false) }
+    var group by rememberSaveable { mutableStateOf(e0?.or("group", "household") ?: "household") }; var err by rememberSaveable { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { try { focus.requestFocus() } catch (_: Exception) {} }
-    SheetTitle(if (oneTime) "Add a one-time expense" else "Log spending")
+    LaunchedEffect(Unit) { if (edit.isEmpty()) try { focus.requestFocus() } catch (_: Exception) {} }
+    SheetTitle(if (edit.isNotEmpty()) (if (oneTime) "Change the one-time expense" else "Change spending") else if (oneTime) "Add a one-time expense" else "Log spending")
     if (oneTime) TextFieldRow(note, { note = it }, "What is it?", placeholder = "Car seat, vet visit, birthday gift…")
     OutlinedTextField(amt, marking { v: String -> amt = v.replace(',', '.').filter { it.isDigit() || it == '.' } }, Modifier.fillMaxWidth().focusRequester(focus), label = { Text(if (oneTime) "Amount" else "How much?") },
         prefix = { Text("$", style = MaterialTheme.typography.headlineMedium) }, textStyle = MaterialTheme.typography.headlineMedium.merge(Numbers), singleLine = true,
@@ -133,13 +138,15 @@ private fun LogSheet(vm: MainViewModel, oneTime: Boolean, close: () -> Unit, cat
         TextFieldRow(note, { note = it }, "Note (optional)", placeholder = "Store or what you bought")
         if (people.isNotEmpty()) { Text("Who paid", fontWeight = FontWeight.SemiBold)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { people.forEach { p -> FilterChip(who == p, { who = if (who == p) "" else p }, label = { Text(p) }) } } }
-        Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(fav, { fav = it }); Text("Add a quick button for this (same amount and type)", style = MaterialTheme.typography.bodyMedium) }
+        if (edit.isEmpty()) Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(fav, { fav = it }); Text("Add a quick button for this (same amount and type)", style = MaterialTheme.typography.bodyMedium) }
     }
     ErrorText(err)
     Button(onClick = {
-        err = vm.logExpense(Views.parseMoney(amt), cat, date, note, who, oneTime, group, fav)
+        err = if (edit.isNotEmpty()) vm.updateExpense(edit, Views.parseMoney(amt), cat, date, note, who, oneTime, group) else vm.logExpense(Views.parseMoney(amt), cat, date, note, who, oneTime, group, fav)
         if (err == null) close()
-    }, Modifier.fillMaxWidth().height(52.dp)) { Text(if (oneTime) "Save one-time expense" else "Save") }
+    }, Modifier.fillMaxWidth().height(52.dp).testTag("log-save")) { Text(if (edit.isNotEmpty()) "Save changes" else if (oneTime) "Save one-time expense" else "Save") }
+    if (e0 != null) TextButton(onClick = { vm.deleteExpense(J.obj("date" to e0.s("date"), "id" to edit.substringAfterLast('/'), "amount" to e0.n("amount"))); close() }, modifier = Modifier.testTag("log-delete")) {
+        Text("Delete this", color = toneColors("bad").first) }
 }
 
 /* ---------- give up part of a bill this month, or pay part of it later ---------- */

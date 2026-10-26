@@ -15,11 +15,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.TableChart
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.rounded.LocalCafe
+import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.FormatListBulleted
 import androidx.compose.material.icons.rounded.Sell
 import androidx.compose.material3.FilledTonalButton
@@ -100,6 +102,29 @@ private fun SelfSpendingCard(m: looniemate.app.SpendingModel, vm: MainViewModel,
     }
 }
 
+/**
+ * Food money (it lives on Spending now, docs/plans/overhaul.md): the month's food allowance in two halves, what's left
+ * now and per day, a quick way to log food, and the food budget settings.
+ */
+@Composable
+private fun FoodMoneyCard(m: looniemate.app.SpendingModel, vm: MainViewModel, open: (Sheet) -> Unit) {
+    val c = m.self; val today = vm.today.value; val fp = if (m.isCurrent) Core.foodPeriod(c, today) else null
+    SectionCard("Food money", Icons.Rounded.Restaurant, "green", trailing = Fmt.money(c.n("food")) + " this month", index = 0, modifier = Modifier.testTag("food-card")) {
+        if (fp != null) Text(if (fp.n("left") >= 0) "${Fmt.money(fp.n("left"))} left until ${Fmt.dShort(fp.s("end"))}, about ${Fmt.money(fp.n("perDay"))} a day."
+            else "${Fmt.money(-fp.n("left"))} over for this half of the month.", style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            looniemate.app.ui.sheets.Half("1st – 15th", c.n("foodHalf"), c.n("foodH1"), fp?.n("half") == 1.0, Modifier.weight(1f))
+            looniemate.app.ui.sheets.Half("16th – end", c.n("foodHalf"), c.n("foodH2"), fp?.n("half") == 2.0, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(6.dp))
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (!m.locked) FilledTonalButton(onClick = { open(Sheet.Log(category = "groceries")) }, modifier = Modifier.testTag("log-food")) { Text("+ Log food") }
+            TextButton(onClick = { open(Sheet.Settings("food")) }) { Text("Food budget") }
+        }
+    }
+}
+
 /** Last 6 months: fixed bills, food and everything else logged, month by month, and the biggest change (W6). */
 @Composable
 private fun HistoryCard(h: looniemate.engine.Views.History) {
@@ -157,13 +182,13 @@ fun SpendingScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit,
     val people = vm.settings()["people"]
     LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { looniemate.app.ui.MonthSwitcher(vm) }
-        item { CategoryCard(m.ym, m.byCat, 0) }
+        item { FoodMoneyCard(m, vm, open) }
         item { SelfSpendingCard(m, vm, open) }
         item {
             SectionCard("Everything logged in ${Fmt.monthOnly(m.ym)}", Icons.Rounded.FormatListBulleted, "amber", trailing = Fmt.money(m.total - m.oneTimeTotal), index = 2) {
                 if (m.entries.isEmpty()) EmptyNote("Nothing logged for this month yet.")
                 var last = ""
-                m.entries.forEach { e -> val d = e.s("date"); if (d != last) { last = d; DayHeader(Fmt.dLabel(d)) }; ExpenseRow(e, m.locked, vm) }
+                m.entries.forEach { e -> val d = e.s("date"); if (d != last) { last = d; DayHeader(Fmt.dLabel(d)) }; ExpenseRow(e, m.locked, vm, open) }
                 Spacer(Modifier.height(6.dp))
                 Text("Groceries and takeout come out of the food allowance. Everything else lowers this month's amount for savings.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -173,12 +198,13 @@ fun SpendingScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit,
                 Text("Things outside the regular budget: a car seat, a vet visit, a birthday. Add future ones ahead of time and they show up in Coming up.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(10.dp))
                 if (m.oneTime.isEmpty()) EmptyNote("No one-time expenses this month.")
-                m.oneTime.forEach { e -> ExpenseRow(e, m.locked, vm) }
+                m.oneTime.forEach { e -> ExpenseRow(e, m.locked, vm, open) }
                 LineRow("Total this month", Fmt.money(m.oneTimeTotal), total = true)
                 Spacer(Modifier.height(8.dp))
                 FilledTonalButton(onClick = { open(Sheet.Log(oneTime = true)) }, enabled = !m.locked) { Text("Add a one-time expense") }
             }
         }
+        item { CategoryCard(m.ym, m.byCat, 3) }
         if (m.history.rows.isNotEmpty()) item { HistoryCard(m.history) }
         item { ShareCard(vm) }
     }
@@ -189,17 +215,19 @@ fun SpendingScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit,
  * (there's no bin on every row any more, so a shaky tap can't delete one). Screen readers get the same as actions.
  */
 @Composable
-fun ExpenseRow(e: Obj, locked: Boolean, vm: MainViewModel) {
+fun ExpenseRow(e: Obj, locked: Boolean, vm: MainViewModel, open: ((Sheet) -> Unit)? = null) {
     val x = LocalExtra.current
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     val spoken = listOf(Labels.expLabel(e), Fmt.money(e.n("amount")), Fmt.dLabel(e.s("date")), e.s("note").takeIf { e.s("category") != "oneoff" } ?: "", e.s("who")).filter { it.isNotBlank() }.joinToString(", ")
     val one = e.s("category") == "oneoff"
+    val change: (() -> Unit)? = if (locked || open == null) null else ({ open(Sheet.Log(oneTime = one, edit = "months/${ymOf(e.s("date"))}/expenses/${e.s("id")}")) })
     val menu = if (locked) emptyList() else buildList {
+        change?.let { add(looniemate.app.ui.MenuItem("Change", Icons.Rounded.Edit, onClick = it)) }
         if (!one) { add(looniemate.app.ui.MenuItem("Log it again today", Icons.Rounded.Replay) { vm.logAgain(e) })
             add(looniemate.app.ui.MenuItem("Make it a quick button", Icons.Rounded.Bolt) { vm.addQuick(e.s("category"), e.n("amount"), e.s("note")) }) }
         add(looniemate.app.ui.MenuItem("Delete", Icons.Rounded.Delete, danger = true) { vm.deleteExpense(e) })
     }
-    looniemate.app.ui.MenuRow(menu, spoken = spoken, vertical = 6.dp) {
+    looniemate.app.ui.MenuRow(menu, onClick = change, spoken = spoken, clickLabel = if (change != null) "Change" else null, vertical = 6.dp) {
         Dot(if (Core.FOOD.contains(e.s("category"))) x.good else if (one) x.group(e.s("group")) else MaterialTheme.colorScheme.primary)
         Column(Modifier.weight(1f)) {
             Text(Labels.expLabel(e), fontWeight = FontWeight.SemiBold)

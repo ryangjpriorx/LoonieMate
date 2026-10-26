@@ -65,7 +65,7 @@ class MonthModel(
     val byCat: List<Pair<String, Double>>, val examples: Boolean, val isNew: Boolean,
 )
 
-class BillRow(val id: String, val bill: Obj, val line: Obj?, val inFrom: Double, val inMonth: String?, val freq: String)
+class BillRow(val id: String, val bill: Obj, val line: Obj?, val inFrom: Double, val inMonth: String?, val freq: String, val next: String? = null)
 class BillsModel(val ym: String, val totals: Map<String, Double>, val counts: Map<String, Int>, val rows: Map<String, List<BillRow>>, val debts: List<Views.Debt>)
 
 class SpendingModel(val ym: String, val entries: List<Obj>, val oneTime: List<Obj>, val total: Double, val oneTimeTotal: Double, val byCat: List<Pair<String, Double>>, val locked: Boolean, val emergencyPlan: Double,
@@ -221,7 +221,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val inFrom = HashMap<String, Pair<Double, String>>()
         lines.filter { it.t("deferredFrom") }.forEach { l -> val p = inFrom[l.s("billId")]; inFrom[l.s("billId")] = ((p?.first ?: 0.0) + l.n("amount")) to l.s("deferredFrom") }
         val rows = Labels.GROUPS.keys.associateWith { g -> st.bills.entries.filter { it.value.or("group", "adults") == g }.sortedBy { it.value.s("name").lowercase() }
-            .map { (id, b) -> BillRow(id, b, plan[id], inFrom[id]?.first ?: 0.0, inFrom[id]?.second, Views.freqText(b, s, t)) } }
+            .map { (id, b) -> BillRow(id, b, plan[id], inFrom[id]?.first ?: 0.0, inFrom[id]?.second, Views.freqText(b, s, t), Core.billDates(b, t, addDays(t, 400), s).firstOrNull()) } }
         val totals = Labels.GROUPS.keys.associateWith { c["byGroup"].n(it) }
         return BillsModel(ym, totals, rows.mapValues { it.value.size }, rows, Views.debts(st, t))
     }
@@ -282,6 +282,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (list.none { it.s("category") == category && round2(it.n("amount")) == amount && it.s("note") == note.trim() }) list.add(J.obj("category" to category, "amount" to amount, "note" to note.trim()))
                 saveSettings(J.obj("quick" to list.takeLast(8))) }
         }
+        return null
+    }
+
+    /** Changes a logged expense (at [path]). Moving it to another month moves the document too. Returns an error message, or null. */
+    fun updateExpense(path: String, amount: Double?, category: String, date: String, note: String, who: String, oneTime: Boolean, group: String): String? {
+        if (amount == null || amount.isNaN() || !(amount > 0)) return "Enter an amount greater than \$0."
+        if (!oneTime && category.isEmpty()) return "Pick what it was for."
+        if (oneTime && note.isBlank()) return "Give it a short name, like \"Car seat\"."
+        if (!isDate(date)) return "Pick a date."
+        val old = repo.get(path)?.copy() as? Obj ?: return "That entry is gone."
+        val ym = ymOf(date); if (locked(ym) || locked(path.removePrefix("months/").take(7))) return "That month is locked. Unlock it on the Month tab to change it."
+        val to = if (path.startsWith("months/$ym/")) path else "months/$ym/expenses/" + path.substringAfterLast('/')
+        old["date"] = J.S(date); old["amount"] = J.N(amount); old["category"] = J.S(if (oneTime) "oneoff" else category); old["note"] = J.S(note.trim())
+        if (oneTime) old["group"] = J.S(group); if (who.isNotEmpty()) old["who"] = J.S(who) else old.map.remove("who")
+        change("Saved the change", listOf(path, to, "meta/tombstones")) { if (to != path) repo.delete(path); repo.set(to, old) }
         return null
     }
 

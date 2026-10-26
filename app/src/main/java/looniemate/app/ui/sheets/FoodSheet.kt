@@ -85,7 +85,7 @@ fun FoodSheet(vm: MainViewModel, ym: String, close: () -> Unit, open: (Sheet) ->
 }
 
 @Composable
-private fun Half(label: String, allow: Double, spent: Double, now: Boolean, modifier: Modifier) {
+fun Half(label: String, allow: Double, spent: Double, now: Boolean, modifier: Modifier) {
     val x = LocalExtra.current; val over = spent > allow
     Surface(modifier, shape = MaterialTheme.shapes.medium, color = if (now) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
