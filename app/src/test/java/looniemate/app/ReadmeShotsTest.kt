@@ -2,6 +2,7 @@ package looniemate.app
 
 import android.graphics.Bitmap
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import looniemate.app.data.Prefs
@@ -68,9 +69,11 @@ class ReadmeShotsTest {
             vm.prefs.setLook(Prefs.Look(if (dark) "dark" else "light", false, "iris", false))
             vm.prefs.lastBackup = Instant.now().toString()
             /* the README shows the budget itself, not the one-time setup cards */
-            vm.prefs.onboarded = true; vm.prefs.notifAsked = true; vm.prefs.notifSnoozeUntil = Long.MAX_VALUE
+            vm.prefs.onboarded = true; vm.prefs.notifAsked = true; vm.prefs.notifSnoozeUntil = Long.MAX_VALUE; vm.prefs.a11yAsked = true
         }
         settle()
+        /* a fresh phone opens "Make LoonieMate easier to use?" before the budget loads; close that page */
+        if (rule.onAllNodesWithTag("page-close").fetchSemanticsNodes().isNotEmpty()) { rule.onNodeWithTag("page-close").performClick(); settle() }
         for ((tab, name) in listOf("Today" to "today", "Month" to "month", "Bills" to "bills", "More" to "settings")) {
             rule.onNodeWithTag("tab-$tab").performClick(); shot("$theme-$name")
         }

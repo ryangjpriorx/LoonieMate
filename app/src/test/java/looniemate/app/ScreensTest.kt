@@ -68,9 +68,11 @@ class ScreensTest {
             vm.repo.replaceAll(LinkedHashMap(docs))
             vm.prefs.setLook(Prefs.Look(if (dark) "dark" else "light", false, "iris", effects))
             /* phone-only settings can carry over from the README test; show the one-time cards here */
-            vm.prefs.onboarded = false; vm.prefs.notifAsked = false; vm.prefs.notifSnoozeUntil = 0
+            vm.prefs.onboarded = false; vm.prefs.notifAsked = false; vm.prefs.notifSnoozeUntil = 0; vm.catchUpAt = null; vm.prefs.a11yAsked = true
         }
         settle()
+        /* a fresh phone opens "Make LoonieMate easier to use?" before the budget loads; it's a page over the tabs now */
+        closePage()
     }
 
     /* Settings opens from the gear in the top bar, which isn't there while Settings is already open */
@@ -121,9 +123,14 @@ class ScreensTest {
         /* back goes a step back inside getting on track, not out of it */
         back(); if (rule.onAllNodesWithText("Food so far").fetchSemanticsNodes().isEmpty()) problems.add("$theme: back didn't go to the previous step")
         closePage()
+        /* balance check: only the first account typed in; the rest count as $0 after one question */
         tab("More"); rule.onNodeWithTag("checkin-more").performClick(); settle()
-        rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction()).fetchSemanticsNodes().indices.forEach { i -> rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[i].performScrollTo().performTextInput("${100 + i * 250}") }
-        rule.onNodeWithTag("compare").performScrollTo().performClick(); shot("$theme-sheet-checkin", sheet = true); closePage()
+        rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[0].performScrollTo().performTextInput("100")
+        rule.onNodeWithTag("compare").performScrollTo().performClick(); settle()
+        if (rule.onAllNodesWithTag("blank-zero").fetchSemanticsNodes().isEmpty()) problems.add("$theme: blank balances didn't ask once to count them as $0")
+        else { shot("$theme-blank-zero", dialog = true); rule.onNodeWithTag("blank-zero").performClick(); settle()
+            if (rule.onAllNodesWithTag("compare").fetchSemanticsNodes().isNotEmpty()) problems.add("$theme: counting blanks as $0 didn't go on to the result") }
+        shot("$theme-sheet-checkin", sheet = true); closePage()
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 
