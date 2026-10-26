@@ -5,7 +5,7 @@ vision, or have trouble with small buttons or quick pop-ups. Some fixes are simp
 person is offered during first-time setup and can change any time in Settings.
 **Queued after docs/plans/getting-on-track.md** (that plan creates the first-time setup this one adds a step to).
 Work in small stages; each is committed, built and tested on GitHub before the next.
-**To pick up again: find the first unticked stage below and start there.**
+**All stages done; released in 0.5.0.**
 
 ## Decisions
 
@@ -84,12 +84,19 @@ Work in small stages; each is committed, built and tested on GitHub before the n
 - [x] **Stage 5**: More time and Bigger buttons.
 - [x] **Stage 6**: reading the phone's settings, the setup screen as the first step of first-time setup, and the
   one-time Today card for people already using the app.
-- [ ] **Stage 7**: web version: the always-on fixes (labels, focus outlines, keyboard use, status words), an
+- [x] **Stage 7**: web version: the always-on fixes (labels, focus outlines, keyboard use, status words), an
   Accessibility card in its settings with the same switches, and following `prefers-reduced-motion`,
   `prefers-contrast: more` and `forced-colors`. Then release.
 
 ## Notes for picking up
 
+- Stage 7 (done): web light colours now match the app's darker ones. `A11Y` in web/index.html (saved as `rs-a11y` in
+  localStorage), classes `a-bold a-font a-contrast a-cb a-time a-btn` on `<html>` and `--a-scale`; the CSS sets
+  are computed to 7:1 / 4.5:1 like the app. `prefers-contrast: more` turns on Stronger contrast; `prefers-reduced-motion`
+  always wins over motion; `forced-colors` gets borders. The body font size is `1rem` so Bigger text reaches everything.
+  The status dot carries ✓ / ! / i; Paid and Done buttons have full labels. Accessibility card in web Settings below
+  Appearance (Visual effects became Less motion there too). Easier-to-read font on the web extends Atkinson to
+  headings and numbers (body text already used it).
 - Stage 6 (done): `data/PhoneHints.kt` reads font scale ≥ 1.3, `fontWeightAdjustment` (Android 12+), `UiModeManager.contrast`
   (Android 14+), the colour-correction secure setting, animator scale 0, and TalkBack (touch exploration). High-text-contrast
   isn't a public setting, so it's not read. `ui/sheets/AccessSheet.kt` (applies matches on open; the app itself is the
