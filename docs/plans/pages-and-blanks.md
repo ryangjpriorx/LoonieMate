@@ -5,7 +5,7 @@ down, or a tap above it, closed it and threw away everything typed, which happen
 people with shaky hands or who struggle with phones. Separately, steps that ask for several amounts (like the account
 balances in getting on track) made people type 0 into every empty field.
 **Comes before docs/plans/personal-expenses.md.** Work in small stages; each is committed, built and tested on GitHub
-before the next.
+before the next. **All stages done; released in 0.7.0.** Next: docs/plans/personal-expenses.md.
 
 ## Decisions
 
