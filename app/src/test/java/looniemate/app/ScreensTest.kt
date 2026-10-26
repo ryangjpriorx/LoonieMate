@@ -106,8 +106,9 @@ class ScreensTest {
         /* Personal Expenses: the card on the Spending tab (logging one item with a tap), the list page, and the card on Today */
         tab("Spending"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("self-edit")); settle()
         shot("$theme-Spending-self")
+        /* the Log buttons are only on the current month (they log for today); the test household's budget starts next month */
         if (rule.onAllNodesWithTag("self-log-0").fetchSemanticsNodes().isNotEmpty()) { rule.onNodeWithTag("self-log-0").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle() }
-        else problems.add("$theme: no Log button on the first Personal Expenses item")
+        if (rule.onAllNodesWithText("Coffee").fetchSemanticsNodes().isEmpty()) problems.add("$theme: the Personal Expenses list isn't on the Spending tab")
         rule.onNodeWithTag("self-edit").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); shot("$theme-sheet-self", sheet = true); closePage()
         tab("Today"); if (runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("self-open")) }.isSuccess) shot("$theme-Today-self")
         else problems.add("$theme: no Personal Expenses card on Today")
