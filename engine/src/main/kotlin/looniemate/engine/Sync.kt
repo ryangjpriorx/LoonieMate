@@ -54,8 +54,8 @@ object Sync {
         if (same(l, b)) return r
         if (same(r, b)) return l
         /* changed on both phones */
-        if (absent(l)) return r
-        if (absent(r)) return l
+        if (l == null || l == J.Null) return r
+        if (r == null || r == J.Null) return l
         val rightNewer = r.n("_u") > l.n("_u")
         val o = merge3(l, r, b, rightNewer) as? J.O ?: return if (rightNewer) r else l
         if (MONTH_DOC.matches(key) && (l["moved"] != null || r["moved"] != null)) o.map["moved"] = addUp(l["moved"], r["moved"], b?.get("moved"))
