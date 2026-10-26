@@ -29,8 +29,8 @@ GitHub before the next, and released when a group of fixes is worth updating for
   restart, time zone and date changes, large text and TalkBack, small and large screens.
 - **Speed:** the month calculation is re-run inside screens on every redraw (9 places in the UI); the Today,
   Month and Settings screens with a full year of data.
-- **Code health:** the old family names still used as field names in the engine (`ryan`, `staceyPer`, …; some are
-  stored in locked-month snapshots, so old data must keep working), "Sheet" names left over now that forms are pages,
+- **Code health:** ~~the old family names still used as field names in the engine~~ (done in 0.8.x: renamed to
+  `rentIncome`, `rentDate`, `rentLeft`, `mainPer`, `mainRegular`; old snapshots still read), "Sheet" names left over now that forms are pages,
   31 catch-all `catch (e: Exception)` blocks that may hide real problems, the 585-line view model, duplicated logic
   between the web UI and the Kotlin views, unused code and imports.
 - **Web version:** keeping up with Android features, the 2,650-line single page, and dialogs and forms on a phone
@@ -40,12 +40,99 @@ GitHub before the next, and released when a group of fixes is worth updating for
 
 ## Stages
 
-- [ ] **Stage 0**: this plan.
-- [ ] **Stage 1**: the audit; findings written below.
+- [x] **Stage 0**: this plan.
+- [x] **Stage 1**: the audit; findings written below (2026-10-26).
 - [ ] **Stage 2**: must-fix batch(es).
 - [ ] **Stage 3**: should-fix batches.
 - [ ] **Stage 4**: polish pass and fresh screenshots. Then release.
 
 ## Findings
 
-(filled in by stage 1)
+Read-only audit of 2026-10-26 (engine, data, sync, backups, updater, reminders, Android screens, web). Each finding has
+an id for the fix commits. Already done during the audit: **the first family's names** are gone from the engine
+(`ryan` → `rentIncome`, `ryanDate` → `rentDate`, `ryanLeft` → `rentLeft`, `staceyPer` → `mainPer`,
+`staceyRegular` → `mainRegular`); months locked by older versions still read, and a parity household checks it. The
+only remaining mentions are the two labelled tables that read data saved by the first version.
+
+### Must fix
+
+- **M1. A weekly or bi-weekly payday entered as a future date wipes out the earlier paydays.** `schedDates` (both
+  engines) never goes back before the anchor. The weekday picker (`IncomeSetup.withWeekday` / `schedFor`) always stores
+  the *next* matching day, and the bi-weekly field says "Any real payday works", so the natural answer is the next
+  payday. Example: a weekly Friday paycheque set up on Monday Oct 26 keeps only Oct 30; Oct 2, 9, 16 and 23 vanish, so
+  October looks short, food money shrinks, and getting on track's "money that already came in" is empty. Fix: run the
+  cycle backwards too (incomes already have `start` for a new job), add a parity case, and keep the hint honest.
+- **M2. Sync can delete or undo recent changes when the sync file is stale.** `Sync.mergeDoc`: when this phone's copy
+  equals the base and the file's copy differs, the file wins, including when the file simply *lacks* the item. Cloud
+  apps (Drive especially) can hand a phone an older cached copy, or the other phone can write over the file from an
+  older copy. Then a bill added on phone A after its last sync is deleted on A, and an edit is reverted. Fix: deletions
+  only through tombstones (missing without a tombstone keeps this phone's copy), and a file copy older than the base
+  (`_u`) doesn't overwrite this phone; then the file is rewritten. Add SyncTest cases for a stale file.
+
+### Should fix
+
+- **S1. A form is lost if Android closes LoonieMate in the background.** Pages and their fields live in `remember`,
+  not saved state, and `Sheet` isn't saveable. "Check my balances" tells people to open their banking apps, which is
+  exactly when a low-memory phone closes LoonieMate; coming back, the typed balances are gone. Fix: save the open page
+  and its fields (rememberSaveable with a Sheet saver, or the view model's SavedStateHandle).
+- **S2. A save that fails is silent.** `Repository.persist` catches the error and carries on (a full phone, for
+  example); the person thinks it's saved and it's gone after a restart. Fix: say "Couldn't save on this phone" with a
+  way to make a backup.
+- **S3. A damaged budget file starts an empty budget without a word.** `Repository.load` keeps a copy
+  (`budget-damaged-…json`) but the app opens empty and the next change writes over `budget.json`. Fix: tell the
+  person, and offer to restore from that copy or a backup.
+- **S4. Undo of a delete can be undone by sync.** `Repository.restore` puts back the old document with its old `_u`;
+  if a sync ran between the delete and the Undo, the tombstone on the file is newer and deletes it again. Fix: restore
+  with a fresh `_u` and drop only that item's tombstone.
+- **S5. The sync file could be left half-written.** `SyncManager.writeText` falls back to mode "w", which some
+  providers don't truncate; a shorter file then keeps old bytes on the end and stops opening. Fix: read back and
+  check after writing (and retry with a fresh write).
+- **S6. The web version can lose everything on iPhone.** It keeps the budget only in `localStorage`, which Safari
+  clears after 7 days without a visit (unless it's added to the Home Screen), and no `navigator.storage.persist()` is
+  requested. Fix: request persistence, and nudge toward a backup or Add to Home Screen on Safari.
+
+### Nice to have
+
+- **N1.** A backup file states its own key-stretching rounds (`iterations`) and nothing caps it; a crafted file could
+  hang the app on import. Cap it (for example 10 million).
+- **N2.** Months locked by 0.9 save the new field names; a phone still on 0.8 or older shows $0 for rent income on
+  those locked months until it updates (sync makes mixed versions possible). Both update themselves, so just note it
+  in the release notes.
+- **N3.** The engines accept negative amounts from imported or synced data (a −$500 bill adds $500). The forms
+  already refuse them; the engine could ignore them too.
+- **N4.** Reminder buttons (Paid, Moved it) change the budget but don't start a sync; it waits for the app to open or
+  the 6-hour background sync. Sync after a notification action.
+- **N5.** The reminder alarm does the month maths inside the broadcast receiver on the main thread; fine at today's
+  speed (a month takes under 1 ms on the web engine) but `goAsync()` would be safer on slow phones.
+- **N6.** Changing dark mode or the phone's font size while a form is open still rebuilds the screen and loses typing
+  (only orientation and size are handled). Covered by S1's fix.
+- **N7.** Closing "Make LoonieMate easier to use?" with ✕ during first-time setup also skips getting on track.
+- **N8.** Code tidying: "Sheet"/"Sheets" names now that forms are pages; unused imports left by the page change; the
+  month maths recalculated inside screens (9 places; fast enough, but tidier in the view model); the per-payday
+  breakdown is written twice (web and Kotlin) with no parity check.
+- **N9.** Screen tests wait with fixed sleeps (`settle()`), which makes them slow; and there are no tests for S2–S5.
+- **N10.** `android:allowBackup="false"` stops cloud backup, but phone-to-phone transfer on Android 12+ still copies the
+  budget unless `dataExtractionRules` say otherwise. Probably wanted (moving to a new phone); decide and write it down.
+
+### Checked and fine
+
+- **Updater:** the download is checked against the SHA-256 in `update.json` *and* must be signed with the same key as
+  the installed app before Android's installer sees it; the install receiver isn't exported.
+- **Backups:** AES-256-GCM with PBKDF2-SHA256 at 600,000 rounds, a fresh salt and nonce each time; wrong passwords and
+  damaged files give clear messages.
+- **Sync password:** sealed with a key in Android's Keystore; a lost key just asks for the password again.
+- **Reminders:** lock-screen versions hide names and amounts; Paid / Moved it need the phone unlocked; alarms are set
+  again after a restart, an update or a clock change.
+- **Web version:** every name and note written into the page goes through `esc()`; error messages use `textContent`.
+- **Most of the 31 catch-all error handlers** are at the edge with Android or the network and show a clear message;
+  the ones that matter are S2, S3 and S5.
+- **Speed:** a month's maths takes about 0.7 ms, the day-by-day look about 2 ms and the 6-month projection about
+  5 ms (web engine); not worth restructuring for.
+- **Forms** already refuse zero or negative amounts where they make no sense.
+
+## Proposed order
+
+1. M1 and M2 (with parity and sync tests), then a release.
+2. S1–S5 (Android data safety), then a release.
+3. S6 (web storage).
+4. Nice-to-haves and the polish pass.
