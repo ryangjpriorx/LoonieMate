@@ -13,10 +13,12 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- allowBackup is off: Android's own cloud backup would copy the budget unencrypted.
-         LoonieMate's encrypted backups are used instead. -->
+         LoonieMate's encrypted backups are used instead. dataExtractionRules (Android 12+) says the same for cloud
+         backup, and keeps "copy from your old phone" working when someone moves to a new phone. -->
     <application
         android:name=".LoonieApp"
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
@@ -35,6 +37,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- sharing a spreadsheet (CSV) of bills or spending with another app; only files LoonieMate puts in cache/share -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <receiver
             android:name=".update.InstallReceiver"

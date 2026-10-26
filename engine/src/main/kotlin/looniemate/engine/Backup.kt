@@ -14,6 +14,7 @@ import javax.crypto.spec.SecretKeySpec
 object Backup {
     const val FORMAT = "family-budget-backup"
     const val ITERATIONS = 600_000
+    const val MAX_ITERATIONS = 10_000_000
     private const val NOTE = "Encrypted budget backup. It can only be opened in the budget app with the password it was made with."
 
     enum class Problem { NOT_BACKUP, PASSWORD }
@@ -56,7 +57,9 @@ object Backup {
     fun envelope(text: String): Envelope {
         val env = try { Json.parse(text.trim()) } catch (e: Exception) { throw BackupException(Problem.NOT_BACKUP, "not JSON") }
         if (env.s("format") != FORMAT || !env.t("data")) throw BackupException(Problem.NOT_BACKUP, "not a budget backup")
-        return try { Envelope(b64d(env.s("salt")), b64d(env.s("iv")), b64d(env.s("data")), env.n("iterations").toInt().takeIf { it > 0 } ?: ITERATIONS) }
+        /* the file says how many rounds were used; a made-up huge number would hang the phone, so anything over 10 million isn't a real backup (N1) */
+        val iters = env.n("iterations").let { if (it > MAX_ITERATIONS) throw BackupException(Problem.NOT_BACKUP, "too many rounds") else it.toInt() }
+        return try { Envelope(b64d(env.s("salt")), b64d(env.s("iv")), b64d(env.s("data")), iters.takeIf { it > 0 } ?: ITERATIONS) }
         catch (e: IllegalArgumentException) { throw BackupException(Problem.NOT_BACKUP, "damaged file") }
     }
 

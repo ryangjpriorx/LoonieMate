@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.TableChart
+import androidx.compose.foundation.background
 import androidx.compose.material.icons.rounded.LocalCafe
 import androidx.compose.material.icons.rounded.FormatListBulleted
 import androidx.compose.material.icons.rounded.Sell
@@ -93,6 +96,56 @@ private fun SelfSpendingCard(m: looniemate.app.SpendingModel, vm: MainViewModel,
     }
 }
 
+/** Last 6 months: fixed bills, food and everything else logged, month by month, and the biggest change (W6). */
+@Composable
+private fun HistoryCard(h: looniemate.engine.Views.History) {
+    val x = LocalExtra.current; val max = maxOf(1.0, h.rows.maxOf { it.total })
+    SectionCard("Last 6 months", Icons.Rounded.BarChart, "sky", trailing = if (h.rows.any { it.partial }) "* this month so far" else null, index = 4) {
+        h.rows.forEach { r ->
+            Column(Modifier.fillMaxWidth().padding(vertical = 4.dp).clearAndSetSemantics {
+                contentDescription = "${Fmt.monthName(r.ym)}${if (r.partial) " so far" else ""}: fixed bills ${Fmt.money(r.fixed)}, food ${Fmt.money(r.food)}, everything else ${Fmt.money(r.other)}, total ${Fmt.money(r.total)}" }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(Fmt.monthOnly(r.ym).take(3) + " " + r.ym.take(4) + (if (r.partial) " *" else ""), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Text(Fmt.money(r.total), style = MaterialTheme.typography.bodyMedium.merge(Numbers), fontWeight = FontWeight.SemiBold)
+                }
+                Row(Modifier.fillMaxWidth().height(10.dp).padding(top = 2.dp)) {
+                    listOf(r.fixed to x.sky, r.food to x.good, r.other to x.warn).forEach { (v, col) ->
+                        if (v > 0) androidx.compose.foundation.layout.Box(Modifier.weight((v / max).toFloat()).fillMaxSize().background(col)) }
+                    val rest = (1 - r.total / max).toFloat(); if (rest > 0.001f) androidx.compose.foundation.layout.Spacer(Modifier.weight(rest))
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            listOf("Fixed bills" to x.sky, "Food" to x.good, "Everything else" to x.warn).forEach { (l, col) ->
+                Row(verticalAlignment = Alignment.CenterVertically) { Dot(col); Text(" $l", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+        }
+        h.insight?.let { Spacer(Modifier.height(6.dp)); Text(it, style = MaterialTheme.typography.bodySmall) }
+    }
+}
+
+/** Bills or spending as a spreadsheet, handed to another app (Drive, email, a spreadsheet app) with Share (W7). */
+@Composable
+private fun ShareCard(vm: MainViewModel) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    fun share(kind: String) {
+        val f = vm.csvFile(kind)
+        val uri = androidx.core.content.FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f)
+        val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/csv").putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            .putExtra(android.content.Intent.EXTRA_SUBJECT, "LoonieMate " + kind).addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        try { ctx.startActivity(android.content.Intent.createChooser(send, "Share the spreadsheet")) } catch (_: Exception) { vm.say("No app on this phone can open a spreadsheet.") }
+    }
+    SectionCard("As a spreadsheet", Icons.Rounded.TableChart, "amber", index = 5) {
+        Text("Share your bills or everything logged as a spreadsheet (CSV), to open in Google Sheets or Excel, or to send to someone helping with your budget.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FilledTonalButton(onClick = { share("spending") }, modifier = Modifier.testTag("csv-spending")) { Text("Spending") }
+            FilledTonalButton(onClick = { share("bills") }, modifier = Modifier.testTag("csv-bills")) { Text("Bills") }
+        }
+    }
+}
+
 @Composable
 fun SpendingScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
     val sm by vm.spendingModel.collectAsStateWithLifecycle()
@@ -121,6 +174,8 @@ fun SpendingScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit)
                 FilledTonalButton(onClick = { open(Sheet.Log(oneTime = true)) }, enabled = !m.locked) { Text("Add a one-time expense") }
             }
         }
+        if (m.history.rows.isNotEmpty()) item { HistoryCard(m.history) }
+        item { ShareCard(vm) }
     }
 }
 

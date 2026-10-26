@@ -71,7 +71,8 @@ fun MonthScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
         if (m.examples) item {
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Pill("Example amounts", "warn"); Text("Some bills are examples. Replace them with your real numbers.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f)) }
+                    Pill("Example amounts", "warn"); Text("Some bills are examples. Replace them with your real numbers, or clear them.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                    androidx.compose.material3.TextButton(onClick = { vm.clearExamples() }, modifier = Modifier.testTag("clear-examples")) { Text("Clear") } }
             }
         }
         item { StatusCard(m) }

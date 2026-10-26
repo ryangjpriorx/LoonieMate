@@ -103,6 +103,11 @@ const qc = {
     selfPlan: [{ name: 'Us', amount: 900, per: 'month' }, { name: 'Sam', amount: 25, per: 'week' }] }),
   'bills/loyer': { name: 'Loyer', category: 'housing', amount: 980, day: 1, account: 'm' },
   'bills/hydro': { name: 'Hydro-Québec', amount: 110, freq: 'biweekly', anchor: '2026-12-08', account: 'm' },
+  /* negative amounts from imported or synced data count as $0 */
+  'bills/neg': { name: 'Bad data', amount: -500, day: 5, account: 'm' },
+  'months/2027-01/expenses/neg': { date: '2027-01-06', amount: -200, category: 'other', oneTime: false, created: 1 },
+  'months/2027-01/expenses/negone': { date: '2027-01-25', amount: -50, category: 'oneoff', note: 'Bad', oneTime: true, created: 2 },
+  'months/2027-01': { income: { amt: { w: -260 } } },
 };
 
 /* 4. Nova Scotia: income assistance, supported employment, a payday chosen by slot */

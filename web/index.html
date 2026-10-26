@@ -535,6 +535,8 @@ const isYm=k=>/^\d{4}-\d{2}$/.test(k);
 const isDate=k=>/^\d{4}-\d{2}-\d{2}$/.test(String(k||''));
 const sum=a=>round2(a.reduce((t,x)=>t+num(x),0));
 const QMONTHS=[1,4,7,10];
+/* an amount from saved data, never below $0: the forms refuse negatives, and imported or synced data can't sneak one in */
+const amt=x=>Math.max(0,num(x&&x.amount));
 const FOOD=new Set(['groceries','takeout']);
 /* Personal Expenses (docs/plans/personal-expenses.md): settings.selfPlan is a list of things bought for yourself,
    [{name,amount,times,per:'day'|'week'|'month'|'pay'}] ("a $3 coffee, 5 times a week"); together they give a monthly amount
@@ -686,9 +688,9 @@ function billPlanForMonth(b,ym,s){
   if(b.freq==='quarterly'||b.freq==='yearly'){
     const st=effectiveStart(b,s);
     const on=(!st||st<=last)&&(!isDate(b.end)||b.end>=first);
-    return{amount:on?round2(num(b.amount)/(b.freq==='quarterly'?3:12)):0,dates,setAside:true};
+    return{amount:on?round2(amt(b)/(b.freq==='quarterly'?3:12)):0,dates,setAside:true};
   }
-  return{amount:round2(num(b.amount)*dates.length),dates};
+  return{amount:round2(amt(b)*dates.length),dates};
 }
 /* Month-by-month value that carries forward: this month's entry, else the most recent earlier month's, else the default.
    Later months never change earlier ones. */
@@ -733,14 +735,14 @@ function billEvents(st,from,to){
   const s=st.settings,out=[];
   for(const [id,b] of Object.entries(st.bills||{})){if(!b||b.active===false)continue;
     const left={};
-    for(const d of billDates(b,from,to,s)){const ym=ymOf(d);let amt=round2(num(b.amount));
+    for(const d of billDates(b,from,to,s)){const ym=ymOf(d);let am=round2(amt(b));
       const red=isDeferred(st,b,id,ym)?getDef(st.months[ym],id):isSkipped(st,b,id,ym)?getSkip(st.months[ym],id):null;
       if(red){if(red.amount==null)continue;
         if(left[ym]==null){/* take the skipped or deferred part from the month's earliest payments first */
           const all=billDates(b,ym+'-01',dayIn(ym,31),s);let rem=red.amount;left[ym]={};
-          for(const x of all){const cut=Math.min(rem,num(b.amount));left[ym][x]=round2(num(b.amount)-cut);rem=round2(rem-cut)}}
-        amt=left[ym][d]!=null?left[ym][d]:amt;if(amt<=0.004)continue}
-      out.push({id,key:id+'@'+d,date:d,ym,name:b.name||'Bill',amount:amt,group:b.group||'adults',account:b.account||'',acct:acctId(s,b.account),method:b.method||'',fund:b.fund||'',example:!!b.example})}}
+          for(const x of all){const cut=Math.min(rem,amt(b));left[ym][x]=round2(amt(b)-cut);rem=round2(rem-cut)}}
+        am=left[ym][d]!=null?left[ym][d]:am;if(am<=0.004)continue}
+      out.push({id,key:id+'@'+d,date:d,ym,name:b.name||'Bill',amount:am,group:b.group||'adults',account:b.account||'',acct:acctId(s,b.account),method:b.method||'',fund:b.fund||'',example:!!b.example})}}
   for(let ym=ymOf(from);ym<=ymOf(to);ym=ymAdd(ym,1))for(const l of deferredIn(st,ym)){const d=l.dates[0];if(d>=from&&d<=to)out.push({id:l.billId,key:l.billId+'@'+d+'~d',date:d,ym,name:l.name,amount:l.amount,group:l.group,account:l.account,acct:acctId(s,l.account),method:l.method,fund:(st.bills[l.billId]||{}).fund||'',deferredFrom:l.deferredFrom})}
   return out;
 }
@@ -756,7 +758,7 @@ function monthCalc(ym,st,today){
   const incomes=incomesOf(s).map(src=>{const sch=assistSched(src);
     let dates=schedDates(sch,ym).filter(d=>!isDate(src.start)||d>=src.start);
     const ovd=m.income&&m.income.date?m.income.date[src.id]:null;if(isDate(ovd)&&dates.length<=1&&ymOf(ovd)===ym)dates=[ovd];
-    const per=schedPerMonth(sch),r=resolve(months,ym,incAmtGet(src.id),src.amount),amount=round2(r.value);
+    const per=schedPerMonth(sch),r=resolve(months,ym,incAmtGet(src.id),src.amount),amount=round2(Math.max(0,r.value));
     const reg=dates.slice(0,per),bon=dates.slice(per);
     return{id:src.id,name:src.name||'Income',role:src.role||'other',account:src.account||'',sched:sch,assist:assistOf(src),amount,from:r.from,dates,regular:reg,bonusDates:bon,total:round2(amount*reg.length),bonus:round2(amount*bon.length),estimated:schedEstimated(sch,ym)&&!isDate(ovd)}});
   /* social assistance: work pay and other counted income reduce the payment, using each program's rules */
@@ -797,7 +799,7 @@ function monthCalc(ym,st,today){
   const crAll=creditsOf(s).map(cr=>{const sch=creditSched(cr),started=!isYm(cr.start)||ym>=cr.start;
     const dates=started?schedDates(sch,ym):[];
     const r=dates.length?resolve(months,ym,crAmtGet(cr),cr.amount,k=>(!isYm(cr.start)||k>=cr.start)&&schedDates(sch,k).length>0):{value:0,from:null};
-    return{key:cr.id,id:cr.id,type:cr.type,name:creditName(cr),protect:!!cr.protect,account:cr.account||'',amount:round2(r.value),from:r.from,date:dates[0]||ym+'-01',dates,scheduled:dates.length>0,estimated:schedEstimated(sch,ym)}});
+    return{key:cr.id,id:cr.id,type:cr.type,name:creditName(cr),protect:!!cr.protect,account:cr.account||'',amount:round2(Math.max(0,r.value)),from:r.from,date:dates[0]||ym+'-01',dates,scheduled:dates.length>0,estimated:schedEstimated(sch,ym)}});
   const credits=crAll.filter(c=>!c.protect);
   const otherCredit=round2(num(m.income&&m.income.otherCredit));
   const creditsTotal=round2(sum(credits.map(c=>c.amount*c.dates.length))+otherCredit);
@@ -837,7 +839,7 @@ function monthCalc(ym,st,today){
   const perPaySelf=round2(self/Math.max(1,regCount));
   const plannedSurplus=round2(spendable-billsTotal-food-self);
   let h1=0,h2=0,other=0,oneTime=0,selfSpent=0;const byCat={};
-  for(const e of expenses){const a=num(e.amount);
+  for(const e of expenses){const a=amt(e);
     if(FOOD.has(e.category)&&!e.oneTime){if(+e.date.slice(8,10)<=15)h1+=a;else h2+=a}
     else if(e.category===SELF&&!e.oneTime)selfSpent+=a
     else{other+=a;if(e.oneTime)oneTime+=a}
@@ -952,7 +954,7 @@ function upcoming(st,today,days,labelOf){
   let mfrom=addDays(today,-7);if(isDate(s.trackFrom)&&mfrom<s.trackFrom)mfrom=s.trackFrom;
   for(const mv of moneyMoves(st,mfrom,end)){if(mv.date<today&&mv.done)continue;out.push(Object.assign({kind:'move',overdue:mv.date<today&&!mv.done},mv))}
   for(const ym of Object.keys(st.expenses||{}))for(const e of listExp(st.expenses[ym]))
-    if(e.oneTime&&e.date>=today&&e.date<=end)out.push({kind:'oneoff',date:e.date,id:e.id,ym,name:e.note||(labelOf?labelOf(e):'One-time expense'),amount:round2(num(e.amount)),group:e.group||'household',account:e.account||''});
+    if(e.oneTime&&e.date>=today&&e.date<=end)out.push({kind:'oneoff',date:e.date,id:e.id,ym,name:e.note||(labelOf?labelOf(e):'One-time expense'),amount:round2(amt(e)),group:e.group||'household',account:e.account||''});
   const yms=[ymOf(today)];if(ymOf(end)!==ymOf(today))yms.push(ymOf(end));
   const inR=d=>d>=today&&d<=end;
   for(const ym of yms){const c=monthCalc(ym,st,today);
@@ -1023,7 +1025,7 @@ function runway(st,today,bal){
   let from=addDays(today,-21);if(isDate(s.trackFrom)&&from<s.trackFrom)from=s.trackFrom;
   for(const e of billEvents(st,from,end)){if(e.fund)continue;const m=st.months[e.ym];if(m&&m.paid&&m.paid[e.key])continue;
     push(e.date<today?today:e.date,e.date<today?'overdue':'bill',e.name,num(e.amount))}
-  for(const ym in st.expenses||{})for(const e of listExp(st.expenses[ym]))if(e.oneTime&&e.date>=today&&e.date<=end)push(e.date,'oneoff',e.note||'One-time expense',num(e.amount));
+  for(const ym in st.expenses||{})for(const e of listExp(st.expenses[ym]))if(e.oneTime&&e.date>=today&&e.date<=end)push(e.date,'oneoff',e.note||'One-time expense',amt(e));
   /* things the family is behind on but hasn't decided how to pay yet (settings.catchUp) count as owed today */
   for(const x of(Array.isArray(s.catchUp)?s.catchUp:[]))if(x&&x.id)push(today,'overdue',x.name||'Owed',num(x.amount));
   const order={in:0,overdue:1,bill:2,oneoff:3,food:4,self:5};
@@ -1221,6 +1223,7 @@ async function encryptBackup(obj,pw){const salt=crypto.getRandomValues(new Uint8
   return JSON.stringify({format:'family-budget-backup',version:1,note:'Encrypted budget backup. It can only be opened in the budget app with the password it was made with.',cipher:'AES-256-GCM',kdf:'PBKDF2-SHA256',iterations:iter,salt:B64.enc(salt),iv:B64.enc(iv),data:B64.enc(ct)})}
 async function decryptBackup(text,pw){let env;try{env=JSON.parse(String(text).trim())}catch(e){throw new Error('notbackup')}
   if(!env||env.format!=='family-budget-backup'||!env.data)throw new Error('notbackup');
+  if(num(env.iterations)>10000000)throw new Error('not a backup');/* a made-up huge number would hang the browser (N1) */
   const key=await deriveKey(pw,B64.dec(env.salt),env.iterations||600000);let pt;
   try{pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:B64.dec(env.iv)},key,B64.dec(env.data))}catch(e){throw new Error('password')}
   const obj=JSON.parse(new TextDecoder().decode(pt));if(!obj||obj.app!=='family-budget'||typeof obj.data!=='object')throw new Error('notbackup');return obj}

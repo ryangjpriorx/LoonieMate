@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 and later. Cloud backup: nothing (the budget would be copied unencrypted; LoonieMate's own encrypted
+     backups and sync are used instead). Phone-to-phone transfer when setting up a new phone: everything, so the budget
+     moves with the person (the sync password is asked for again, since its key never leaves the old phone). -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+    <device-transfer />
+</data-extraction-rules>

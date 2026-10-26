@@ -75,6 +75,62 @@ object Views {
         return Status(tone, mapOf("good" to "All good · On track", "warn" to "Heads up", "bad" to "Needs attention")[tone]!!, pts)
     }
 
+    /** One month of "Last 6 months": fixed bills, food and everything else logged (the web version's trendCard). */
+    class HistRow(val ym: String, val fixed: Double, val food: Double, val other: Double, val total: Double, val byCat: Map<String, Double>, val partial: Boolean)
+    class History(val rows: List<HistRow>, val insight: String?)
+
+    /**
+     * The six months up to [endYm] (from the plan's first month or the first thing logged), and the biggest change: the last
+     * finished month's category that moved most against the average of the months before it (at least $25, and $50 in
+     * one of them). Same rules as the web version's trendCard.
+     */
+    fun history(st: Store, all: List<Obj>, today: String, endYm: String): History {
+        val cur = ymOf(today)
+        val firstYm = (listOf(st.settings.s("startYm")) + all.map { ymOf(it.s("date")) }).filter { isYm(J.S(it)) }.minOrNull() ?: cur
+        val months = (5 downTo 0).map { ymAdd(endYm, -it) }.filter { it >= firstYm }
+        val rows = months.filter { it <= cur }.map { ym -> val c = Core.monthCalc(ym, st, today)
+            val list = all.filter { it.s("ym") == ym || ymOf(it.s("date")) == ym }
+            val food = sumOf2(list.filter { !it.t("oneTime") && Core.FOOD.contains(it.s("category")) }.map { it.n("amount") })
+            val other = sumOf2(list.filter { it.t("oneTime") || !Core.FOOD.contains(it.s("category")) }.map { it.n("amount") })
+            val byCat = LinkedHashMap<String, Double>(); list.forEach { e -> val k = if (e.t("oneTime")) "oneoff" else e.s("category"); byCat[k] = round2((byCat[k] ?: 0.0) + e.n("amount")) }
+            HistRow(ym, c.n("billsTotal"), food, other, round2(c.n("billsTotal") + food + other), byCat, ym == cur) }
+        val done = rows.filter { !it.partial }; val last = done.lastOrNull(); val before = done.dropLast(1).filter { it.food + it.other > 0 }
+        var insight: String? = null
+        if (last != null && before.isNotEmpty()) {
+            var best: Triple<String, Double, Double>? = null  /* category, change, average */
+            for (k in done.flatMap { it.byCat.keys }.toSet()) { val avg = before.sumOf { it.byCat[k] ?: 0.0 } / before.size; val now = last.byCat[k] ?: 0.0; val d = now - avg
+                if (Math.abs(d) >= 25 && maxOf(avg, now) >= 50 && now > 0 && (best == null || Math.abs(d) > Math.abs(best.second))) best = Triple(k, d, avg) }
+            best?.let { (k, d, avg) -> insight = "${Labels.SPENDL[k] ?: k} was ${money(last.byCat[k] ?: 0.0)} in ${Fmt.monthOnly(last.ym)}, ${if (d > 0) "up" else "down"} from about ${money(avg)} a month before." }
+        }
+        return History(rows, insight)
+    }
+
+    /** A cell for a spreadsheet: quoted when needed, and a leading = + - @ made harmless (the web version's csvCell). */
+    fun csvCell(v: String): String { val risky = v.isNotEmpty() && v[0] in "=+-@"
+        return if (risky || v.any { it == '"' || it == ',' || it == '\n' || it == '\r' }) "\"" + (if (risky) "'" else "") + v.replace("\"", "\"\"") + "\"" else v }
+
+    /** Bills or spending as a spreadsheet (CSV), the same columns as the web version's buildCsv. */
+    fun csv(kind: String, st: Store, all: List<Obj>, today: String): String {
+        val s = st.settings; val rows = mutableListOf<List<String>>()
+        fun acct(ref: String) = Core.acctById(s, Core.acctId(s, ref))?.s("name")?.ifEmpty { null } ?: ref
+        if (kind == "spending") {
+            rows.add(listOf("Date", "Category", "Amount", "Note", "Who paid", "One-time", "For"))
+            all.sortedBy { it.s("date") }.forEach { e -> val one = e.t("oneTime")
+                rows.add(listOf(e.s("date"), if (one) "One-time" else Labels.SPENDL[e.s("category")] ?: e.s("category"), String.format(java.util.Locale.US, "%.2f", e.n("amount")),
+                    e.s("note"), e.s("who"), if (one) "Yes" else "", if (one) Labels.OGROUPS[e.s("group")] ?: "" else "")) }
+        } else {
+            rows.add(listOf("Name", "For", "Type", "Amount", "How often", "Due", "Paid from", "Paid by", "Non-essential", "Deferrable", "Saves into", "Still owed", "Active"))
+            st.bills.entries.sortedBy { it.value.s("name") }.forEach { (id, b) -> val f = b.or("freq", "monthly")
+                val d = Core.debtInfo(st, id, today)
+                rows.add(listOf(b.s("name"), Labels.GROUPS[b.or("group", "adults")]?.label ?: "", Labels.CATL[b.s("category")] ?: "Other", String.format(java.util.Locale.US, "%.2f", b.n("amount")),
+                    Labels.FREQS.find { it.first == f }?.second ?: "", if (f == "monthly") "Day " + (if (b.n("day") > 0) b.n("day").toInt() else 1) else b.s("anchor"),
+                    acct(b.s("account")), b.s("method"), if (b["essential"].isFalse()) "Yes" else "", if (b.t("deferrable")) "Yes" else "",
+                    if (b.t("fund")) Core.fundOf(s, b.s("fund")).s("name") else "", d?.let { String.format(java.util.Locale.US, "%.2f", it.n("remaining")) } ?: "",
+                    if (b["active"].isFalse()) "Paused" else "Yes")) }
+        }
+        return "\uFEFF" + rows.joinToString("\r\n") { r -> r.joinToString(",") { csvCell(it) } }
+    }
+
     fun freqText(b: J, s: J, today: String): String {
         val f = if (b.t("freq")) b.s("freq") else "monthly"
         if (f == "monthly") return "Monthly on the " + Fmt.ord(maxOf(1, minOf(31, b.n("day").toInt().let { if (it == 0) 1 else it })))

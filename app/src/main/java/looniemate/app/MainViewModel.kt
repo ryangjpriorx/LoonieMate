@@ -65,7 +65,9 @@ class BillsModel(val ym: String, val totals: Map<String, Double>, val counts: Ma
 
 class SpendingModel(val ym: String, val entries: List<Obj>, val oneTime: List<Obj>, val total: Double, val oneTimeTotal: Double, val byCat: List<Pair<String, Double>>, val locked: Boolean, val emergencyPlan: Double,
     /** Personal Expenses: the month's figures, the list of items, and whether this is the current month (items can be logged with a tap) */
-    val self: Obj = Obj(), val selfItems: List<Obj> = emptyList(), val isCurrent: Boolean = false, val regCount: Int = 0)
+    val self: Obj = Obj(), val selfItems: List<Obj> = emptyList(), val isCurrent: Boolean = false, val regCount: Int = 0,
+    /** Last 6 months (W6) */
+    val history: Views.History = Views.History(emptyList(), null))
 
 class FundView(val f: Obj, val balance: Double, val linked: List<String>, val adding: Double)
 class SavingsModel(val ym: String, val today: String, val s: Obj, val c: Obj, val emergency: Double, val child: Double, val thr: Core.Targets,
@@ -214,7 +216,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val byCat = (c["byCat"] as? Obj)?.map?.entries?.map { it.key to looniemate.engine.num(it.value) }?.sortedByDescending { it.second } ?: emptyList()
         val one = all.filter { it.t("oneTime") }
         return SpendingModel(ym, all.filter { !it.t("oneTime") }, one, sumOf2(all.map { it.n("amount") }), sumOf2(one.map { it.n("amount") }), byCat,
-            st.months[ym].t("closed"), c.n("target"), c, s["selfPlan"].arr().filterIsInstance<Obj>().filter { it.n("amount") > 0 }, ym == ymOf(t), c.strList("regularDays").size)
+            st.months[ym].t("closed"), c.n("target"), c, s["selfPlan"].arr().filterIsInstance<Obj>().filter { it.n("amount") > 0 }, ym == ymOf(t), c.strList("regularDays").size,
+            Views.history(st, Docs.allExpenses(d), t, if (ym > ymOf(t)) ymOf(t) else ym))
     }
 
     /* ---------- changes, each with Undo ---------- */
@@ -520,6 +523,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             saveSettings(J.obj("householdName" to name.trim().take(40), "people" to ppl, "province" to province, "showAllProv" to showAllProv,
                 "startYm" to startYm, "trackFrom" to trackFrom, "babyDue" to babyDue.trim())) }
         return null
+    }
+
+    /** Settings-free clean-up of the example bills a new budget starts with (W5); Undo puts them back. */
+    fun clearExamples() { val ids = repo.docs.value.filter { (k, v) -> k.startsWith("bills/") && v.t("example") }.keys.toList(); if (ids.isEmpty()) return
+        change("Example bills cleared", ids + "meta/tombstones") { ids.forEach { repo.delete(it) } } }
+
+    /**
+     * Bills or spending as a spreadsheet (W7): written to a file in the app's cache, to hand to another app with Share.
+     * Returns the file.
+     */
+    fun csvFile(kind: String): java.io.File {
+        val t = today.value; val d = repo.docs.value
+        val dir = java.io.File(getApplication<android.app.Application>().cacheDir, "share").apply { mkdirs() }
+        return java.io.File(dir, "LoonieMate-$kind-$t.csv").apply { writeText(Views.csv(kind, Docs.toStore(d, t), Docs.allExpenses(d), t)) }
     }
 
     /** Removes one of the saved quick buttons (Settings → Quick buttons). */

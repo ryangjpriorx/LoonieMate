@@ -25,6 +25,7 @@ import looniemate.engine.diffDays
 import looniemate.engine.s
 import looniemate.engine.addDays
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -263,12 +264,23 @@ object ReminderAlarm {
             }
         }
         refreshShown(ctx)
+        /* a tick from the notification reaches the other phone now, not at the next open or background sync (N4) */
+        if (i.action == A_DONE || i.action == A_UNDO) app.sync.let { s -> if (s.on) app.scope.launch { s.sync(force = true) } }
     }
 }
 
 /** Receives the reminder alarm, and sets it again after the phone restarts or LoonieMate is updated. */
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
+        /* the budget maths runs off the main thread, so a slow phone never stalls the screen or misses the deadline (N5) */
+        val pending = goAsync()
+        Thread {
+            try { handle(ctx, intent) } finally { pending.finish() }
+        }.start()
+    }
+
+    /** What each broadcast does; also called directly by tests. */
+    fun handle(ctx: Context, intent: Intent) {
         when (intent.action) {
             "looniemate.REMIND" -> ReminderAlarm.fire(ctx, intent)
             in ReminderAlarm.ACTIONS -> ReminderAlarm.onAction(ctx, intent)

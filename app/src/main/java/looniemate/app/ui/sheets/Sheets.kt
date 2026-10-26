@@ -11,16 +11,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,8 +38,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
@@ -77,7 +69,9 @@ import looniemate.engine.*
 fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet) -> Unit) {
     val close: () -> Unit = onDismiss
     /* a new page for each form, so one form's typing or scroll never carries into the next (setup chains forms) */
-    key(sheet) { Page(onClose = onDismiss) {
+    /* closing "Make LoonieMate easier to use?" during first-time setup carries on to getting on track, like Skip (N7) */
+    val onClose: () -> Unit = (sheet as? Sheet.Access)?.next?.let { n -> { open(n) } } ?: onDismiss
+    key(sheet) { Page(onClose = onClose) {
             when (sheet) {
                 is Sheet.Log -> LogSheet(vm, sheet.oneTime, close, sheet.category)
                 is Sheet.Food -> FoodSheet(vm, sheet.ym, close, open)

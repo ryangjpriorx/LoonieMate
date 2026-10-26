@@ -34,6 +34,8 @@ data class Deferral(val date: String, val amount: Double?)
 data class Skip(val amount: Double?)
 
 object Core {
+    /** An amount from saved data, never below $0: the forms refuse negatives, and imported or synced data can't sneak one in (web amt). */
+    fun amt(x: J?): Double = maxOf(0.0, x.n("amount"))
     val FOOD = setOf("groceries", "takeout")
     /** Personal Expenses (docs/plans/personal-expenses.md): spending logged under this category counts against the planned amount. */
     const val SELF = "self"
@@ -277,9 +279,9 @@ object Core {
         if (f == "quarterly" || f == "yearly") {
             val st = effectiveStart(b, s)
             val on = (st == null || st <= last) && (!isDate(b["end"]) || b.s("end") >= first)
-            return Plan(if (on) round2(b.n("amount") / (if (f == "quarterly") 3 else 12)) else 0.0, dates, true)
+            return Plan(if (on) round2(amt(b) / (if (f == "quarterly") 3 else 12)) else 0.0, dates, true)
         }
-        return Plan(round2(b.n("amount") * dates.size), dates)
+        return Plan(round2(amt(b) * dates.size), dates)
     }
 
     /** Month-by-month value that carries forward; later months never change earlier ones. */
@@ -363,7 +365,7 @@ object Core {
             if (b["active"].isFalse()) continue
             val left = HashMap<String, HashMap<String, Double>>()
             for (d in billDates(b, from, to, s)) {
-                val ym = ymOf(d); var amt = round2(b.n("amount"))
+                val ym = ymOf(d); var am = round2(amt(b))
                 val redAmt: Double?; val hasRed: Boolean
                 if (isDeferred(st, b, id, ym)) { hasRed = true; redAmt = getDef(st.months[ym], id)!!.amount }
                 else if (isSkipped(st, b, id, ym)) { hasRed = true; redAmt = getSkip(st.months[ym], id)!!.amount }
@@ -372,11 +374,11 @@ object Core {
                     if (redAmt == null) continue
                     if (left[ym] == null) { /* take the skipped or deferred part from the month's earliest payments first */
                         val all = billDates(b, "$ym-01", dayIn(ym, 31), s); var rem: Double = redAmt; val mp = HashMap<String, Double>(); left[ym] = mp
-                        for (x in all) { val cut = minOf(rem, b.n("amount")); mp[x] = round2(b.n("amount") - cut); rem = round2(rem - cut) }
+                        for (x in all) { val cut = minOf(rem, amt(b)); mp[x] = round2(amt(b) - cut); rem = round2(rem - cut) }
                     }
-                    amt = left[ym]!![d] ?: amt; if (amt <= 0.004) continue
+                    am = left[ym]!![d] ?: am; if (am <= 0.004) continue
                 }
-                out.add(J.obj("id" to id, "key" to "$id@$d", "date" to d, "ym" to ym, "name" to b.or("name", "Bill"), "amount" to amt, "group" to b.or("group", "adults"),
+                out.add(J.obj("id" to id, "key" to "$id@$d", "date" to d, "ym" to ym, "name" to b.or("name", "Bill"), "amount" to am, "group" to b.or("group", "adults"),
                     "account" to b.or("account", ""), "acct" to acctId(s, b.s("account")), "method" to b.or("method", ""), "fund" to b.or("fund", ""), "example" to b.t("example")))
             }
         }
@@ -408,7 +410,7 @@ object Core {
             var dates = schedDates(sch, ym).filter { d -> !isDate(src["start"]) || d >= src.s("start") }
             val ovd = if (m["income"] != null && m["income"].t("date")) m["income"]!!["date"]?.get(src.s("id")) else null
             if (isDate(ovd) && dates.size <= 1 && ymOf(str(ovd)) == ym) dates = listOf(str(ovd))
-            val per = schedPerMonth(sch); val r = resolve(months, ym, incAmtGet(src.s("id")), src["amount"]); val amount = round2(r.value)
+            val per = schedPerMonth(sch); val r = resolve(months, ym, incAmtGet(src.s("id")), src["amount"]); val amount = round2(maxOf(0.0, r.value))
             val reg = dates.take(per); val bon = dates.drop(per)
             J.obj("id" to src["id"], "name" to src.or("name", "Income"), "role" to src.or("role", "other"), "account" to src.or("account", ""), "sched" to sch, "assist" to assistOf(src),
                 "amount" to amount, "from" to r.from, "dates" to dates, "regular" to reg, "bonusDates" to bon, "total" to round2(amount * reg.size), "bonus" to round2(amount * bon.size),
@@ -466,7 +468,7 @@ object Core {
         val crAll = creditsOf(s).map { cr -> val sch = creditSched(cr); val started = !isYm(cr["start"]) || ym >= cr.s("start")
             val dates = if (started) schedDates(sch, ym) else emptyList()
             val r = if (dates.isNotEmpty()) resolve(months, ym, crAmtGet(cr), cr["amount"]) { k -> (!isYm(cr["start"]) || k >= cr.s("start")) && schedDates(sch, k).isNotEmpty() } else Resolved(0.0, null)
-            J.obj("key" to cr["id"], "id" to cr["id"], "type" to cr["type"], "name" to creditName(cr), "protect" to cr.t("protect"), "account" to cr.or("account", ""), "amount" to round2(r.value), "from" to r.from,
+            J.obj("key" to cr["id"], "id" to cr["id"], "type" to cr["type"], "name" to creditName(cr), "protect" to cr.t("protect"), "account" to cr.or("account", ""), "amount" to round2(maxOf(0.0, r.value)), "from" to r.from,
                 "date" to (dates.firstOrNull() ?: "$ym-01"), "dates" to dates, "scheduled" to dates.isNotEmpty(), "estimated" to schedEstimated(sch, ym)) }
         val credits = crAll.filter { !it.t("protect") }
         val otherCredit = round2(num(m["income"]?.get("otherCredit")))
@@ -507,7 +509,7 @@ object Core {
         val perPaySelf = round2(self / maxOf(1, regCount))
         val plannedSurplus = round2(spendable - billsTotal - food - self)
         var h1 = 0.0; var h2 = 0.0; var other = 0.0; var oneTime = 0.0; var selfSpent = 0.0; val byCat = Obj()
-        for (e in expenses) { val a = e.n("amount"); val one = e.t("oneTime")
+        for (e in expenses) { val a = amt(e); val one = e.t("oneTime")
             if (FOOD.contains(e.s("category")) && !one) { if (e.s("date").substring(8, 10).toInt() <= 15) h1 += a else h2 += a }
             else if (e.s("category") == SELF && !one) selfSpent += a
             else { other += a; if (one) oneTime += a }
@@ -652,7 +654,7 @@ object Core {
             out.add(J.obj("kind" to "move", "overdue" to (mv.s("date") < today && !mv.t("done"))).also { o -> mv.map.forEach { (k, v) -> if (k != "kind" && k != "overdue") o[k] = v } }) }
         for ((ym, mp) in st.expenses) for (e in listExp(mp))
             if (e.t("oneTime") && e.s("date") >= today && e.s("date") <= end) out.add(J.obj("kind" to "oneoff", "date" to e.s("date"), "id" to e["id"], "ym" to ym,
-                "name" to (if (e.t("note")) e.s("note") else labelOf?.invoke(e) ?: "One-time expense"), "amount" to round2(e.n("amount")), "group" to e.or("group", "household"), "account" to e.or("account", "")))
+                "name" to (if (e.t("note")) e.s("note") else labelOf?.invoke(e) ?: "One-time expense"), "amount" to round2(amt(e)), "group" to e.or("group", "household"), "account" to e.or("account", "")))
         val yms = mutableListOf(ymOf(today)); if (ymOf(end) != ymOf(today)) yms.add(ymOf(end))
         fun inR(d: String) = d >= today && d <= end
         for (ym in yms) { val c = monthCalc(ym, st, today)
@@ -750,7 +752,7 @@ object Core {
         var from = addDays(today, -21); if (isDate(s["trackFrom"]) && from < s.s("trackFrom")) from = s.s("trackFrom")
         for (e in billEvents(st, from, end)) { if (e.t("fund")) continue; val m = st.months[e.s("ym")]; if (m != null && truthy(m["paid"]?.get(e.s("key")))) continue
             val d = e.s("date"); push(if (d < today) today else d, if (d < today) "overdue" else "bill", e.s("name"), num(e["amount"])) }
-        for ((_, mp) in st.expenses) for (e in listExp(mp)) if (e.t("oneTime") && e.s("date") >= today && e.s("date") <= end) push(e.s("date"), "oneoff", if (e.t("note")) e.s("note") else "One-time expense", num(e["amount"]))
+        for ((_, mp) in st.expenses) for (e in listExp(mp)) if (e.t("oneTime") && e.s("date") >= today && e.s("date") <= end) push(e.s("date"), "oneoff", if (e.t("note")) e.s("note") else "One-time expense", amt(e))
         /* things the family is behind on but hasn't decided how to pay yet (settings.catchUp) count as owed today */
         for (x in s["catchUp"].arr()) if (x is Obj && x.t("id")) push(today, "overdue", if (x.t("name")) x.s("name") else "Owed", num(x["amount"]))
         val order = mapOf("in" to 0, "overdue" to 1, "bill" to 2, "oneoff" to 3, "food" to 4, "self" to 5)
