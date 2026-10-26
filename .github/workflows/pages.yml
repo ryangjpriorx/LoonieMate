@@ -38,10 +38,14 @@ jobs:
             echo '<meta name="description" content="LoonieMate: a free budget planner for Canadian families on a tight budget. No account; your budget stays in your browser.">'
             echo '<meta name="theme-color" content="#2F3E8F">'
             echo '<link rel="icon" href="icon.svg" type="image/svg+xml">'
-            echo '<link rel="apple-touch-icon" href="icon.svg">'
+            echo '<link rel="apple-touch-icon" href="apple-touch-icon.png">'
+            echo '<meta name="apple-mobile-web-app-capable" content="yes">'
+            echo '<meta name="mobile-web-app-capable" content="yes">'
+            echo '<meta name="apple-mobile-web-app-title" content="LoonieMate">'
             sed 's#<title>[^<]*</title>#<title>LoonieMate</title>#' web/index.html
           } > _site/index.html
           cp docs/assets/icon.svg _site/icon.svg
+          cp docs/assets/apple-touch-icon.png _site/apple-touch-icon.png
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

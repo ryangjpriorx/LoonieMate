@@ -1,4 +1,4 @@
-<title>Steady Family Budget</title>
+<title>LoonieMate</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -499,7 +499,7 @@ details.item>summary:hover{background:color-mix(in srgb,var(--tone-bg) 40%,trans
 <header class="top">
   <div class="top-in">
     <div class="brand"><span class="logo" aria-hidden="true"></span>
-      <div><h1 id="hh-name">Family Budget</h1><p class="sync" id="sync"><i></i><span>Opening…</span></p></div>
+      <div><h1 id="hh-name">LoonieMate</h1><p class="sync" id="sync"><i></i><span>Opening…</span></p></div>
     </div>
     <div class="hdr-right">
     <div class="monthnav" aria-label="Choose month">
@@ -1181,6 +1181,8 @@ try{S.ovMode=localStorage.getItem('rs-ovmode')||'today'}catch(e){S.ovMode='today
 try{let t=localStorage.getItem('rs-tab');if(t==='oneoff')t='spending';if(t&&['overview','spending','food','fixed','savings','accounts','income','settings'].includes(t))S.tab=t}catch(e){}
 
 /* ---------- storage backends ---------- */
+/* ask the browser not to clear this site's data when space runs low (S6) */
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 const STORE_KEY='family-budget-v1';
 function Local(){
   let data={};
@@ -1288,7 +1290,7 @@ function setSync(t,cls){const el=document.getElementById('sync');el.className='s
 
 function render(){
   if(!S.activeYm)S.activeYm=defaultYm();
-  {const n=(settings().householdName||'').trim();document.getElementById('hh-name').textContent=n?(/s$/i.test(n)?n+"' Budget":n+"'s Budget"):'Family Budget';if(backend)syncLabel()}
+  {const n=(settings().householdName||'').trim();document.getElementById('hh-name').textContent=n?(/s$/i.test(n)?n+"' Budget":n+"'s Budget"):'LoonieMate';if(backend)syncLabel()}
   document.getElementById('mlabel').textContent=monthName(S.activeYm);
   document.getElementById('tabs').innerHTML=TABS.map(([k,l,i])=>`<button class="tab t-${TONES[k]||'accent'}" role="tab" aria-selected="${S.tab===k}" data-act="tab" data-tab="${k}">${svg(i)}<span>${l}</span></button>`).join('');
   document.getElementById('gear').setAttribute('aria-current',S.tab==='settings'?'page':'false');
@@ -1348,7 +1350,7 @@ function vOverview(){
   const status=getStatus(c,up,phase,today,s);
   const owed=round2(Math.max(0,thr.emergency-bal.emergency));
   const cur=ymOf(today);
-  let html='';
+  let html=iosNotice();
   // close-out prompt
   if(isNew())return`<div class="view">${welcomeCard()}</div>`;
   html+=ovSwitch();
@@ -1466,6 +1468,14 @@ function extraReminders(today){
       btn:`<button class="btn sm" data-act="reported" data-id="${esc(src.id)}" data-ym="${ym}">Reported</button>`})}
   return out;
 }
+/* iPhone and iPad (polish-and-audit S6): every iOS browser, Chrome included, runs on Apple's WebKit, which clears a
+   site's saved data after 7 days without a visit. A page added to the Home Screen keeps its own data, so that's the advice,
+   with a backup now and then. Shown until dismissed; not shown once it's opened from the Home Screen. */
+const IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const STANDALONE=navigator.standalone===true||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
+function iosNotice(){let off=false;try{off=localStorage.getItem('rs-ios-ok')==='1'}catch(e){}
+  if(!IOS||STANDALONE||off)return'';
+  return`<div class="banner" role="note"><div><b>On iPhone, add LoonieMate to your Home Screen.</b> <span class="muted">iPhone browsers (Safari and Chrome alike) clear a website's saved budget after a week without a visit. Opened from the Home Screen, it's kept. Tap the Share button, then <b>Add to Home Screen</b>, and make a backup in Settings now and then.</span></div><button class="btn" data-act="ios-ok">Got it</button></div>`}
 function vToday(){
   const T=st(),s=T.settings,today=todayStr(),ym=ymOf(today),c=C.monthCalc(ym,T,today);
   const up=C.upcoming(T,today,7,expLabel),status=getStatus(c,up,'now',today,s);
@@ -1480,7 +1490,7 @@ function vToday(){
   const rem=reminders(today);
   const lastCk=lastCheckin(),ckDays=lastCk?diffDays(lastCk.date,today):null;
   const nextTxt=e=>e.kind==='move'?'move '+fmt(e.amount)+' to '+e.to:e.kind==='in'?e.name+' comes in':e.name+' '+fmt(e.amount);
-  return`<div class="view">${ovSwitch()}
+  return`<div class="view">${ovSwitch()}${iosNotice()}
    <div class="todayhead"><div><p class="label">${esc(C.parse(today).toLocaleDateString('en-CA',{weekday:'long'}))}</p><h2 class="bigdate">${esc(C.parse(today).toLocaleDateString('en-CA',{month:'long',day:'numeric'}))}</h2></div>
      <span class="badge sm ${status.tone}"><span class="dot"></span>${esc(status.label)}</span></div>
    ${rem.map(r=>`<div class="banner ${r.tone||''}"><div>${r.html}</div>${r.btn||''}</div>`).join('')}
@@ -1551,7 +1561,7 @@ function isNew(){return!C.incomesOf(settings()).length&&!Object.keys(S.bills).le
 function welcomeCard(){
   const steps=[['Name your household','Who\'s in it, so spending can be tagged by person.','Household'],['Add your bank accounts','Chequing, savings, prepaid cards and cash, and what each is for.','Accounts','accounts'],
     ['Add your income','Paychecks, and social assistance like ODSP or Ontario Works, and how often they come.','Social assistance','income'],['Add government benefits','The CCB, CGEB and provincial benefits. Payment dates fill in by themselves.','Government benefits and credits','income'],['Add your regular bills','Rent, phone, diapers, pet food: anything that repeats.','']];
-  return`<section class="card" style="padding:22px"><div class="ttl" style="margin-bottom:10px">${ico('star','amber')}<h2 style="font-size:1.4rem">Welcome. Let's set up your budget.</h2></div>
+  return`${iosNotice()}<section class="card" style="padding:22px"><div class="ttl" style="margin-bottom:10px">${ico('star','amber')}<h2 style="font-size:1.4rem">Welcome. Let's set up your budget.</h2></div>
    <p class="muted" style="max-width:60ch">This tool plans every paycheck, tells you when to move money between accounts, protects child benefits, and helps when a month comes up short. It works with no account and no sign-up. Everything stays on this device.</p>
    <ol style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">${steps.map(([t,d,sec,tb],i)=>`<li class="pay" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="display:flex;gap:12px;align-items:flex-start;min-width:0"><span class="stepn">${i+1}</span><div><b>${t}</b><div class="small muted">${d}</div></div></div>
      <button class="btn sm" data-act="${sec?'goset':'tab'}" data-to="${esc(sec)}" data-tab="${tb||(sec?'settings':'fixed')}">Start</button></li>`).join('')}</ol>
@@ -2337,6 +2347,7 @@ const NOSNAP=new Set(['toast-close','a11y-text','debt-open','d-xadd','d-xdel','m
 function confirmTap(btn,label){const k=btn.dataset.act+(btn.dataset.id||btn.dataset.ym||'');if(armed.get(k)&&Date.now()-armed.get(k)<4000){armed.delete(k);return true}armed.set(k,Date.now());btn.textContent=label;return false}
 document.addEventListener('click',async ev=>{
   const btn=ev.target.closest('[data-act]');if(!btn)return;const a=btn.dataset.act,d=btn.dataset;
+  if(a==='ios-ok'){try{localStorage.setItem('rs-ios-ok','1')}catch(e){}render();return}
   if(a==='toast-close'){document.getElementById('toast').hidden=true;S.undo=null;return}
   if(a==='a11y-text'){A11Y.text=+d.i;saveA11y();render();return}
   if(a==='undo'){if(!S.undo)return;try{backend.replaceAll(JSON.parse(S.undo))}catch(e){toast('Could not undo that.',true);return}S.undo=null;S.snap=null;document.getElementById('toast').hidden=true;toast('Undone',true);return}
