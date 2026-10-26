@@ -18,7 +18,8 @@ const TODAY = process.env.TODAY || '2026-10-26';
     const page = await browser.newPage();
     await page.setViewport({ width: 412, height: 915, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: theme }]);
-    page.on('pageerror', e => problems.push(`${theme}: page error: ${e.message}`));
+    let where = 'start';
+    page.on('pageerror', e => problems.push(`${theme} (${where}): page error: ${(e.stack || e.message).split('\n').slice(0, 4).join(' | ')}`));
     page.on('console', m => { if (m.type() === 'error') problems.push(`${theme}: console: ${m.text()}`); });
     await page.evaluateOnNewDocument((data, today) => {
       /* a fixed day, so the screenshots don't change by themselves */
@@ -31,7 +32,7 @@ const TODAY = process.env.TODAY || '2026-10-26';
     await page.goto('file://' + path.join(root, 'web', 'index.html'));
     const settle = () => new Promise(r => setTimeout(r, 500));
     const shot = async name => { await settle(); await page.screenshot({ path: path.join(out, `web-${theme}-${name}.png`), fullPage: true }); };
-    const click = async sel => { const el = await page.$(sel); if (!el) { problems.push(`${theme}: nothing to click for ${sel}`); return false; } await el.click(); await settle(); return true; };
+    const click = async sel => { where = sel; const el = await page.$(sel); if (!el) { problems.push(`${theme}: nothing to click for ${sel}`); return false; } await el.click(); await settle(); return true; };
     await settle();
     for (const tab of ['today', 'overview', 'fixed', 'spending', 'savings']) { await click(`#tabs [data-tab="${tab}"]`); await shot(tab === 'overview' ? 'month' : tab === 'fixed' ? 'bills' : tab); }
     await click('#gear'); await shot('settings');

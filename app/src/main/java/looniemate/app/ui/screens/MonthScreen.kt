@@ -20,6 +20,20 @@ import androidx.compose.material.icons.rounded.PieChart
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.ShoppingCart
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.animation.animateContentSize
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -62,53 +76,130 @@ import looniemate.engine.s
 import looniemate.engine.t
 import looniemate.engine.*
 
+/**
+ * Month: the plan, and how it's going (docs/plans/overhaul.md). The month, one sentence of status (Why? unfolds the
+ * rest), where the money goes as one bar and five lines, Make it fit when it's short, Money in (each payday, folded),
+ * what's been spent so far, and a lock card once the month is over. Nothing that Today or another tab already shows.
+ */
 @Composable
-fun MonthScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, state: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()) {
+fun MonthScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, state: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(), go: (looniemate.app.ui.Tab) -> Unit = {}) {
     val mm by vm.monthModel.collectAsStateWithLifecycle()
     val m = mm ?: return
-    val s = vm.settings(); val c = m.c
     LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { looniemate.app.ui.MonthSwitcher(vm) }
-        if (m.examples) item {
-            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-                /* the note on its own line, so it never gets squeezed at large text sizes */
-                androidx.compose.foundation.layout.Column(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) { Pill("Example amounts", "warn"); androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-                        androidx.compose.material3.TextButton(onClick = { vm.clearExamples() }, modifier = Modifier.testTag("clear-examples")) { Text("Clear examples") } }
-                    Text("Some bills are examples. Replace them with your real numbers, or clear them.", style = MaterialTheme.typography.bodySmall) }
-            }
-        }
         item { StatusCard(m) }
-        if (m.showAdjust) item { AdjustCard(m, vm, open) }
-        item { Tiles(m, open) }
-        item {
-            SectionCard("Coming up", Icons.Rounded.CalendarMonth, trailing = "To " + Fmt.dShort(MainViewModel.plusDays(m.today, m.days)), index = 3) {
-                if (m.up.isEmpty()) EmptyNote("Nothing due in the next few days.") else EventList(m.up, m.today, s, vm, open)
+        if (m.phase == "past" && !m.c.t("closed")) item {
+            SectionCard("${Fmt.monthName(m.ym)} is finished", Icons.Rounded.Lock, "accent", index = 1) {
+                Text("Lock it so its numbers stay exactly as they were, even if a bill or an income changes later.", style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(10.dp)); FilledTonalButton(onClick = { open(Sheet.MonthIncome(m.ym)) }, modifier = Modifier.testTag("month-lock")) { Text("Review and lock") }
             }
         }
-        item { PlanCard(m, open) }
-        item { CategoryCard(m.ym, m.byCat, 5) }
-        if (m.debts.isNotEmpty()) item { DebtCard(m.debts, 6) {} }
-        item {
-            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth().enter(7)) {
-                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Savings: ", fontWeight = FontWeight.Bold)
-                    Text("Emergency ${Fmt.money(m.emergency)} · Child Reserve ${Fmt.money(m.child)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { open(Sheet.Transfer("emergency", null)) }) { Text("Record a transfer") }
-                }
+        item { WhereItGoes(m) }
+        if (m.showAdjust) item { AdjustCard(m, vm, open) }
+        item { MoneyIn(m, open) }
+        item { SpentSoFar(m) { go(looniemate.app.ui.Tab.Spending) } }
+        if (m.examples) item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Pill("Example amounts", "warn"); Spacer(Modifier.width(8.dp))
+                Text("Some bills are examples.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                TextButton(onClick = { vm.clearExamples() }, modifier = Modifier.testTag("clear-examples")) { Text("Clear them") }
             }
         }
     }
 }
 
+/** One sentence of status, and Why? for the rest of the points. */
 @Composable
 private fun StatusCard(m: MonthModel) {
-    val tone = if (m.status.tone == "plan") "accent" else m.status.tone; val (_, bg) = toneColors(tone)
-    Card(Modifier.fillMaxWidth().enter(0), shape = MaterialTheme.shapes.large, colors = CardDefaults.cardColors(containerColor = lerp(MaterialTheme.colorScheme.surfaceContainerLow, bg, 0.85f))) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val tone = if (m.status.tone == "plan") "accent" else m.status.tone; val (_, bg) = toneColors(tone); var why by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    val pts = m.status.points
+    Card(Modifier.fillMaxWidth().enter(0).animateContentSize(androidx.compose.animation.core.tween(looniemate.app.ui.Motion.FOLD)), shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = lerp(MaterialTheme.colorScheme.surfaceContainerLow, bg, 0.85f))) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             StatusBadge(m.status.tone, m.status.label, big = true)
-            m.status.points.forEach { p -> Row { Text("•  ", fontWeight = FontWeight.Bold); Text(p, style = MaterialTheme.typography.bodyMedium) } }
+            pts.firstOrNull()?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
+            if (pts.size > 1) {
+                if (why) pts.drop(1).forEach { p -> Row { Text("•  ", fontWeight = FontWeight.Bold); Text(p, style = MaterialTheme.typography.bodyMedium) } }
+                TextButton(onClick = { why = !why }, contentPadding = PaddingValues(horizontal = 0.dp), modifier = Modifier.testTag("status-why")) { Text(if (why) "Less" else "Why?") }
+            }
         }
+    }
+}
+
+/** Where the money goes: one bar (bills, food, Personal Expenses, savings, or short) and the five numbers that matter. */
+@Composable
+private fun WhereItGoes(m: MonthModel) {
+    val c = m.c; val x = LocalExtra.current; val cs = MaterialTheme.colorScheme
+    val inn = c.n("spendable"); val bills = c.n("billsTotal"); val food = c.n("food"); val self = c.n("self"); val left = c.n("plannedSurplus")
+    val parts = listOf(Triple("Bills", bills, x.sky), Triple("Food", food, x.good), Triple("Personal Expenses", self, x.baby),
+        if (left >= 0) Triple("Left for savings", left, cs.primary) else Triple("Short", -left, x.bad)).filter { it.second > 0.004 }
+    val total = maxOf(inn, bills + food + self, 1.0)
+    SectionCard("Where the money goes", Icons.Rounded.PieChart, "teal", index = 2, trailingContent = {
+        if (c.t("closed")) Pill("Locked", "") else if (c["bonusDays"].let { it is J.A && it.list.isNotEmpty() }) Pill("Extra payday", "good") }) {
+        Row(Modifier.fillMaxWidth().height(14.dp).clip(MaterialTheme.shapes.small).semantics(mergeDescendants = true) {
+            contentDescription = parts.joinToString(", ") { "${it.first} ${Fmt.money(it.second)}" } }) {
+            parts.forEach { (_, v, col) -> Box(Modifier.weight((v / total).toFloat().coerceAtLeast(0.001f)).fillMaxSize().background(col)) }
+            val rest = (1 - parts.sumOf { it.second } / total).toFloat(); if (rest > 0.001f) Spacer(Modifier.weight(rest))
+        }
+        Spacer(Modifier.height(10.dp))
+        LineRow("Money in", Fmt.money(inn))
+        parts.forEach { (l, v, col) -> Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Dot(col); Spacer(Modifier.width(8.dp))
+            Text(l, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Text((if (l == "Short") "−" else "") + Fmt.money(v), style = MaterialTheme.typography.bodyMedium.merge(Numbers), fontWeight = if (l == "Left for savings" || l == "Short") FontWeight.Bold else null,
+                color = if (l == "Short") x.bad else Color.Unspecified) } }
+        /* what's been spent outside the plan so far lowers what's left for savings */
+        val off = c.n("otherSpent") + c.n("foodOver") + c.n("selfOver")
+        if (off > 0.004 && m.phase != "future") Text("Other spending so far: ${Fmt.money(off)}, so about ${Fmt.money(maxOf(0.0, c.n("liveSurplus")))} is left for savings.",
+            style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
+/** Money in: each payday and benefit with what it pays for, folded to one line; tap to unfold, long-press for its menu. */
+@Composable
+private fun MoneyIn(m: MonthModel, open: (Sheet) -> Unit) {
+    val c = m.c; val x = LocalExtra.current
+    SectionCard("Money in", Icons.Rounded.Payments, "teal", index = 3) {
+        if (m.plan.isEmpty()) EmptyNote("No income set up yet. Add it in Settings → Income and benefits.")
+        m.plan.forEachIndexed { i, p ->
+            var unfold by androidx.compose.runtime.saveable.rememberSaveable(p.title + p.date) { androidx.compose.runtime.mutableStateOf(false) }
+            if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+            val first = p.lines.firstOrNull()
+            looniemate.app.ui.MenuRow(listOf(looniemate.app.ui.MenuItem(if (c.t("closed")) "This month's income and lock" else "Change this month's amount…") { open(Sheet.MonthIncome(m.ym)) },
+                looniemate.app.ui.MenuItem("Open the income") { open(Sheet.Settings("income")) }), onClick = { unfold = !unfold }, clickLabel = if (unfold) "Fold up" else "Show what it pays for", vertical = 8.dp) {
+                looniemate.app.ui.Dot(when (p.kind) { "ccb" -> x.baby; "bonus" -> MaterialTheme.colorScheme.primary; else -> x.good }, 10.dp, round = true)
+                Column(Modifier.weight(1f)) {
+                    Text(p.title, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                    if (p.date.isNotEmpty()) Text(p.date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                }
+                if (first != null && first.value.isNotEmpty()) Text(first.value, style = MaterialTheme.typography.bodyLarge.merge(Numbers), fontWeight = FontWeight.SemiBold)
+                Icon(if (unfold) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            androidx.compose.animation.AnimatedVisibility(unfold) {
+                Column(Modifier.padding(start = 22.dp, bottom = 8.dp)) { p.lines.drop(if (first?.label == "Comes in") 1 else 0).forEach { l -> LineRow(l.label, l.value, l.total, l.tone) } }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        TextButton(onClick = { open(Sheet.MonthIncome(m.ym)) }, modifier = Modifier.testTag("month-income")) {
+            Text(if (c.t("closed")) "This month's income and lock" else "Change ${Fmt.monthOnly(m.ym)}'s income") }
+    }
+}
+
+/** What's been spent this month, the top five kinds, and See all for the Spending tab. */
+@Composable
+private fun SpentSoFar(m: MonthModel, toSpending: () -> Unit) {
+    val x = LocalExtra.current; val top = m.byCat.take(5)
+    SectionCard("Spent so far", Icons.Rounded.ShoppingCart, "amber", trailing = if (m.byCat.isNotEmpty()) Fmt.money(m.byCat.sumOf { it.second }) else null, index = 4) {
+        if (top.isEmpty()) EmptyNote("Nothing logged for ${Fmt.monthOnly(m.ym)} yet.")
+        val max = top.maxOfOrNull { it.second } ?: 1.0
+        top.forEach { (k, v) ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(Labels.SPENDL[k] ?: k, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(118.dp), maxLines = 2)
+                GrowBar((v / max).toFloat(), if (Core.FOOD.contains(k)) x.good else MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                Text(Fmt.money(v), style = MaterialTheme.typography.bodyMedium.merge(Numbers))
+            }
+        }
+        TextButton(onClick = toSpending, modifier = Modifier.testTag("spent-all")) { Text("See all spending") }
     }
 }
 
@@ -154,78 +245,6 @@ private fun AdjustRow(l: Obj, mo: String, actions: @Composable () -> Unit) {
             /* at large text sizes the buttons go under the name instead of squeezing it */
             if (big) Row(verticalAlignment = Alignment.CenterVertically) { actions() } }
         if (!big) Row(verticalAlignment = Alignment.CenterVertically) { actions() }
-    }
-}
-
-@Composable
-private fun Tiles(m: MonthModel, open: (Sheet) -> Unit) {
-    val c = m.c
-    Column(Modifier.enter(2), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            val mod = Modifier.weight(1f)
-            when {
-                m.short && m.phase != "past" -> StatTile("Shortfall this month", m.safeToMove, m.safeNote, "bad", mod)
-                m.phase == "now" -> StatTile("Safe to move to Emergency Savings", m.safeToMove, m.safeNote, "accent", mod, hero = true,
-                    action = { FilledTonalButton(onClick = { open(Sheet.Transfer("emergency", m.safeToMove.takeIf { it > 0 })) }) { Text("I moved money") } })
-                m.phase == "future" -> StatTile("Planned for Emergency Savings", m.safeToMove, "", "accent", mod, hero = true)
-                else -> StatTile("Emergency Savings target", m.safeToMove, m.safeNote, "accent", mod, hero = true)
-            }
-            val fp = m.food
-            if (fp != null) StatTile("Food left · " + (if (fp.n("half") == 1.0) "1st–15th" else "16th–end"), fp.n("left"),
-                "${Fmt.money(fp.n("perDay"))}/day for ${fp.n("daysLeft").toInt()} days", "green", mod, action = { TextButton(onClick = { open(Sheet.Food(m.ym)) }) { Text("Food details") } })
-            else StatTile("Food allowance", c.n("food"), "${Fmt.money(c.n("foodHalf"))} for each half of the month", "green", mod, action = { TextButton(onClick = { open(Sheet.Food(m.ym)) }) { Text("Food details") } })
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatTile("Bills due · next ${m.days} days", m.dueTotal, "${m.dueCount} bill${if (m.dueCount == 1) "" else "s"}" + (if (m.dueOverdue > 0) " · ${m.dueOverdue} past due" else ""), "sky", Modifier.weight(1f))
-            StatTile("Child Reserve · protected", m.child, "Canada Child Benefit savings. Last resort only." + (if (m.childShould > m.child + 0.5) " Should be ${Fmt.money(m.childShould)}." else ""), "rose", Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun PlanCard(m: MonthModel, open: (Sheet) -> Unit) {
-    val c = m.c; val x = LocalExtra.current
-    SectionCard("Where the money goes", Icons.Rounded.SwapHoriz, "teal", index = 4, trailingContent = {
-        if (c.t("closed")) Pill("Locked", "") else if (c["bonusDays"].let { it is looniemate.engine.J.A && it.list.isNotEmpty() }) Pill("Extra payday", "good") }) {
-        if (m.plan.isEmpty()) EmptyNote("No income set up yet. Add it in Settings → Income and benefits.")
-        m.plan.forEach { p ->
-            val bg = when (p.kind) { "bonus" -> MaterialTheme.colorScheme.primaryContainer; "ccb" -> x.babyBg; else -> MaterialTheme.colorScheme.surfaceContainer }
-            Surface(shape = MaterialTheme.shapes.medium, color = bg, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                Column(Modifier.padding(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) { Text(p.title, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        Text(p.date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    Spacer(Modifier.height(4.dp))
-                    p.lines.forEach { l -> LineRow(l.label, l.value, l.total, l.tone) }
-                }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SumTile("Money in", c.n("spendable"), Modifier.weight(1f)); SumTile("Fixed bills", c.n("billsTotal"), Modifier.weight(1f)) }
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SumTile("Food", c.n("food"), Modifier.weight(1f))
-            if (c.n("self") > 0) SumTile("Personal Expenses", c.n("self"), Modifier.weight(1f))
-            else SumTile("Planned surplus", c.n("plannedSurplus"), Modifier.weight(1f), if (c.n("plannedSurplus") < 0) "bad" else "good") }
-        if (c.n("self") > 0) { Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { SumTile("Planned surplus", c.n("plannedSurplus"), Modifier.weight(1f), if (c.n("plannedSurplus") < 0) "bad" else "good") } }
-        Spacer(Modifier.height(8.dp))
-        val bg = c["byGroup"]
-        Text("Adults ${Fmt.money(bg.n("adults"))} · Kids ${Fmt.money(bg.n("baby"))} · Pets ${Fmt.money(bg.n("pets"))}" + (if (c.n("otherSpent") > 0) " · Everyday and one-time spending so far ${Fmt.money(c.n("otherSpent"))}" else ""),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(10.dp))
-        FilledTonalButton(onClick = { open(Sheet.MonthIncome(m.ym)) }, modifier = Modifier.testTag("month-income")) {
-            Text(if (c.t("closed")) "Income and locking" else "Change ${Fmt.monthOnly(m.ym)} income") }
-    }
-}
-
-@Composable
-private fun SumTile(label: String, value: Double, modifier: Modifier, tone: String = "") {
-    val (fg, bg) = toneColors("teal")
-    Surface(modifier, shape = MaterialTheme.shapes.small, color = lerp(MaterialTheme.colorScheme.surfaceContainerLow, bg, 0.8f)) {
-        Column(Modifier.padding(10.dp)) {
-            Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = fg, fontWeight = FontWeight.Bold)
-            looniemate.app.ui.Money(value, MaterialTheme.typography.titleMedium, color = if (tone.isEmpty()) MaterialTheme.colorScheme.onSurface else toneColors(tone).first, weight = FontWeight.SemiBold)
-        }
     }
 }
 

@@ -254,7 +254,7 @@ private fun Screen(t: Tab, vm: MainViewModel, pad: PaddingValues, open: (Sheet) 
     androidx.compose.runtime.CompositionLocalProvider(LocalScreen provides t.name) {
         when (t) {
             Tab.Today -> TodayScreen(vm, pad, open, go, state)
-            Tab.Month -> MonthScreen(vm, pad, open, state)
+            Tab.Month -> MonthScreen(vm, pad, open, state, go)
             Tab.Bills -> BillsScreen(vm, pad, open, state)
             Tab.Spending -> SpendingScreen(vm, pad, open, state)
             Tab.Savings -> SavingsScreen(vm, pad, open, state)
