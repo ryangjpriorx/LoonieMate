@@ -495,6 +495,35 @@ details.item>summary:hover{background:color-mix(in srgb,var(--tone-bg) 40%,trans
 .fx .badge.sm .dot{animation:blink 2.4s ease-in-out infinite}
 @keyframes blink{50%{opacity:.4}}
 @media (prefers-reduced-motion: no-preference){.meter>span,.goalbar>span{transition:width .4s ease}.overlay .sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}}
+/* Today (docs/plans/overhaul.md): the round tick, the ⋯ row menu (long-press on the app), Done today */
+.trow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+.trow.first,.dayhead+.trow{border-top:0}
+.tick{width:44px;height:44px;border-radius:50%;border:0;background:none;display:grid;place-items:center;cursor:pointer;padding:0}
+.tick::before{content:"";width:26px;height:26px;border-radius:50%;border:2px solid var(--muted);box-sizing:border-box}
+.tick.on::before{border:0;background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E") center/16px no-repeat}
+html.a-btn .tick{width:56px;height:56px}
+.trow .nm{font-weight:650}.trow .meta{font-size:.82rem;color:var(--muted)}
+.trow .tap{all:unset;cursor:pointer;display:block;min-width:0}.trow .tap:focus-visible{outline:2px solid var(--accent);border-radius:6px}
+.odue{font-size:.7rem;font-weight:800;color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent);border-radius:99px;padding:1px 8px;margin-left:6px;vertical-align:2px}
+.rowmenu{position:relative}.rowmenu>summary{list-style:none;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:1.2rem;color:var(--muted)}
+.rowmenu>summary::-webkit-details-marker{display:none}.rowmenu>summary:hover{background:var(--surface-2)}
+.rowmenu .menu{position:absolute;right:0;top:38px;z-index:20;min-width:210px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px;display:flex;flex-direction:column}
+.rowmenu .menu button{all:unset;cursor:pointer;padding:10px 12px;border-radius:8px;font-size:.92rem}.rowmenu .menu button:hover,.rowmenu .menu button:focus-visible{background:var(--surface-2)}
+.rowmenu .menu button.danger{color:var(--bad)}
+.inline-in{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:.9rem;margin-bottom:6px}
+.donefold{margin-top:6px;border-top:1px solid var(--line)}.donefold>summary{cursor:pointer;padding:10px 0;font-weight:700;color:var(--muted);font-size:.9rem}
+.moneyrow{display:flex;justify-content:space-between;align-items:baseline;gap:10px}.moneyrow b.num{font-size:1.35rem}
+.qscroll .quick{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
+.meter.calm>span{background:var(--sky)}
+button.badge{border:0;cursor:pointer;font:inherit}
+/* motion, quick but smooth (docs/plans/overhaul.md): nothing over 0.4 s, nothing that loops, nothing that shines or pulses */
+.fx .top::after,.fx .status .dot,.fx .kpi.hero,.fx .status.bad .dot,.fx .badge.bad .dot,.fx .badge.sm .dot{animation:none}
+.fx .view.enter>*,.fx .view.enter .col>*,.fx .view.enter :is(.kpis,.todaygrid,.halves,.seg,.quick,.debts,.sumrow,.swatches)>*{animation-duration:.18s;animation-delay:0s}
+.fx .view.enter>*:nth-child(2){animation-delay:.02s}.fx .view.enter>*:nth-child(3){animation-delay:.04s}.fx .view.enter>*:nth-child(4){animation-delay:.06s}.fx .view.enter>*:nth-child(n+5){animation-delay:.08s}
+.fx .view.enter :is(.list,.flow,.cats)>*:nth-child(-n+12),.fx .view.enter .billrow{animation-duration:.18s;animation-delay:0s}
+.fx .view.enter .meter>span,.fx .view.enter .goalbar>span,.fx .view.enter .chart .bar,.fx .view.enter .ring .rv{animation-duration:.3s;animation-delay:0s}
+.fx .view.enter :is(.meter,.goalbar)>span::before{display:none}
+.fx .pop{animation-duration:.2s}
 </style>
 
 <header class="top">
@@ -1195,8 +1224,9 @@ const acctHint=ref=>{const a=C.acctById(settings(),ref);if(!a)return'';const p=(
 const acctOpts=sel=>accts().map(a=>`<option value="${esc(a.id)}" ${C.acctId(settings(),sel)===a.id?'selected':''}>${esc(a.name)}</option>`).join('');
 const METHODS=['Pre-authorized debit (PAD)','Interac e-Transfer','Debit card','Cash','Cheque'];
 const FREQS=[['monthly','Monthly'],['biweekly','Every 2 weeks'],['weekly','Weekly'],['quarterly','Every 3 months'],['yearly','Yearly']];
-const TONES={overview:'accent',spending:'amber',food:'green',fixed:'sky',savings:'rose',income:'teal',accounts:'gold',settings:'accent'};
-const TABS=[['overview','Overview','grid'],['spending','Spending','wallet'],['food','Food','food'],['fixed','Bills','receipt'],['savings','Savings','piggy'],['income','Income','in'],['accounts','Accounts','bank']];
+const TONES={today:'accent',overview:'accent',spending:'amber',food:'green',fixed:'sky',savings:'rose',income:'teal',accounts:'gold',settings:'accent'};
+/* the same five as the app: Today · Month · Bills · Spending · Savings (Food is in Spending; Income and Accounts are in Settings) */
+const TABS=[['today','Today','cal'],['overview','Month','grid'],['fixed','Bills','receipt'],['spending','Spending','wallet'],['savings','Savings','piggy']];
 const ICONS={grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   cart:'<path d="M3 4h2l2.3 10.6a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 1.9-1.4L21 8H6.2"/><circle cx="9.5" cy="20" r="1.3"/><circle cx="17.5" cy="20" r="1.3"/>',
   receipt:'<path d="M6 2.5h12v19l-3-2-3 2-3-2-3 2z"/><path d="M9 7.5h6M9 11.5h6M9 15.5h4"/>',
@@ -1228,7 +1258,7 @@ const svg=(n,cls)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 const ico=(n,c)=>`<span class="ico ${c||''}">${svg(n)}</span>`;
 
 /* ---------- state ---------- */
-const S={open:{},settings:null,months:{},bills:{},expenses:{},loaded:{settings:false,bills:false,months:false},activeYm:null,navTouched:false,tab:'overview',group:'adults',readOnly:false,mode:'connecting',sheet:null};
+const S={open:{},settings:null,months:{},bills:{},expenses:{},loaded:{settings:false,bills:false,months:false},activeYm:null,navTouched:false,tab:'today',group:'adults',readOnly:false,mode:'connecting',sheet:null};
 let backend=null;
 function todayStr(){return C.ymd(new Date())}
 function settings(){const raw=S.settings||{};const s=Object.assign({},DEFAULTS,raw);if(!isYm(s.startYm))s.startYm=ymOf(todayStr());if(!isDate(s.trackFrom))s.trackFrom=todayStr();return s}
@@ -1290,13 +1320,14 @@ function applyA11y(){const r=document.documentElement,mm=q=>!!(window.matchMedia
   r.classList.toggle('a-cb',!!A11Y.cb);r.classList.toggle('a-time',!!A11Y.time);r.classList.toggle('a-btn',!!A11Y.btn)}
 function saveA11y(){try{localStorage.setItem('rs-a11y',JSON.stringify(A11Y))}catch(e){}applyA11y()}
 applyA11y();
-function countUp(root){
+/* numbers don't count up on first view any more (docs/plans/overhaul.md); kept so callers stay as they are */
+function countUp(root){return;
   const els=root.querySelectorAll('.kpi .big,.save .big,.cu');const t0=performance.now(),dur=700;
   els.forEach(el=>{const txt=el.textContent,m=txt.match(/^(−?)\$([\d,]+\.\d\d)$/);if(!m)return;const target=(m[1]?-1:1)*Number(m[2].replace(/,/g,''));if(!target)return;
     const step=now=>{const p=Math.min(1,(now-t0)/dur),e=1-Math.pow(1-p,3);el.textContent=fmt(target*e);if(p<1)requestAnimationFrame(step);else el.textContent=txt};requestAnimationFrame(step)});
 }
 try{S.ovMode=localStorage.getItem('rs-ovmode')||'today'}catch(e){S.ovMode='today'}
-try{let t=localStorage.getItem('rs-tab');if(t==='oneoff')t='spending';if(t&&['overview','spending','food','fixed','savings','accounts','income','settings'].includes(t))S.tab=t}catch(e){}
+try{let t=localStorage.getItem('rs-tab');if(t==='oneoff')t='spending';if(t&&['today','overview','spending','food','fixed','savings','accounts','income','settings'].includes(t))S.tab=t}catch(e){}
 
 /* ---------- storage backends ---------- */
 /* ask the browser not to clear this site's data when space runs low (S6) */
@@ -1413,12 +1444,12 @@ function render(){
   document.getElementById('mlabel').textContent=monthName(S.activeYm);
   document.getElementById('tabs').innerHTML=TABS.map(([k,l,i])=>`<button class="tab t-${TONES[k]||'accent'}" role="tab" aria-selected="${S.tab===k}" data-act="tab" data-tab="${k}">${svg(i)}<span>${l}</span></button>`).join('');
   document.getElementById('gear').setAttribute('aria-current',S.tab==='settings'?'page':'false');
-  document.querySelector('.top').classList.toggle('nomonth',S.tab==='settings'||S.tab==='accounts'||(S.tab==='overview'&&S.ovMode!=='month'&&S.loaded.bills&&!isNew()));
+  document.querySelector('.top').classList.toggle('nomonth',S.tab==='settings'||S.tab==='accounts'||S.tab==='income'||S.tab==='fixed'||S.tab==='savings'||(S.tab==='today'&&S.loaded.bills&&!isNew()));
   document.getElementById('fab').hidden=S.tab==='settings'||S.readOnly||(S.loaded.bills&&isNew());
   if(busyField()){pending=true;return}
   pending=false;
   if(!(S.loaded.bills&&S.loaded.months&&S.loaded.settings)){main.innerHTML='<div class="view" aria-label="Loading your budget"><div class="skel"></div><div class="skel"></div><div class="skel" style="height:220px"></div></div>';return}
-  const v={overview:vOverview,spending:vSpending,food:vFood,fixed:vFixed,savings:vSavings,accounts:vAccounts,oneoff:vOneoff,income:vIncome,settings:vSettings}[S.tab]||vOverview;
+  const v={today:()=>isNew()?vOverview():vToday(),overview:vOverview,spending:vSpending,food:vFood,fixed:vFixed,savings:vSavings,accounts:vAccounts,oneoff:vOneoff,income:vIncome,settings:vSettings}[S.tab]||vToday;
   const key=S.tab+'|'+S.activeYm+'|'+(S.tab==='overview'?S.ovMode:''),entering=key!==S.lastKey;S.lastKey=key;
   main.innerHTML=v();
   const view=main.querySelector('.view');
@@ -1462,7 +1493,6 @@ function getStatus(c,up,phase,today,s){
 }
 
 function vOverview(){
-  if(!isNew()&&S.ovMode!=='month')return vToday();
   const T=st(),s=T.settings,today=todayStr(),ym=S.activeYm,c=C.monthCalc(ym,T,today),phase=phaseOf(ym,today);
   const up=C.upcoming(T,today,num(s.upcomingDays)||10,expLabel);
   const bal=C.savingsState(T),thr=C.targetsThrough(T,ym,today);
@@ -1601,39 +1631,69 @@ const STANDALONE=navigator.standalone===true||(window.matchMedia&&matchMedia('(d
 function iosNotice(){let off=false;try{off=localStorage.getItem('rs-ios-ok')==='1'}catch(e){}
   if(!IOS||STANDALONE||off)return'';
   return`<div class="banner" role="note"><div><b>On iPhone, add LoonieMate to your Home Screen.</b> <span class="muted">iPhone browsers (Safari and Chrome alike) clear a website's saved budget after a week without a visit. Opened from the Home Screen, it's kept. Tap the Share button, then <b>Add to Home Screen</b>, and make a backup in Settings now and then.</span></div><button class="btn" data-act="ios-ok">Got it</button></div>`}
+/* Today (docs/plans/overhaul.md): what to do, and am I okay. The date and one status, at most one notice, the To do list from the
+   engine (overdue first, each with a tick and a ⋯ menu), done today folded below, the food and Personal Expenses money,
+   quick buttons, and the next 7 days. */
 function vToday(){
   const T=st(),s=T.settings,today=todayStr(),ym=ymOf(today),c=C.monthCalc(ym,T,today);
-  const up=C.upcoming(T,today,7,expLabel),status=getStatus(c,up,'now',today,s);
-  const todo=up.filter(e=>(e.kind==='bill'&&!e.paid&&e.date<=today)||(e.kind==='move'&&!e.done&&e.date<=today));
-  const incoming=up.filter(e=>e.kind==='in'&&e.date===today);
-  const next=up.filter(e=>e.date>today&&(e.kind!=='bill'||!e.paid)).slice(0,6);
-  const row=e=>{if(e.kind==='move')return`<div class="row ${e.overdue?'overdue':''}"><span class="gdot move" aria-hidden="true">→</span><div><div class="nm">${moveTitle(e)}</div><div class="meta">From ${esc(e.from)}${e.fromAcct?' ('+esc(e.fromAcct)+')':''}${e.overdue?' · from '+dShort(e.date):''}</div></div>
-      <div class="amt"><button class="paidbtn" data-act="move-done" data-ym="${e.ym}" data-key="${esc(e.key)}" data-sav="${e.sav||''}" data-amt="${e.amount}">Mark done</button></div></div>`;
-    return`<div class="row ${e.overdue?'overdue':''}"><span class="gdot ${esc(e.group)}"></span><div><div class="nm">${esc(e.name)}</div><div class="meta">${e.overdue?'Was due '+dShort(e.date)+' · ':''}${esc(acctName(e.account)||'')}${e.method?' · '+esc(shortMethod(e.method)):''}</div></div>
-      <div class="amt"><span class="num">${fmt(e.amount)}</span><button class="paidbtn" data-act="paid" data-ym="${e.ym}" data-key="${esc(e.key)}" aria-label="Mark paid: ${esc(e.name)}, ${esc(fmt(e.amount))}">Mark paid</button></div></div>`};
-  const fp=C.foodPeriod(c,today,s),pct=Math.min(100,fp.allow?fp.spent/fp.allow*100:0),pace=Math.min(100,fp.allow?fp.expected/fp.allow*100:0),fcls=fp.spent>fp.allow?'bad':fp.spent>fp.expected+10?'warn':'';
-  const rem=reminders(today);
-  const lastCk=lastCheckin(),ckDays=lastCk?diffDays(lastCk.date,today):null;
-  const nextTxt=e=>e.kind==='move'?'move '+fmt(e.amount)+' to '+e.to:e.kind==='in'?e.name+' comes in':e.name+' '+fmt(e.amount);
-  return`<div class="view">${ovSwitch()}${iosNotice()}
+  const up=C.upcoming(T,today,7,expLabel),status=C.startingMonth(T,ym)?{tone:'plan',label:'Starting month'}:getStatus(c,up,'now',today,s);
+  const lastCk=lastCheckin(),td=C.todo(T,today,lastCk?lastCk.date:null);
+  const items=td.items.slice().sort((a,b)=>(a.overdue?0:1)-(b.overdue?0:1)),overdue=items.filter(e=>e.overdue),now=items.filter(e=>!e.overdue);
+  let from=addDays(today,-21);if(isDate(s.trackFrom)&&from<s.trackFrom)from=s.trackFrom;
+  const ticked=(S.ticked&&S.ticked.day===today)?S.ticked.keys:new Set();
+  const done=C.billEvents(T,from,today).filter(e=>!e.fund&&(e.date===today||ticked.has(e.key))&&((S.months[e.ym]||{}).paid||{})[e.key]).map(e=>Object.assign({kind:'bill',paid:true},e))
+    .concat(C.moneyMoves(T,from,today).filter(m=>m.done&&(m.date===today||ticked.has(m.key))).map(m=>Object.assign({kind:'move'},m)));
+  const next=up.filter(e=>e.date>today&&(e.kind!=='bill'||!e.paid)&&(e.kind!=='move'||!e.done)).slice(0,8);
+  const fp=C.foodPeriod(c,today,s),self=num(c.selfPlanned)>0||num(c.selfSpent)>0?c:null;
+  const nextTxt=e=>e.kind==='move'?(e.cash?'take out '+fmt(e.atm)+' cash':'move '+fmt(e.amount)+' to '+e.to):e.kind==='in'?e.name+' comes in':e.name+' '+fmt(e.amount);
+  const list=(arr,first)=>arr.map((e,i)=>todoRow(e,first&&i===0)).join('');
+  const sp=self?{plan:num(self.self),spent:num(self.selfSpent)}:null;
+  return`<div class="view">${iosNotice()}
    <div class="todayhead"><div><p class="label">${esc(C.parse(today).toLocaleDateString('en-CA',{weekday:'long'}))}</p><h2 class="bigdate">${esc(C.parse(today).toLocaleDateString('en-CA',{month:'long',day:'numeric'}))}</h2></div>
-     <span class="badge sm ${status.tone}"><span class="dot"></span>${esc(status.label)}</span></div>
-   ${rem.map(r=>`<div class="banner ${r.tone||''}"><div>${r.html}</div>${r.btn||''}</div>`).join('')}
-   <section class="card"><div class="card-h"><div class="ttl">${ico('receipt',todo.length?'amber':'green')}<h2>${todo.length?`To do today · ${todo.length}`:'Nothing to do today'}</h2></div></div>
-     ${todo.length?`<div class="list">${todo.map(row).join('')}</div>`:`<div class="alldone"><span class="big-check">✓</span><div><b>You're all caught up.</b><div class="small muted">${next.length?`Next: ${esc(nextTxt(next[0]))} on ${dLabel(next[0].date)}.`:'Nothing else this week.'}</div></div></div>`}
-     ${incoming.length?`<div class="list" style="margin-top:8px">${incoming.map(e=>`<div class="row"><span class="gdot ${e.protect?'protect':'in'}"></span><div><div class="nm">${esc(e.name)} comes in today</div><div class="meta">${esc(e.note||'')}</div></div><div class="amt"><span class="num plus">+${fmt(e.amount)}</span></div></div>`).join('')}</div>`:''}</section>
-   <div class="todaygrid">
-   <section class="card"><div class="card-h"><div class="ttl">${ico('food','green')}<h2>Food money</h2></div><span class="small muted">${fp.half===1?'1st–15th':'16th–end'}</span></div>
-     <div class="foodbig"><span class="big num cu">${fmt(fp.left)}</span><span class="muted">left · about <b>${fmt(fp.perDay)}</b> a day for ${fp.daysLeft} day${fp.daysLeft>1?'s':''}</span></div>
-     <div class="meter ${fcls}" role="img" aria-label="${fmt(fp.spent)} of ${fmt(fp.allow)} spent"><span style="width:${pct}%"></span><i class="pace" style="left:${pace}%"></i></div></section>
-   <section class="card"><div class="card-h"><div class="ttl">${ico('bank','gold')}<h2>Balances</h2></div><span class="small muted">${lastCk?`Checked ${ckDays===0?'today':ckDays===1?'yesterday':ckDays+' days ago'}`:'Not checked yet'}</span></div>
-     <p class="small muted" style="margin-bottom:10px">${lastCk&&ckDays<=7?(Math.abs(num(lastCk.gap))<5?'At the last check, your accounts matched the plan.':`At the last check, your accounts were ${fmt(Math.abs(num(lastCk.gap)))} ${num(lastCk.gap)<0?'lower':'higher'} than the plan.`):'Once a week, type in what your accounts actually hold. The tool spots money that went missing or a bill that came out early.'}</p>
-     <button class="btn ${!lastCk||ckDays>7?'primary':''}" data-act="checkin">Check my balances</button></section>
-   </div>
-   <section class="card"><div class="card-h"><div class="ttl">${ico('wallet','amber')}<h2>Log spending</h2></div><span class="small muted">One tap logs it for today</span></div>${quickRow()}</section>
-   ${debtCard(T,today)}
-   ${next.length?`<section class="card"><div class="card-h"><div class="ttl">${ico('cal')}<h2>Next few days</h2></div></div><div class="list">${next.map(e=>`<div class="row"><span class="gdot ${e.kind==='in'?(e.protect?'protect':'in'):e.kind==='move'?'move':esc(e.group||'')}" ${e.kind==='move'?'aria-hidden="true"':''}>${e.kind==='move'?'→':''}</span><div><div class="nm">${e.kind==='move'?moveTitle(e):esc(e.name)}</div><div class="meta">${dLabel(e.date)}</div></div><div class="amt"><span class="num ${e.kind==='in'?'plus':''}">${e.kind==='move'?'':(e.kind==='in'?'+':'')+fmt(e.amount)}</span></div></div>`).join('')}</div></section>`:''}
+     <button class="badge sm ${status.tone}" data-act="tab" data-tab="overview" title="See why on Month"><span class="dot"></span>${esc(status.label)}</button></div>
+   ${notice(today)}
+   <section class="card" id="todo"><div class="card-h"><div class="ttl">${ico(items.length?'receipt':'check',items.length?'amber':'green')}<h2>${items.length?'To do':'All done for today'}</h2></div>${items.length?`<span class="small muted">${items.length} to do</span>`:''}</div>
+     ${td.incoming.map(e=>`<div class="inline-in"><span class="gdot ${e.protect?'protect':'in'}"></span>+${fmt(e.amount)} ${esc(e.name)} lands today</div>`).join('')}
+     ${items.length?'':`<p class="small muted">${next.length?`Next: ${esc(nextTxt(next[0]))} on ${dLabel(next[0].date)}.`:'Nothing else coming this week.'}</p>`}
+     ${overdue.length&&now.length?'<div class="dayhead">Overdue</div>':''}${list(overdue,true)}
+     ${overdue.length&&now.length?'<div class="dayhead today">Today</div>':''}${list(now,!overdue.length)}
+     ${done.length?`<details class="donefold" ${S.open.done?'open':''} data-keep="done"><summary>✓ Done today · ${done.length}</summary>${done.map(e=>todoRow(e,false)).join('')}</details>`:''}
+   </section>
+   <section class="card" data-act="tab" data-tab="spending" style="cursor:pointer"><div class="card-h"><div class="ttl">${ico('food','green')}<h2>Spending money</h2></div></div>
+     <div class="moneyrow"><b>Food</b><b class="num ${fp.left<0?'neg':''}">${fmt(fp.left)}</b></div>
+     <p class="small muted" style="margin:2px 0 8px">${fp.left>=0?`left until ${dShort(fp.end)} · about ${fmt(fp.perDay)} a day`:'over for this half of the month'}</p>
+     <div class="meter ${fp.left<0?'bad':''}" role="img" aria-label="${fmt(fp.spent)} of ${fmt(fp.allow)} spent"><span style="width:${Math.min(100,fp.allow?fp.spent/fp.allow*100:0)}%"></span></div>
+     ${sp?`<div class="moneyrow" style="margin-top:14px"><b>Personal Expenses</b><b class="num">${fmt(sp.plan>0?Math.max(0,sp.plan-sp.spent):sp.spent)}</b></div>
+       <p class="small muted" style="margin:2px 0 8px">${sp.plan<=0?'logged this month':sp.plan>=sp.spent?'left for you this month':fmt(sp.spent-sp.plan)+' more than planned this month'}</p>
+       ${sp.plan>0?`<div class="meter calm"><span style="width:${Math.min(100,sp.spent/sp.plan*100)}%"></span></div>`:''}`:''}
+   </section>
+   <section class="card qscroll"><div class="card-h"><div class="ttl">${ico('wallet','amber')}<h2>Log it</h2></div></div>${quickRow()}</section>
+   ${next.length?`<section class="card"><div class="card-h"><div class="ttl">${ico('cal')}<h2>Coming up</h2></div><span class="small muted">Next 7 days</span></div><div class="list">${next.map(e=>`<div class="row"><span class="gdot ${e.kind==='in'?(e.protect?'protect':'in'):e.kind==='move'?'move':esc(e.group||'')}" ${e.kind==='move'?'aria-hidden="true"':''}>${e.kind==='move'?'→':''}</span><div><div class="nm">${e.kind==='move'?moveTitle(e):esc(e.name)}</div><div class="meta">${dLabel(e.date)}</div></div><div class="amt"><span class="num ${e.kind==='in'?'plus':''}">${e.kind==='move'?'':(e.kind==='in'?'+':'')+fmt(e.amount)}</span></div></div>`).join('')}</div></section>`:''}
   </div>`;
+}
+/* the most important notice, only one at a time: a backup (the web keeps the budget in this browser only) */
+function notice(today){const r=reminders(today).filter(x=>/backup/i.test(x.html));return r.length?`<div class="banner ${r[0].tone||''}"><div>${r[0].html}</div>${r[0].btn||''}</div>`:''}
+/* one To do row: the tick, what it is (tap for its bill or why), and the ⋯ menu (right-click works too) */
+function todoRow(e,first){
+  const tick=(on,act,data,label)=>`<button class="tick ${on?'on':''}" data-act="${act}" ${data} aria-label="${esc(label)}" aria-pressed="${on}"></button>`;
+  const menu=items=>`<details class="rowmenu"><summary aria-label="More options">⋯</summary><div class="menu">${items.map(([l,act,data,cls])=>`<button data-act="${act}" ${data||''} class="${cls||''}">${esc(l)}</button>`).join('')}</div></details>`;
+  const od=e.overdue?'<span class="odue">Overdue</span>':'';
+  if(e.kind==='bill'){const b=S.bills[e.id]||{},dd=`data-ym="${e.ym}" data-key="${esc(e.key)}"`;
+    return`<div class="trow ${first?'first':''}" data-key="${esc(e.key)}">${tick(!!e.paid,'paid',dd,'Paid: '+e.name)}
+      <button class="tap" data-act="edit-bill" data-id="${esc(e.id)}"><div class="nm">${esc(e.name)}${od}</div><div class="meta">${e.overdue?'Was due '+dShort(e.date)+' · ':''}${esc(acctName(e.account)||'')}${e.method?' · '+esc(shortMethod(e.method)):''}</div></button>
+      <span class="num">${fmt(e.amount)}</span>
+      ${menu([[e.paid?'Not paid after all':'Paid','paid',dd]].concat(b.deferrable&&!e.deferredFrom?[['Pay part later…','defer',`data-ym="${e.ym}" data-id="${esc(e.id)}"`]]:[],b.essential===false&&!e.deferredFrom?[['Give up this month…','skip',`data-ym="${e.ym}" data-id="${esc(e.id)}"`]]:[],
+        [['Change the bill','edit-bill',`data-id="${esc(e.id)}"`]]))}</div>`}
+  if(e.kind==='move'){const dd=`data-ym="${e.ym}" data-key="${esc(e.key)}" data-sav="${e.sav||''}" data-amt="${e.amount}"`;
+    return`<div class="trow ${first?'first':''}" data-key="${esc(e.key)}">${tick(!!e.done,'move-done',dd,'Done: '+(e.cash?'take out cash':'move money'))}
+      <button class="tap" data-act="why" data-key="${esc(e.key)}" data-ym="${e.ym}"><div class="nm">${e.cash?'🏧 ':''}${moveTitle(e)}${od}</div><div class="meta">From ${esc(e.from)}${e.fromAcct?' ('+esc(e.fromAcct)+')':''}${e.cash&&e.items&&e.items.length?' · for '+esc(e.items.map(x=>x.name).join(', ')):e.cash?'':' · '+esc(e.why)}</div></button>
+      <span></span>${menu([[e.done?'Not done after all':'Done','move-done',dd],[e.cash?'About this cash':'Why this move?','why',`data-key="${esc(e.key)}" data-ym="${e.ym}"`],['Change the accounts it uses','tab','data-tab="accounts"']])}</div>`}
+  const t={report:[e.ei?`Do your EI report for ${e.name}`:`Report ${monthOnly(e.forYm||e.ym)}'s income for ${e.name}`,e.overdue?'Was due '+dShort(e.date):e.date===todayStr()?'Due today':'Due '+dShort(e.date),'reported',`data-id="${esc(e.key)}" data-ym="${e.ym}"`,'Reported'],
+    tax:[`File your ${+e.year-1} taxes`,e.overdue?'As soon as you can. Benefits depend on it.':'By April 30. Benefits depend on it, even with no income.','tax-filed',`data-y="${esc(e.year)}"`,"We've filed"],
+    lock:[`Lock ${monthName(e.ym)}`,"It's finished. Locking keeps its numbers as they were.",'goto',`data-ym="${e.ym}" data-tab="income"`,'Review and lock'],
+    check:['Check your balances',e.days!=null?`Last checked ${e.days} days ago`:'Once a week keeps the plan honest','checkin','','Check them now']}[e.kind];
+  if(!t)return'';
+  return`<div class="trow ${first?'first':''}">${tick(false,t[2],t[3],t[4])}<div><div class="nm">${esc(t[0])}${od}</div><div class="meta">${esc(t[1])}</div></div><span></span>${menu([[t[4],t[2],t[3]]])}</div>`;
 }
 /* what the day-to-day accounts should hold now, starting from the last check-in */
 function expectedSince(prev,today){
@@ -1668,6 +1728,24 @@ function coverage(bal,today){
     return{id:a.id,name:a.name,need,have,short:round2(Math.max(0,need-have)),bills,food,income,isMain:a.id===main,until:nextPay};
   });
 }
+/* why a money move is needed, or what to know about cash to take out (the app's MoveDialog) */
+function cashNotes(e){if(!e.cash)return[];const out=[],n=e.notes||20;
+  if(e.items&&e.items.length)out.push('For '+e.items.map(x=>x.name+' '+fmt(x.amount)).join(', ')+'.');
+  if(e.fromHand>0.004)out.push(fmt(e.fromHand)+' of it can come from the cash you already have.');
+  if(e.extra>0.004)out.push(`The ATM gives $${n} bills, so take out ${fmt(e.atm)}. The extra ${fmt(e.extra)} stays as cash on hand.`);
+  if(e.teller&&e.extra>0.004)out.push(`Or get exactly ${fmt(e.amount)} from a teller.`);
+  if(e.coins>0.004)out.push(`Your bank has no tellers. If you need exactly ${fmt(e.amount)}, get ${fmt(e.coins)} in coins as change when you buy something, or ask a store to break a bill.`);
+  if(e.parts>1)out.push(`Your ATM's daily limit means taking it out over ${e.parts} days.`);
+  if(e.split)out.push(`Your ATM's daily limit means taking the rest out of ${e.split}.`);
+  if(e.overBy>0.004)out.push(`That's ${fmt(e.overBy)} more than the ATM lets you take out in time. `+(e.teller?'Get the rest from a teller.':"Start a day earlier next time, or ask whoever you're paying if they take an e-Transfer."));
+  if(e.ask)out.push("Would another account's ATM help instead of going back each day? Choose in Settings → Accounts.");
+  return out}
+function whySheet(ym,key){const T=st(),m=C.moneyMoves(T,ym+'-01',C.dayIn(ymAdd(ym,1),31)).concat(C.moneyMoves(T,C.addDays(ym+'-01',-3),ym+'-01')).find(x=>x.key===key);if(!m)return;
+  openSheet(`<div class="sheet-h"><h2 id="sheet-title">${moveTitle(m)}</h2><button class="x" data-act="sheet-close" aria-label="Close">×</button></div>
+   <div class="form"><p><b>From ${esc(m.from)}${m.cash?'':' to '+esc(m.to)} · ${dLabel(m.date)}</b></p>
+   ${!m.cash&&m.why?`<p>${esc(m.why)}</p>`:''}${cashNotes(m).map(t=>`<p>${esc(t)}</p>`).join('')}
+   ${m.cash?'':'<p class="small muted">Do it in your banking app, then tick it off here.</p>'}
+   <button class="btn primary" data-act="move-done" data-ym="${m.ym}" data-key="${esc(m.key)}" data-sav="${m.sav||''}" data-amt="${m.amount}" data-close-sheet="1">${m.done?'Not done after all':'Done'}</button></div>`)}
 function checkinSheet(){
   S.sheet='checkin';const s=settings(),A=C.accountsOf(s),prev=lastCheckin();
   const day=A.filter(a=>a.type!=='savings'),sav=A.filter(a=>a.type==='savings');
@@ -2486,8 +2564,12 @@ function toast(msg,noUndo){const el=document.getElementById('toast');const canUn
 const armed=new Map();
 const NOSNAP=new Set(['toast-close','a11y-text','debt-open','d-xadd','d-xdel','mode','copy-csv','ck-save','ck-log','tab','m-prev','m-next','m-now','goto','group','jump','goset','sheet-close','setdate','setdefer','export','import','ovmode','copy-backup','log','log-oneoff','add-bill','edit-bill','defer','skip','transfer','use-fund','ccb-split','checkin','csv']);
 function confirmTap(btn,label){const k=btn.dataset.act+(btn.dataset.id||btn.dataset.ym||'');if(armed.get(k)&&Date.now()-armed.get(k)<4000){armed.delete(k);return true}armed.set(k,Date.now());btn.textContent=label;return false}
+/* row menus (⋯): close when something else is clicked; right-click on a To do row opens its menu, like a long press on the app */
+document.addEventListener('click',ev=>{document.querySelectorAll('details.rowmenu[open]').forEach(m=>{if(!m.contains(ev.target)||ev.target.closest('.menu button'))m.open=false})},true);
+document.addEventListener('contextmenu',ev=>{const r=ev.target.closest('.trow');const m=r&&r.querySelector('details.rowmenu');if(!m)return;ev.preventDefault();m.open=true;const b=m.querySelector('.menu button');if(b)b.focus()});
 document.addEventListener('click',async ev=>{
   const btn=ev.target.closest('[data-act]');if(!btn)return;const a=btn.dataset.act,d=btn.dataset;
+  if(d.closeSheet)closeSheet();
   if(a==='ios-ok'){try{localStorage.setItem('rs-ios-ok','1')}catch(e){}render();return}
   if(a==='toast-close'){document.getElementById('toast').hidden=true;S.undo=null;return}
   if(a==='a11y-text'){A11Y.text=+d.i;saveA11y();render();return}
@@ -2514,6 +2596,7 @@ document.addEventListener('click',async ev=>{
   if(a==='group'){S.group=d.group;render();return}
   if(a==='log'){logSheet(false);if(d.cat){const r=document.getElementById('cat-'+d.cat);if(r)r.checked=true}return}
   if(a==='checkin'){checkinSheet();return}
+  if(a==='why'){whySheet(d.ym,d.key);return}
   if(a==='debt-open'){S.open=S.open||{};openOnly('debt-'+d.id);S.tab='fixed';try{localStorage.setItem('rs-tab','fixed')}catch(e){}window.scrollTo(0,0);render();return}
   if(a==='d-xadd'){const box=document.getElementById('d-extras');if(box){box.insertAdjacentHTML('beforeend',xRow());const r=box.lastElementChild.querySelector('.d-xdate');if(r)r.focus()}return}
   if(a==='d-xdel'){const r=btn.closest('.d-xrow');if(r)r.remove();debtPreview();return}
@@ -2538,7 +2621,7 @@ document.addEventListener('click',async ev=>{
   if(a==='add-bill'){billSheet(null,d.group);return}
   if(a==='edit-bill'){billSheet(d.id);return}
   if(a==='transfer'){transferSheet(d.kind,d.amt);return}
-  if(a==='paid'||a==='move-done')S.pop=d.key;
+  if(a==='paid'||a==='move-done'){S.pop=d.key;const t=todayStr();if(!S.ticked||S.ticked.day!==t)S.ticked={day:t,keys:new Set()};S.ticked.keys.add(d.key)}
   if(a==='paid'){const m=S.months[d.ym],cur=!!(m&&m.paid&&m.paid[d.key]);await patchMonth(d.ym,{paid:{[d.key]:!cur}});if(!cur)toast('Marked paid');return}
   if(a==='defer'){deferSheet(d.ym,d.id);return}
   if(a==='use-fund'){useFundSheet(d.fund);return}

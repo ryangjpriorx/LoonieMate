@@ -50,6 +50,13 @@ jobs:
           set -o pipefail
           ./gradlew :app:testDebugUnitTest --stacktrace 2>&1 | tee -a "$RUNNER_TEMP/build.log"
 
+      - name: Try the web version in a real browser
+        run: |
+          set -o pipefail
+          ( cd "$RUNNER_TEMP" && npm init -y >/dev/null && npm install --silent puppeteer-core@23 >/dev/null )
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)" NODE_PATH="$RUNNER_TEMP/node_modules" OUT=app/build/screens \
+            node web/test/smoke.cjs 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
       - name: Publish the screenshots to the 'screens' branch (or 'screens-<branch>' for a run on another branch)
         if: always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         run: |

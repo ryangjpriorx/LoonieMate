@@ -211,29 +211,33 @@ private fun HelpDialog(kind: String, e: Obj, close: () -> Unit) {
         confirmButton = { TextButton(onClick = close) { Text("Close") } })
 }
 
-/** Food and Personal Expenses money in one card: what's left, plainly. Never red for Personal Expenses. Tap for Spending. */
+/** Food and Personal Expenses money in one card: what's left, plainly. Never red for Personal Expenses. Tap either for Spending. */
 @Composable
 private fun MoneyCard(model: looniemate.app.TodayModel, toSpending: () -> Unit) {
     val fp = model.food; val x = LocalExtra.current; val left = fp.n("left")
-    SectionCard("Spending money", Icons.Rounded.Restaurant, "green", modifier = Modifier.clickable(onClick = toSpending).testTag("food-open"), index = 2) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Food", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Money(left, MaterialTheme.typography.titleLarge, weight = FontWeight.SemiBold, color = if (left < 0) x.bad else MaterialTheme.colorScheme.onSurface)
-        }
-        Text(if (left >= 0) "left until ${Fmt.dShort(fp.s("end"))} · about ${Fmt.money(fp.n("perDay"))} a day" else "over for this half of the month",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(6.dp))
-        val allow = fp.n("allow")
-        GrowBar(if (allow > 0) (fp.n("spent") / allow).toFloat() else 0f, if (left < 0) x.bad else x.good)
-        model.self?.let { c -> val plan = c.n("self"); val spent = c.n("selfSpent"); val sl = plan - spent
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("self-open")) {
-                Text("Personal Expenses", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Money(if (plan > 0) maxOf(0.0, sl) else spent, MaterialTheme.typography.titleLarge, weight = FontWeight.SemiBold)
+    SectionCard("Spending money", Icons.Rounded.Restaurant, "green", index = 2) {
+        Column(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(onClickLabel = "Open Spending", onClick = toSpending).testTag("food-open").padding(vertical = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Food", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Money(left, MaterialTheme.typography.titleLarge, weight = FontWeight.SemiBold, color = if (left < 0) x.bad else MaterialTheme.colorScheme.onSurface)
             }
-            Text(when { plan <= 0 -> "logged this month"; sl >= 0 -> "left for you this month"; else -> "${Fmt.money(-sl)} more than planned this month" },
+            Text(if (left >= 0) "left until ${Fmt.dShort(fp.s("end"))} · about ${Fmt.money(fp.n("perDay"))} a day" else "over for this half of the month",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (plan > 0) { Spacer(Modifier.height(6.dp)); GrowBar(minOf(1.0, spent / plan).toFloat(), x.sky) }
+            Spacer(Modifier.height(6.dp))
+            val allow = fp.n("allow")
+            GrowBar(if (allow > 0) (fp.n("spent") / allow).toFloat() else 0f, if (left < 0) x.bad else x.good)
+        }
+        model.self?.let { c -> val plan = c.n("self"); val spent = c.n("selfSpent"); val sl = plan - spent
+            Spacer(Modifier.height(8.dp))
+            Column(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(onClickLabel = "Open Spending", onClick = toSpending).testTag("self-open").padding(vertical = 4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Personal Expenses", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Money(if (plan > 0) maxOf(0.0, sl) else spent, MaterialTheme.typography.titleLarge, weight = FontWeight.SemiBold)
+                }
+                Text(when { plan <= 0 -> "logged this month"; sl >= 0 -> "left for you this month"; else -> "${Fmt.money(-sl)} more than planned this month" },
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (plan > 0) { Spacer(Modifier.height(6.dp)); GrowBar(minOf(1.0, spent / plan).toFloat(), x.sky) }
+            }
         }
     }
 }
