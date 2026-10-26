@@ -105,7 +105,7 @@ class ScreensTest {
         tab("More"); rule.onNodeWithTag("food-settings").performClick(); shot("$theme-sheet-food", sheet = true); closePage()
         /* Personal Expenses: the page from Settings, and the card on Today */
         tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("self-settings")); settle()
-        rule.onNodeWithTag("self-settings").performClick(); shot("$theme-sheet-self", sheet = true); closePage()
+        rule.onNodeWithTag("self-settings").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); shot("$theme-sheet-self", sheet = true); closePage()
         tab("Today"); if (runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("self-open")) }.isSuccess) shot("$theme-Today-self")
         else problems.add("$theme: no Personal Expenses card on Today")
         /* these sit further down a scrolling list, so they're drawn only when they're on screen */
