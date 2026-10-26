@@ -21,7 +21,7 @@ Work is done in small stages; each one is committed, built and tested on GitHub 
   one plain notification (summary + lines, tap opens Today). Default config until Stage 6 adds settings.
 - [x] **Stage 5b**: the bundled notification (summary + one silent row per item) with **Paid / Moved it / Got it /
   Remind me later** and Undo, sharing the tick code with Today; lock-screen privacy; unlock required for the buttons.
-- [ ] **Stage 6**: Reminders settings card (times, how often, weekend times, heads-up days, test notification).
+- [x] **Stage 6**: Reminders settings card (times, how often, weekend times, heads-up days, test notification).
 - [ ] **Stage 7**: late-reminder detection and the battery-settings help card.
 - [ ] **Stage 8**: ride-along reminders (report income, tax filing, backup, weekly balance check), then release.
 

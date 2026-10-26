@@ -71,7 +71,10 @@ object ReminderAlarm {
     fun fire(ctx: Context, intent: Intent) {
         val day = intent.getStringExtra(EXTRA_DAY); val slot = intent.getIntExtra(EXTRA_SLOT, 0); val slots = intent.getIntExtra(EXTRA_SLOTS, 1)
         val prefs = (ctx.applicationContext as LoonieApp).prefs
-        prefs.reminderFiredAt = System.currentTimeMillis()
+        val now = System.currentTimeMillis(); val due = prefs.reminderDueAt
+        prefs.reminderFiredAt = now
+        /* a phone that puts apps to sleep can hold alarms back for hours; count it so Today can explain the fix */
+        if (due > 0 && now - due > 3_600_000L) prefs.reminderLateCount = prefs.reminderLateCount + 1
         if (day != null) {
             /* a new waking day: rows still showing "Marked paid · Undo" from before are cleared */
             if (prefs.reminderShown?.substringBefore('|') != day) { prefs.reminderUndo.forEach { NotificationManagerCompat.from(ctx).cancel(childId(it)) }; prefs.reminderUndo = emptySet() }

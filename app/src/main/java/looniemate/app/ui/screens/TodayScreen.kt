@@ -100,6 +100,7 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
         if (model.isNew) { item { WelcomeCard(open) }; return@LazyColumn }
         /* asked once there's a budget to remind about, not on first launch */
         item { NotificationsCard(vm) }
+        item { LateRemindersCard(vm) }
 
         item {
             val n = model.todo.size
@@ -288,6 +289,33 @@ private fun NotificationsCard(vm: MainViewModel) {
                 else try { ctx.startActivity(looniemate.app.notify.Notifs.settingsIntent(ctx)) } catch (_: Exception) {}
             }, modifier = Modifier.testTag("notif-on")) { Text("Turn on") }
             TextButton(onClick = { vm.snoozeNotifCard() }) { Text("Not now") }
+        }
+    }
+}
+
+/**
+ * Shown when reminders have arrived more than an hour late twice: the phone is saving battery by putting LoonieMate
+ * to sleep. Explains the fix and opens the right settings. Stage 7 of docs/plans/reminders-and-updates.md.
+ */
+@Composable
+private fun LateRemindersCard(vm: MainViewModel) {
+    val late by vm.remindersLate.collectAsStateWithLifecycle()
+    if (!late) return
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val pm = ctx.getSystemService(android.os.PowerManager::class.java)
+    val unrestricted = pm?.isIgnoringBatteryOptimizations(ctx.packageName) == true
+    val samsung = android.os.Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+    SectionCard("Reminders are arriving late", Icons.Rounded.Notifications, "warn", index = 1) {
+        Text("Your phone held back LoonieMate's reminders by more than an hour. Phones do this to save battery by putting apps to sleep.", style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(8.dp))
+        Text((if (!unrestricted) "To fix it, open the settings below, tap Battery, and choose Unrestricted. " else "") +
+            (if (samsung) "On Samsung phones, also check Settings → Battery → Background usage limits, and take LoonieMate off \"Sleeping apps\" and \"Deep sleeping apps\"."
+             else if (unrestricted) "Battery is already set to Unrestricted, so your phone maker may have its own setting. dontkillmyapp.com has the steps for each brand." else ""),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Button(onClick = { try { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:" + ctx.packageName))) } catch (_: Exception) {} }) { Text("Open settings") }
+            TextButton(onClick = { vm.dismissLate() }) { Text("Got it") }
         }
     }
 }

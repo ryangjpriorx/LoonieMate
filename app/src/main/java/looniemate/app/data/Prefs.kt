@@ -104,6 +104,11 @@ class Prefs(context: Context) {
     var reminderUndo: Set<String> get() = set("remUndo"); set(v) = putSet("remUndo", v)
     var reminderChildren: Set<String> get() = set("remChildren"); set(v) = putSet("remChildren", v)
 
+    /** how many reminders arrived more than an hour late since the "reminders are late" card was last dismissed */
+    var reminderLateCount: Int
+        get() = sp.getInt("reminderLateCount", 0)
+        set(v) { sp.edit().putInt("reminderLateCount", v).apply() }
+
     /** the waking day and slot of the reminder on screen ("day|slot|slots"), so ticking things off can update it */
     var reminderShown: String?
         get() = sp.getString("reminderShown", null)

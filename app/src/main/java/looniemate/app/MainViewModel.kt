@@ -86,7 +86,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun todayStr(): String = LocalDate.now().toString()
     /** whether reminders will actually be shown; checked again each time the app comes to the front */
     val notifOk = MutableStateFlow(true)
-    fun refreshNotif() { notifOk.value = looniemate.app.notify.Notifs.enabled(getApplication()) }
+    fun refreshNotif() { notifOk.value = looniemate.app.notify.Notifs.enabled(getApplication()); remindersLate.value = prefs.remindersOn && prefs.reminderLateCount >= 2 }
+    /** reminders have arrived more than an hour late at least twice: the phone is putting LoonieMate to sleep */
+    val remindersLate = MutableStateFlow(false)
+    fun dismissLate() { prefs.reminderLateCount = 0; remindersLate.value = false }
     fun snoozeNotifCard() { prefs.notifAsked = true; prefs.notifSnoozeUntil = System.currentTimeMillis() + 30L * 86_400_000; refreshNotif(); notifTick.value++ }
     val notifTick = MutableStateFlow(0)
     /** set when the app was opened from an update notification: "update" or "install" */
