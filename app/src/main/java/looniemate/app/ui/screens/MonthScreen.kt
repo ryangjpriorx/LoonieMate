@@ -199,7 +199,11 @@ private fun PlanCard(m: MonthModel, open: (Sheet) -> Unit) {
             SumTile("Money in", c.n("spendable"), Modifier.weight(1f)); SumTile("Fixed bills", c.n("billsTotal"), Modifier.weight(1f)) }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SumTile("Food", c.n("food"), Modifier.weight(1f)); SumTile("Planned surplus", c.n("plannedSurplus"), Modifier.weight(1f), if (c.n("plannedSurplus") < 0) "bad" else "good") }
+            SumTile("Food", c.n("food"), Modifier.weight(1f))
+            if (c.n("self") > 0) SumTile("Personal Expenses", c.n("self"), Modifier.weight(1f))
+            else SumTile("Planned surplus", c.n("plannedSurplus"), Modifier.weight(1f), if (c.n("plannedSurplus") < 0) "bad" else "good") }
+        if (c.n("self") > 0) { Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { SumTile("Planned surplus", c.n("plannedSurplus"), Modifier.weight(1f), if (c.n("plannedSurplus") < 0) "bad" else "good") } }
         Spacer(Modifier.height(8.dp))
         val bg = c["byGroup"]
         Text("Adults ${Fmt.money(bg.n("adults"))} · Kids ${Fmt.money(bg.n("baby"))} · Pets ${Fmt.money(bg.n("pets"))}" + (if (c.n("otherSpent") > 0) " · Everyday and one-time spending so far ${Fmt.money(c.n("otherSpent"))}" else ""),

@@ -103,6 +103,8 @@ sealed class Sheet {
     class CatchUp(val first: Boolean) : Sheet()
     /** Make LoonieMate easier to use? [next] opens afterwards (first-time setup goes on to the getting-on-track steps). */
     class Access(val next: Sheet? = null) : Sheet()
+    /** Personal Expenses: this month and the plan (docs/plans/personal-expenses.md). */
+    object Self : Sheet()
     object Export : Sheet()
     object Import : Sheet()
 }

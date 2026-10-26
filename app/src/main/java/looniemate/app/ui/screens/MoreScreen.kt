@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.LocalCafe
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -91,6 +92,7 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
         item { AccountsCard(vm, open) }
         item { IncomeCard(vm, open) }
         item { FoodCard(vm, open) }
+        item { SelfPlanCard(vm, open) }
         item { RemindersCard(vm) }
         item {
             SectionCard("Appearance", Icons.Rounded.Palette, trailing = "Only this phone", index = 0) {
@@ -278,6 +280,21 @@ private fun FoodCard(vm: MainViewModel, open: (Sheet) -> Unit) {
             style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(10.dp))
         FilledTonalButton(onClick = { open(Sheet.Food(today.take(7))) }, modifier = Modifier.testTag("food-settings")) { Text("Change food budget") }
+    }
+}
+
+/** Personal Expenses in one line, with a way into the page where it's changed (docs/plans/personal-expenses.md). */
+@Composable
+private fun SelfPlanCard(vm: MainViewModel, open: (Sheet) -> Unit) {
+    val docs by vm.repo.docs.collectAsStateWithLifecycle()
+    val today by vm.today.collectAsStateWithLifecycle()
+    val c = Core.monthCalc(ymOf(today), Docs.toStore(docs, today), today)
+    SectionCard("Personal Expenses", Icons.Rounded.LocalCafe, "sky", index = 0) {
+        Text(if (c.n("selfPlanned") > 0) "About ${Fmt.money(c.n("selfPlanned"))} a month is set aside for each of you to spend on yourselves, after bills and food."
+            else "A little money for yourselves, planned so it doesn't come as a surprise. You never have to say what it's for.",
+            style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(10.dp))
+        FilledTonalButton(onClick = { open(Sheet.Self) }, modifier = Modifier.testTag("self-settings")) { Text(if (c.n("selfPlanned") > 0) "Change Personal Expenses" else "Set up Personal Expenses") }
     }
 }
 

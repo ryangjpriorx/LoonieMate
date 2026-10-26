@@ -48,6 +48,8 @@ class TodayModel(
     val today: String, val title: String, val isNew: Boolean, val status: Views.Status, val reminders: List<Views.Reminder>,
     val todo: List<Obj>, val incoming: List<Obj>, val food: Obj, val foodTone: String, val quick: List<Views.Quick>,
     val debts: List<Views.Debt>, val next: List<Obj>, val lastCheck: Obj?, val hasAccounts: Boolean, val readyToStart: Boolean = false,
+    /** This month's figures when Personal Expenses are planned or something was logged under it, for the Today card. */
+    val self: Obj? = null,
 )
 
 class MonthModel(
@@ -144,7 +146,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val tone = if (fp.n("spent") > fp.n("allow")) "bad" else if (fp.n("spent") > fp.n("expected") + 10) "warn" else "good"
         return TodayModel(t, titleFor(s), isNew(s, st.bills), status, Views.reminders(st, t, lastBackup), todo, incoming, fp, tone,
             Views.quickButtons(s, Docs.allExpenses(d), t), Views.debts(st, t), next, Docs.checkins(d).firstOrNull(), Core.accountsOf(s).isNotEmpty(),
-            !prefs.onboarded && Core.accountsOf(s).isNotEmpty() && Core.incomesOf(s).isNotEmpty() && st.bills.isNotEmpty())
+            !prefs.onboarded && Core.accountsOf(s).isNotEmpty() && Core.incomesOf(s).isNotEmpty() && st.bills.isNotEmpty(),
+            c.takeIf { it.n("selfPlanned") > 0 || it.n("selfSpent") > 0 })
     }
 
     /**
@@ -483,6 +486,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun saveFood(pct: Int, min: Double) = change("Food budget saved", listOf("settings/main")) { saveSettings(J.obj("foodPct" to pct, "foodMin" to min)) }
+
+/* ---------- Personal Expenses (docs/plans/personal-expenses.md): never asks what it's for ---------- */
+
+    /** One line of the Personal Expenses plan as typed: who (optional), how much, and how often (week, pay or month). */
+    data class SelfRow(val name: String = "", val amount: String = "", val per: String = "week")
+    fun selfRows(): List<SelfRow> = settings()["selfPlan"].arr().filterIsInstance<Obj>()
+        .map { SelfRow(it.s("name"), if (it.n("amount") > 0) String.format(java.util.Locale.US, "%.2f", it.n("amount")) else "", it.s("per").ifEmpty { "month" }) }
+    /** The plan to save from what was typed (blank amounts are $0 and left out), or what's wrong with it. */
+    fun readSelf(rows: List<SelfRow>): Pair<List<Obj>?, String?> {
+        val out = mutableListOf<Obj>()
+        for ((i, r) in rows.withIndex()) { val a = Views.parseMoney(r.amount) ?: continue
+            if (a.isNaN() || a < 0) return null to "${r.name.trim().ifEmpty { "Line ${i + 1}" }}: enter a dollar amount, or leave it blank."
+            if (a > 0) out.add(J.obj("name" to r.name.trim().take(30), "amount" to a, "per" to (if (r.per in listOf("week", "pay", "month")) r.per else "month"))) }
+        return out to null }
+    /** What the plan comes to in a month, with this month's paydays. */
+    fun selfMonthly(plan: List<Obj>, ym: String = ymOf(today.value)): Double =
+        Core.selfPlanFor(J.obj("selfPlan" to plan), Core.monthCalc(ym, Docs.toStore(repo.docs.value, today.value), today.value).strList("regularDays").size)
+    fun saveSelf(plan: List<Obj>) = change(if (plan.isEmpty()) "Personal Expenses turned off" else "Personal Expenses saved", listOf("settings/main")) {
+        saveSettings(J.obj("selfPlan" to plan)) }
+    /** Holds back part of this month's Personal Expenses (0 puts it back to the full amount). */
+    fun holdSelf(ym: String, amount: Double) = change(if (amount > 0) "Holding back ${Fmt.money(amount)} of Personal Expenses in ${Fmt.monthOnly(ym)}" else "Personal Expenses back to the full amount",
+        listOf("months/$ym")) { patchMonth(ym, J.obj("selfHold" to round2(maxOf(0.0, amount)))) }
 
     fun skip(ym: String, id: String, amount: Double) = change("Giving up ${Fmt.money(amount)} in ${Fmt.monthOnly(ym)}", listOf("months/$ym")) {
         patchMonth(ym, J.obj("skipped" to J.obj(id to J.obj("amount" to round2(amount))))) }

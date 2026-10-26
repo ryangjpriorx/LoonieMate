@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.LocalCafe
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
@@ -135,6 +136,7 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
                 TextButton(onClick = { open(Sheet.Food(model.today.take(7))) }, modifier = Modifier.testTag("food-open")) { Text("Food plan and settings") }
             }
         }
+        model.self?.let { c -> item { SelfCard(c, open) } }
         if (model.hasAccounts) item {
             val ck = model.lastCheck; val days = ck?.let { diffDays(it.s("date"), model.today) }
             SectionCard("Balances", Icons.Rounded.AccountBalance, "gold", trailing = when (days) { null -> "Not checked yet"; 0 -> "Checked today"; 1 -> "Checked yesterday"; else -> "Checked $days days ago" }, index = 3) {
@@ -322,13 +324,39 @@ private fun LateRemindersCard(vm: MainViewModel) {
     }
 }
 
+/**
+ * Personal Expenses this month: what's gone on it against what was planned. Honest about the number but never a
+ * telling-off: a calm colour whatever happens, and going over is said plainly, not as a warning.
+ */
+@Composable
+private fun SelfCard(c: looniemate.engine.Obj, open: (Sheet) -> Unit) {
+    val plan = c.n("self"); val spent = c.n("selfSpent"); val left = plan - spent; val (fg, _) = toneColors("sky")
+    SectionCard("Personal Expenses", Icons.Rounded.LocalCafe, "sky", trailing = Fmt.monthOnly(c.s("ym")), index = 2) {
+        FlowRow(verticalArrangement = Arrangement.Center, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Money(spent, MaterialTheme.typography.headlineLarge, countUp = true)
+            Text(if (plan > 0) "of ${Fmt.money(plan)} this month" else "this month", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterVertically))
+        }
+        if (plan > 0) { Spacer(Modifier.height(10.dp)); GrowBar(minOf(1.0, spent / plan).toFloat(), fg) }
+        Spacer(Modifier.height(6.dp))
+        Text(when {
+            plan <= 0 -> "Logged under Personal Expenses. Plan an amount for it and it's set aside each month."
+            spent == 0.0 -> "${Fmt.money(plan)} is set aside for you this month. Logging it is up to you."
+            left >= 0 -> "${Fmt.money(left)} left for you this month."
+            else -> "${Fmt.money(-left)} more than planned this month."
+        } + (if (c.n("selfHold") > 0) " ${Fmt.money(c.n("selfHold"))} is held back this month." else ""),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TextButton(onClick = { open(Sheet.Self) }, modifier = Modifier.testTag("self-open")) { Text("Personal Expenses") }
+    }
+}
+
 /** Once accounts, income and bills are set up: find where the family stands today (docs/plans/getting-on-track.md). */
 @Composable
 private fun StartHereCard(vm: MainViewModel, open: (Sheet) -> Unit) {
     val tick by vm.refreshTodayTick.collectAsStateWithLifecycle()
     if (vm.prefs.onboarded || tick < 0) return
     SectionCard("Let's find where you stand today", Icons.Rounded.AutoAwesome, "teal", index = 1) {
-        Text("You're starting partway through the month, so some money is already spent and some bills are paid. Five quick steps set your starting point from today, and show how to get to the next payday.",
+        Text("You're starting partway through the month, so some money is already spent and some bills are paid. Six quick steps set your starting point from today, and show how to get to the next payday.",
             style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -45,7 +45,7 @@ import looniemate.engine.*
 
 /**
  * Getting on track: where the family stands today, partway through a month. Steps: what's in the accounts,
- * this month so far, anything they're behind on, food so far, and where they stand until the next payday.
+ * this month so far, anything they're behind on, food so far, Personal Expenses, and where they stand until the next payday.
  * See docs/plans/getting-on-track.md. [first] is true for first-time setup (finishing marks the starting month).
  */
 @Composable
@@ -56,7 +56,7 @@ fun CatchUpSheet(vm: MainViewModel, first: Boolean, close: () -> Unit) {
     val page = LocalPage.current
     androidx.compose.runtime.LaunchedEffect(step) { page?.saved(); vm.catchUpAt = vm.today.value to step }
     androidx.activity.compose.BackHandler(enabled = step > 0) { step-- }
-    val titles = listOf("What's in your accounts right now?", "This month so far", "Anything you're behind on?", "Food so far", "Where you stand")
+    val titles = listOf("What's in your accounts right now?", "This month so far", "Anything you're behind on?", "Food so far", "Personal Expenses", "Where you stand")
     Text("Step ${step + 1} of ${titles.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     LinearProgressIndicator(progress = { (step + 1f) / titles.size }, modifier = Modifier.fillMaxWidth())
     SheetTitle(titles[step])
