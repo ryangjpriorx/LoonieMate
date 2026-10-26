@@ -55,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -133,14 +134,14 @@ fun LoonieMateApp(vm: MainViewModel) {
         bottomBar = {
             NavigationBar {
                 Tab.entries.forEach { t ->
-                    NavigationBarItem(selected = tab == t, onClick = { tab = t }, icon = { Icon(t.icon, null) }, label = { Text(t.label) })
+                    NavigationBarItem(selected = tab == t, onClick = { tab = t }, icon = { Icon(t.icon, null) }, label = { Text(t.label) }, modifier = Modifier.testTag("tab-${t.name}"))
                 }
             }
         },
         floatingActionButton = {
             when (tab) {
-                Tab.Today, Tab.Month, Tab.Spending -> ExtendedFloatingActionButton(onClick = { open(Sheet.Log()) }, icon = { Icon(Icons.Rounded.Add, null) }, text = { Text("Log spending") })
-                Tab.Bills -> ExtendedFloatingActionButton(onClick = { open(Sheet.Bill(null, vm.prefs.group)) }, icon = { Icon(Icons.Rounded.Add, null) }, text = { Text("Add bill") })
+                Tab.Today, Tab.Month, Tab.Spending -> ExtendedFloatingActionButton(onClick = { open(Sheet.Log()) }, modifier = Modifier.testTag("fab"), icon = { Icon(Icons.Rounded.Add, null) }, text = { Text("Log spending") })
+                Tab.Bills -> ExtendedFloatingActionButton(onClick = { open(Sheet.Bill(null, vm.prefs.group)) }, modifier = Modifier.testTag("fab"), icon = { Icon(Icons.Rounded.Add, null) }, text = { Text("Add bill") })
                 else -> {}
             }
         },

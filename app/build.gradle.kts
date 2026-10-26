@@ -61,6 +61,19 @@ android {
 
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
 
+    /* the screenshot test draws every screen on a simulated phone (Robolectric) */
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            all {
+                it.systemProperty("fixtures", rootProject.file("parity/fixtures.json").absolutePath)
+                it.systemProperty("screens", layout.buildDirectory.dir("screens").get().asFile.absolutePath)
+                it.maxHeapSize = "3g"
+                it.testLogging { events("passed", "failed"); showStandardStreams = true; exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
+            }
+        }
+    }
+
     /* no Google Play dependency metadata in the file; it's installed straight from GitHub */
     dependenciesInfo { includeInApk = false; includeInBundle = false }
 }
@@ -78,4 +91,10 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons)
     implementation(libs.compose.animation)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

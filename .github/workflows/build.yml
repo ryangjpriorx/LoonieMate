@@ -7,6 +7,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
@@ -41,6 +44,21 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew :app:assembleDebug --stacktrace 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
+      - name: Draw every screen
+        run: |
+          set -o pipefail
+          ./gradlew :app:testDebugUnitTest --stacktrace 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
+      - name: Publish the screenshots to the 'screens' branch
+        if: always() && github.event_name == 'push'
+        run: |
+          [ -d app/build/screens ] && [ -n "$(ls app/build/screens)" ] || exit 0
+          cd app/build/screens
+          git init -q -b screens
+          git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -q -m "Screens for ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" screens
 
       - name: Show what went wrong
         if: failure()
