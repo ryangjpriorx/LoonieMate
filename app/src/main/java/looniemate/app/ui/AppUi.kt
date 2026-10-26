@@ -125,6 +125,7 @@ fun LoonieMateApp(vm: MainViewModel) {
     val open: (Sheet) -> Unit = { sheet = it }
     val monthTabs = tab == Tab.Month || tab == Tab.Bills || tab == Tab.Spending || tab == Tab.Savings
     val shownYm = ymSel ?: vm.shownYm()
+    val big = bigText()
 
     Scaffold(
         topBar = {
@@ -136,8 +137,9 @@ fun LoonieMateApp(vm: MainViewModel) {
                             TextButton(onClick = { vm.ym.value = null }) { Text(Fmt.monthName(shownYm), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
                             IconButton(onClick = { vm.ym.value = ymAdd(shownYm, 1) }) { Icon(Icons.Rounded.ChevronRight, "Next month") }
                         } else Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(if (tab == Tab.More) "Settings" else todayModel?.title ?: "LoonieMate", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            if (tab == Tab.Today) { val days = lastBackup?.let { diffDays(it.take(10), today) }
+                            Text(if (tab == Tab.More) "Settings" else todayModel?.title ?: "LoonieMate", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            if (tab == Tab.Today && !big) { val days = lastBackup?.let { diffDays(it.take(10), today) }
                                 Text("Saved on this phone · " + when (days) { null -> "not backed up yet"; 0 -> "backed up today"; 1 -> "backed up yesterday"; else -> "backed up $days days ago" },
                                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }
@@ -152,7 +154,10 @@ fun LoonieMateApp(vm: MainViewModel) {
         bottomBar = {
             NavigationBar {
                 Tab.entries.filter { it != Tab.More }.forEach { t ->
-                    NavigationBarItem(selected = tab == t, onClick = { tab = t }, icon = { Icon(t.icon, null) }, label = { Text(t.label) }, modifier = Modifier.testTag("tab-${t.name}"))
+                    /* at large text sizes only the selected tab shows its name, on one line; the others are read out by their icon */
+                    NavigationBarItem(selected = tab == t, onClick = { tab = t }, icon = { Icon(t.icon, if (big) t.label else null) },
+                        label = { Text(t.label, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                        alwaysShowLabel = !big, modifier = Modifier.testTag("tab-${t.name}"))
                 }
             }
         },

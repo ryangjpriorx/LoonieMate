@@ -142,11 +142,14 @@ private fun AdjustCard(m: MonthModel, vm: MainViewModel, open: (Sheet) -> Unit) 
 private fun AdjustRow(l: Obj, mo: String, actions: @Composable () -> Unit) {
     val x = LocalExtra.current
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+    val big = looniemate.app.ui.bigText()
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Dot(x.group(l.s("group")))
         Column(Modifier.weight(1f)) { Text(l.s("name"), fontWeight = FontWeight.SemiBold)
-            Text("${Labels.GROUPS[l.s("group")]?.label ?: ""} · ${Fmt.money(l.n("planned"))} in $mo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        Row(verticalAlignment = Alignment.CenterVertically) { actions() }
+            Text("${Labels.GROUPS[l.s("group")]?.label ?: ""} · ${Fmt.money(l.n("planned"))} in $mo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            /* at large text sizes the buttons go under the name instead of squeezing it */
+            if (big) Row(verticalAlignment = Alignment.CenterVertically) { actions() } }
+        if (!big) Row(verticalAlignment = Alignment.CenterVertically) { actions() }
     }
 }
 

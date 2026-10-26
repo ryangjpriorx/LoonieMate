@@ -123,20 +123,28 @@ fun IconBadge(icon: ImageVector, tone: String = "accent", size: Dp = 36.dp) {
 }
 
 /** A card with a tinted top, an icon badge and a title, used on every screen. */
+/** True at large text sizes (Android's font size at 150% or more): layouts stack instead of squeezing side by side. */
+@Composable
+fun bigText(): Boolean = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.5f
+
 @Composable
 fun SectionCard(
     title: String, icon: ImageVector, tone: String = "accent", modifier: Modifier = Modifier, trailing: String? = null,
     trailingContent: (@Composable RowScope.() -> Unit)? = null, index: Int = 0, content: @Composable ColumnScope.() -> Unit,
 ) {
-    val (_, bg) = toneColors(tone); val surface = MaterialTheme.colorScheme.surfaceContainerLow
+    val (_, bg) = toneColors(tone); val surface = MaterialTheme.colorScheme.surfaceContainerLow; val big = bigText()
     Card(modifier.fillMaxWidth().enter(index), shape = MaterialTheme.shapes.large, colors = CardDefaults.cardColors(containerColor = surface)) {
         Column(Modifier.background(Brush.verticalGradient(0f to lerp(surface, bg, 0.55f), 0.35f to surface)).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconBadge(icon, tone)
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).semantics { heading() }, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                if (trailing != null) Text(trailing, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                trailingContent?.invoke(this)
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).semantics { heading() }, maxLines = if (big) 4 else 2, overflow = TextOverflow.Ellipsis)
+                if (!big) { if (trailing != null) Text(trailing, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    trailingContent?.invoke(this) }
             }
+            /* at large text sizes, what sits beside the title goes underneath it */
+            if (big && (trailing != null || trailingContent != null)) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (trailing != null) Text(trailing, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                trailingContent?.invoke(this) }
             Spacer(Modifier.height(12.dp))
             content()
         }
