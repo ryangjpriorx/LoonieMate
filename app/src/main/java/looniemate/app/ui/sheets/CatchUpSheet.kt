@@ -51,6 +51,7 @@ import looniemate.engine.*
 @Composable
 fun CatchUpSheet(vm: MainViewModel, first: Boolean, close: () -> Unit) {
     var step by remember { mutableIntStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { vm.startCatchUp(first) }
     val titles = listOf("What's in your accounts right now?", "This month so far", "Anything you're behind on?", "Food so far", "Where you stand")
     Text("Step ${step + 1} of ${titles.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     LinearProgressIndicator(progress = { (step + 1f) / titles.size }, modifier = Modifier.fillMaxWidth())
@@ -87,7 +88,7 @@ private fun BalancesStep(vm: MainViewModel, next: () -> Unit) {
 private fun SoFarStep(vm: MainViewModel, next: () -> Unit) {
     val docs by vm.repo.docs.collectAsStateWithLifecycle(); val today = vm.today.value; val ym = ymOf(today)
     val st = Docs.toStore(docs, today)
-    val bills = Core.billEvents(st, "$ym-01", today).filter { !it.t("fund") }
+    val bills = Core.billEvents(st, vm.catchUpFrom(), today).filter { !it.t("fund") }
     val c = Core.monthCalc(ym, st, today)
     val paid = c["incomes"].arr().flatMap { inc -> inc.strList("dates").filter { it <= today }.map { d -> Triple(d, inc.s("name"), inc.n("amount")) } }.sortedBy { it.first }
     Text("Tick the bills that are already paid. Anything left unticked is something you're behind on, and you'll decide what to do about it next.", style = MaterialTheme.typography.bodyMedium)
@@ -111,7 +112,7 @@ private fun SoFarStep(vm: MainViewModel, next: () -> Unit) {
 private fun BehindStep(vm: MainViewModel, next: () -> Unit) {
     val docs by vm.repo.docs.collectAsStateWithLifecycle(); val today = vm.today.value; val ym = ymOf(today)
     val st = Docs.toStore(docs, today); val s = st.settings
-    val unpaid = Core.billEvents(st, "$ym-01", addDays(today, -1)).filter { !it.t("fund") && !looniemate.app.data.Ticks.isPaid(vm.repo, it.s("ym"), it.s("key")) }
+    val unpaid = Core.billEvents(st, vm.catchUpFrom(), addDays(today, -1)).filter { !it.t("fund") && !looniemate.app.data.Ticks.isPaid(vm.repo, it.s("ym"), it.s("key")) }
     val nextMonthPay = (Core.mainPaydays(s, ymAdd(ym, 1)).firstOrNull() ?: (ymAdd(ym, 1) + "-01"))
     if (unpaid.isNotEmpty()) {
         Text("Not paid yet this month", fontWeight = FontWeight.SemiBold)

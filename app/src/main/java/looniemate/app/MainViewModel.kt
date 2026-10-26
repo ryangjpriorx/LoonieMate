@@ -382,6 +382,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             patchMonth(ym, J.obj("deferred" to J.obj(id to J.obj("date" to date, "amount" to round2(amount))))) } }
     fun catchUpPush(ym: String, id: String, date: String, amount: Double) = catchUpSplit(ym, id, date, amount)
 
+    /** First-time setup starts tracking from the 1st, so bills left unticked this month count as things to catch up on. */
+    fun startCatchUp(first: Boolean) { if (first) { val ym = ymOf(today.value); if (settings().s("trackFrom") > "$ym-01") saveSettings(J.obj("trackFrom" to "$ym-01")) } }
+
+    /** The window the steps look back over: the same one Today's overdue list and Where you stand use (21 days, since tracking began). */
+    fun catchUpFrom(): String { val t = today.value; val tf = settings().s("trackFrom"); var from = addDays(t, -21); if (isDate(tf) && from < tf) from = tf
+        val m1 = ymOf(t) + "-01"; return if (from < m1) m1 else from }
+
     /**
      * Finishing the steps: this month becomes a starting month (no savings target). First-time setup also starts
      * tracking from the 1st, so bills left unticked this month show as things to catch up on.
