@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import looniemate.app.data.Prefs
 import looniemate.engine.J
 import looniemate.engine.Json
@@ -79,7 +80,9 @@ class ScreensTest {
         tab("More"); rule.onNodeWithTag("food-settings").performClick(); shot("$theme-sheet-food", sheet = true); back()
         /* these sit further down a scrolling list, so they're drawn only when they're on screen */
         tab("More"); if (runCatching { rule.onNodeWithTag("add-income").performScrollTo().performClick() }.isSuccess) { shot("$theme-sheet-income", sheet = true); back() }
-        tab("Month"); if (runCatching { rule.onNodeWithTag("month-income").performScrollTo().performClick() }.isSuccess) { shot("$theme-sheet-month-income", sheet = true); back() }
+        tab("Month")
+        rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("month-income")); settle()
+        rule.onNodeWithTag("month-income").performClick(); shot("$theme-sheet-month-income", sheet = true); back()
         tab("More"); rule.onNodeWithTag("checkin-more").performClick(); settle()
         rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction()).fetchSemanticsNodes().indices.forEach { i -> rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[i].performScrollTo().performTextInput("${100 + i * 250}") }
         rule.onNodeWithTag("compare").performScrollTo().performClick(); shot("$theme-sheet-checkin", sheet = true); back()
