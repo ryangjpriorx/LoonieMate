@@ -58,12 +58,10 @@ const out = { generatedFrom: 'web/index.html', defaults: DEFAULTS, scenarios: []
 for (const sc of scenarios) {
   const docs = JSON.parse(JSON.stringify(sc.docs));
   /* months marked lockMe are locked with a snapshot made by the web engine, the way the app does it */
-  for (const k of Object.keys(docs)) if (docs[k] && (docs[k].lockMe || docs[k].lockOld)) {
-    const old = docs[k].lockOld; delete docs[k].lockMe; delete docs[k].lockOld; const ym = k.slice(7);
+  for (const k of Object.keys(docs)) if (docs[k] && docs[k].lockMe) {
+    delete docs[k].lockMe; const ym = k.slice(7);
     const st0 = fromDocs(Object.assign({}, docs, { [k]: Object.assign({}, docs[k], { closed: false }) }), ym + '-28');
     const snap = C.snapshot(C.monthCalc(ym, st0, ym + '-28'));
-    /* lockOld: saved the way versions before 0.9 did, under the first family's names */
-    if (old) for (const [a, b] of [['ryan', 'rentIncome'], ['ryanDate', 'rentDate'], ['ryanLeft', 'rentLeft'], ['staceyPer', 'mainPer'], ['staceyRegular', 'mainRegular']]) { snap[a] = snap[b]; delete snap[b]; }
     docs[k] = Object.assign({}, docs[k], { closed: true, closedOn: ym + '-28', snapshot: snap });
   }
   const res = {};
@@ -108,7 +106,7 @@ for (let y = 2024; y <= 2028; y++) for (const p of ['ON', 'QC', 'NS', 'BC', 'AB'
 
 const scheds = [{ type: 'monthly', day: 31 }, { type: 'monthly' }, { type: 'monthly', day: 15, shift: 'after' }, { type: 'monthly', day: 1, shift: 'none' }, { type: 'semimonthly' },
   { type: 'quarterly', months: [1, 4, 7, 10], day: 5 }, { type: 'quarterly', months: [2, 5, 8, 11], day: 27 }, { type: 'ccb' }, { type: 'cwb' }, { type: 'thirdthu' },
-  { type: 'weekly', anchor: '2026-01-02' }, { type: 'biweekly', anchor: '2026-10-26' }, { type: 'biweekly', anchor: '2027-03-19', shift: 'after' }, { type: 'lastbiz' }, { type: 'firstbiz' },
+  { type: 'weekly', anchor: '2026-01-02' }, { type: 'biweekly', anchor: '2026-10-26' }, { type: 'biweekly', anchor: '2027-03-19', shift: 'after' }, { type: 'weekly', anchor: '2027-06-04' }, { type: 'biweekly', anchor: '2026-10-30' }, { type: 'lastbiz' }, { type: 'firstbiz' },
   { type: 'odsp' }, { type: 'qc' }, { type: 'ns', slot: 1 }, { type: 'ns', slot: 2 }, { type: 'ns' }, { type: 'biweekly' }, {}];
 for (const sch of scheds) { const r = {}; for (let ym = '2025-12'; ym <= '2028-01'; ym = C.ymAdd(ym, 1)) { r[ym] = C.schedDates(sch, ym); if (C.schedEstimated(sch, ym)) r[ym + '?'] = true; } out.sched.push({ sch, dates: r }); }
 

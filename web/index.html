@@ -576,7 +576,7 @@ function rawDates(sch,ym){
   if(t==='cwb')return[1,7,10].includes(mo)?[PUBLISHED.cwb[ym]||ym+'-10']:[];
   if(t==='thirdthu')return[nthDow(y,mo,4,3)];
   if(t==='weekly'||t==='biweekly'){if(!isDate(sch.anchor))return[];const step=t==='weekly'?7:14,first=ym+'-01',last=dayIn(ym,31);
-    let k=Math.max(0,Math.ceil(diffDays(sch.anchor,first)/step)),out=[],d=addDays(sch.anchor,step*k);while(d<=last){if(d>=first)out.push(d);k++;d=addDays(sch.anchor,step*k)}return out}
+    let k=Math.ceil(diffDays(sch.anchor,first)/step),out=[],d=addDays(sch.anchor,step*k);while(d<=last){if(d>=first)out.push(d);k++;d=addDays(sch.anchor,step*k)}return out}
   return[];
 }
 /* every date a schedule pays in month ym, after moving off weekends and bank holidays */
@@ -639,9 +639,7 @@ function creditsOf(s){return(Array.isArray(s&&s.credits)?s.credits:[]).filter(x=
 function creditSched(cr){return cr.type==='other'?Object.assign({type:'monthly',day:15},cr.sched||{}):(CREDIT_TYPES[cr.type]||CREDIT_TYPES.other).sched}
 function creditName(cr){return cr.type==='other'||!CREDIT_TYPES[cr.type]?(cr.name||'Other credit'):CREDIT_TYPES[cr.type].name}
 /* month-by-month amounts: new keys, plus the older ones saved before incomes were configurable */
-/* months saved by the first version kept two incomes' amounts under their own keys; still read so old budgets keep working */
-const LEGACY_INC_KEYS={ryan:'ryan',stacey:'staceyPer'};
-const incAmtGet=id=>x=>{const i=x.income||{};if(i.amt&&i.amt[id]!=null&&i.amt[id]!=='')return i.amt[id];if(LEGACY_INC_KEYS[id])return i[LEGACY_INC_KEYS[id]]};
+const incAmtGet=id=>x=>{const i=x.income||{};if(i.amt&&i.amt[id]!=null&&i.amt[id]!=='')return i.amt[id]};
 const crAmtGet=cr=>x=>{const i=x.income||{};if(i.cr&&i.cr[cr.id]!=null&&i.cr[cr.id]!=='')return i.cr[cr.id];if(cr.type==='ccb'&&i.ccb!=null&&i.ccb!=='')return i.ccb;if(i.credits&&i.credits[cr.id]!=null&&i.credits[cr.id]!=='')return i.credits[cr.id]};
 function mainPaydays(s,ym){return incomesOf(s).filter(x=>x.role==='main').flatMap(x=>schedDates(assistSched(x),ym).filter(d=>!isDate(x.start)||d>=x.start)).sort()}
 function effectiveStart(b,s){
@@ -749,7 +747,7 @@ function monthCalc(ym,st,today){
   const paid=m.paid||{};
   const expenses=listExp(st.expenses&&st.expenses[ym]);
   const expensesLoaded=!!(st.expenses&&st.expenses[ym]);
-  if(m.closed&&m.snapshot)return Object.assign(snapNames(m.snapshot),{ym,closed:true,moved,paid,expenses,expensesLoaded});
+  if(m.closed&&m.snapshot)return Object.assign({},m.snapshot,{ym,closed:true,moved,paid,expenses,expensesLoaded});
   const n=dim(ym);
   /* incomes: each one's dates this month; extra bi-weekly or weekly paydays beyond the usual count are bonus */
   const incomes=incomesOf(s).map(src=>{const sch=assistSched(src);
@@ -855,9 +853,6 @@ function monthCalc(ym,st,today){
     spendable,plannedSurplus,net,foodH1:h1,foodH2:h2,otherSpent:other,oneTimeSpent:oneTime,byCat,foodOver,liveSurplus,target,
     selfPlanned,selfHold,self,perPaySelf,selfSpent,selfOver};
 }
-/* months locked by older versions saved these figures under the first family's names */
-const SNAP_RENAMED=[['ryan','rentIncome'],['ryanDate','rentDate'],['ryanLeft','rentLeft'],['staceyPer','mainPer'],['staceyRegular','mainRegular']];
-function snapNames(snap){const o=Object.assign({},snap);for(const[a,b]of SNAP_RENAMED)if(a in o){if(!(b in o))o[b]=o[a];delete o[a]}return o}
 function snapshot(c){const o={};for(const k in c){if(['expenses','paid','moved','expensesLoaded','closed','ym'].includes(k))continue;o[k]=c[k]}return JSON.parse(JSON.stringify(o))}
 function savingsState(st){
   const s=st.settings,funds={};

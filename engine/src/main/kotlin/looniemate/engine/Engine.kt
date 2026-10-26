@@ -101,7 +101,8 @@ object Core {
             "weekly", "biweekly" -> {
                 val anchor = sch["anchor"]; if (!isDate(anchor)) return emptyList(); val a = str(anchor)
                 val step = if (t == "weekly") 7 else 14; val first = "$ym-01"; val last = dayIn(ym, 31)
-                var k = maxOf(0, Math.ceil(diffDays(a, first).toDouble() / step).toInt()); val out = mutableListOf<String>()
+                /* the cycle runs both ways from the payday given (any real payday works); a new job's first payday is the income's start */
+                var k = Math.ceil(diffDays(a, first).toDouble() / step).toInt(); val out = mutableListOf<String>()
                 var d = addDays(a, step * k)
                 while (d <= last) { if (d >= first) out.add(d); k++; d = addDays(a, step * k) }
                 out
@@ -213,9 +214,9 @@ object Core {
     fun creditName(cr: J): String = if (cr.s("type") == "other" || CREDIT_TYPES[cr.s("type")] == null) cr.or("name", "Other credit") else CREDIT_TYPES.getValue(cr.s("type")).name
 
     private fun present(v: J?): J? = if (v != null && v != J.Null && !(v is J.S && v.v.isEmpty())) v else null
-    /** month-by-month amounts: new keys, plus the older ones saved before incomes were configurable */
+    /** month-by-month amounts (months/<ym>.income.amt[id]) */
     private fun incAmtGet(id: String): (J) -> J? = { x -> val i = x["income"] ?: Obj()
-        val a = i["amt"]?.get(id); if (truthy(i["amt"]) && present(a) != null) a else LEGACY_INC_KEYS[id]?.let { i[it] } }
+        val a = i["amt"]?.get(id); if (truthy(i["amt"]) && present(a) != null) a else null }
     private fun crAmtGet(cr: J): (J) -> J? = { x -> val i = x["income"] ?: Obj(); val id = cr.s("id")
         val c1 = i["cr"]?.get(id); val c2 = i["credits"]?.get(id)
         if (truthy(i["cr"]) && present(c1) != null) c1
@@ -385,11 +386,7 @@ object Core {
     }
 
     private val SNAP_SKIP = setOf("expenses", "paid", "moved", "expensesLoaded", "closed", "ym")
-    /** Months saved by the first version kept two incomes' amounts under their own keys; still read so old budgets keep working. */
-    private val LEGACY_INC_KEYS = mapOf("ryan" to "ryan", "stacey" to "staceyPer")
-    /** Months locked by older versions saved these figures under the first family's names (web SNAP_RENAMED). */
-    private val SNAP_RENAMED = listOf("ryan" to "rentIncome", "ryanDate" to "rentDate", "ryanLeft" to "rentLeft", "staceyPer" to "mainPer", "staceyRegular" to "mainRegular")
-    private fun snapNames(o: Obj): Obj { for ((a, b) in SNAP_RENAMED) if (o.map.containsKey(a)) { if (!o.map.containsKey(b)) o[b] = o.map[a]!!; o.map.remove(a) }; return o }
+
 
     fun monthCalc(ym: String, st: Store, today: String): Obj {
         val s = st.settings; val months = st.months; val m: Obj = months[ym] ?: Obj()
@@ -397,7 +394,7 @@ object Core {
         val paid = m["paid"].let { if (truthy(it)) it!! else Obj() }
         val expenses = listExp(st.expenses[ym]); val expensesLoaded = st.expenses.containsKey(ym)
         if (m.t("closed") && m.t("snapshot")) {
-            val o = snapNames((m["snapshot"]!!.copy() as? Obj) ?: Obj())
+            val o = (m["snapshot"]!!.copy() as? Obj) ?: Obj()
             o["ym"] = js(ym); o["closed"] = js(true); o["moved"] = moved; o["paid"] = paid; o["expenses"] = js(expenses); o["expensesLoaded"] = js(expensesLoaded)
             return o
         }

@@ -73,21 +73,18 @@ const on = {
   'months/2026-12/expenses/e6': { date: '2026-12-03', amount: 80, category: 'oneoff', note: '', oneTime: true, group: 'household', created: 7 },
 };
 
-/* 2. Ontario with a locked month and the older saved keys. The income ids 'ryan' / 'stacey' and the month keys
-   income.ryan / income.staceyPer are how the first version saved data; they stay here so old budgets keep being tested. */
+/* 2. Ontario with a locked month, older-style settings (settings.odsp, income.credits) and per-month overrides */
 const legacy = {
   'settings/main': household({ startYm: '2026-09', trackFrom: '2026-09-01', accounts: accountsON.slice(0, 3),
-    incomes: [{ id: 'ryan', name: 'ODSP', amount: 1400, sched: { type: 'odsp' }, account: 'a-rent', role: 'rent' },
-              { id: 'stacey', name: 'Pay', amount: 1100, sched: { type: 'biweekly', anchor: '2026-09-04' }, account: 'a-main', role: 'main' }],
+    incomes: [{ id: 'odsp', name: 'ODSP', amount: 1400, sched: { type: 'odsp' }, account: 'a-rent', role: 'rent' },
+              { id: 'pay', name: 'Pay', amount: 1100, sched: { type: 'biweekly', anchor: '2026-09-04' }, account: 'a-main', role: 'main' }],
     credits: [{ id: 'ccb', type: 'ccb', amount: 500, protect: true }, { id: 'gst', type: 'cgeb', amount: 80 }],
     odsp: { dis: false, spouse: true, full: false, wrb: true, lag: 0, couple: true, deps: 1 } }),
   'bills/r': { name: 'Rent', category: 'housing', amount: 1500, day: 1, account: 'a-rent' },
   'bills/h': { name: 'Heat', amount: 70, day: 10, account: 'a-main', deferrable: true },
   'bills/s': { name: 'Sub', amount: 12, day: 3, account: 'a-main', essential: false },
-  'months/2026-09': { income: { ryan: 1450, staceyPer: 1150, ccb: 520 }, closed: true },
+  'months/2026-09': { income: { amt: { odsp: 1450, pay: 1150 }, cr: { ccb: 520 } }, closed: true },
   'months/2026-10': { income: { credits: { gst: 90 } }, deferred: { h: '2026-11-06' } },
-  /* locked by an older version: gen.js saves its snapshot under the old field names, which both engines read as the new ones */
-  'months/2026-08': { lockOld: true },
 };
 { // lock September with a snapshot made by the web version itself (filled in by gen.js)
   legacy['months/2026-09'].lockMe = true;
