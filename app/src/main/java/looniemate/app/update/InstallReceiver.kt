@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageInstaller
 import androidx.core.content.IntentCompat
 import looniemate.app.LoonieApp
+import looniemate.engine.*
 
 /** Hears back from Android's installer: asks the person to confirm, or reports how it went. */
 class InstallReceiver : BroadcastReceiver() {

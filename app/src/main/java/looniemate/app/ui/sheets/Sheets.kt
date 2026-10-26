@@ -67,6 +67,7 @@ import looniemate.engine.round2
 import looniemate.engine.s
 import looniemate.engine.strList
 import looniemate.engine.ymAdd
+import looniemate.engine.*
 
 @Composable
 fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet) -> Unit) {

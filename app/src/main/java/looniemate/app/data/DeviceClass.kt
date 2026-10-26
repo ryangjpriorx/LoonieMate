@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
+import looniemate.engine.*
 
 /**
  * Decides whether a phone gets the extra visuals by default.

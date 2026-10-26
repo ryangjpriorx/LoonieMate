@@ -62,6 +62,7 @@ import looniemate.app.ui.toneColors
 import looniemate.app.ui.theme.PALETTES
 import looniemate.engine.Fmt
 import looniemate.engine.diffDays
+import looniemate.engine.*
 
 @Composable
 fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {

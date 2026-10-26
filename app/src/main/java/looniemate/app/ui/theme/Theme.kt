@@ -21,6 +21,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import looniemate.engine.*
 
 /** Colours with a meaning (good, heads-up, problem) and the colours for each group of bills. */
 @Immutable

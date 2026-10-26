@@ -62,6 +62,7 @@ import looniemate.engine.n
 import looniemate.engine.or
 import looniemate.engine.s
 import looniemate.engine.t
+import looniemate.engine.*
 
 @Composable
 fun BillsScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {

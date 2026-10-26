@@ -35,6 +35,7 @@ import looniemate.engine.Obj
 import looniemate.engine.n
 import looniemate.engine.s
 import looniemate.engine.t
+import looniemate.engine.*
 
 /** One line in Coming up / To do: money in, a money move, a bill, or a one-time expense. */
 @Composable

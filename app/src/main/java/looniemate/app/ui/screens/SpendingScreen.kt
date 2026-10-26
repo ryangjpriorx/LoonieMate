@@ -42,6 +42,7 @@ import looniemate.engine.Labels
 import looniemate.engine.Obj
 import looniemate.engine.n
 import looniemate.engine.s
+import looniemate.engine.*
 
 @Composable
 fun SpendingScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {

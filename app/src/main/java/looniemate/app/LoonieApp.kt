@@ -4,6 +4,7 @@ import android.app.Application
 import looniemate.app.data.Prefs
 import looniemate.app.data.Repository
 import looniemate.app.update.Updater
+import looniemate.engine.*
 
 class LoonieApp : Application() {
     lateinit var repo: Repository; private set

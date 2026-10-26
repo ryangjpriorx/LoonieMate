@@ -55,6 +55,7 @@ import looniemate.engine.num
 import looniemate.engine.or
 import looniemate.engine.s
 import looniemate.engine.t
+import looniemate.engine.*
 
 private class Extra(date: String, amount: String) { var date by mutableStateOf(date); var amount by mutableStateOf(amount) }
 

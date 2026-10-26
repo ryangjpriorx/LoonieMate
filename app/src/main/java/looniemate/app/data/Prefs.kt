@@ -3,6 +3,7 @@ package looniemate.app.data
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import looniemate.engine.*
 
 /** Settings for this phone only (look, effects, updates). They are not part of the budget or its backups. */
 class Prefs(context: Context) {
