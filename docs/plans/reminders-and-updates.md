@@ -16,7 +16,7 @@ Work is done in small stages; each one is committed, built and tested on GitHub 
   downloaded) opened by the notification instead of Settings; the download keeps going if the person leaves the app,
   then posts "Ready to install" with an **Install** button; ask Android to skip its own confirmation where allowed.
 - [x] **Stage 4**: reminder rules in the shared engine (what to send, when) with tests.
-- [ ] **Stage 5a**: reminder scheduling: alarms at the configured times (AlarmManager `setAndAllowWhileIdle`, no exact-alarm
+- [x] **Stage 5a**: reminder scheduling: alarms at the configured times (AlarmManager `setAndAllowWhileIdle`, no exact-alarm
   permission), rescheduled after BOOT_COMPLETED and MY_PACKAGE_REPLACED; when one fires, build `Reminders.digest` and post
   one plain notification (summary + lines, tap opens Today). Default config until Stage 6 adds settings.
 - [ ] **Stage 5b**: the bundled notification (summary + one silent row per item) with **Paid / Moved it / Got it /
@@ -41,6 +41,12 @@ Work is done in small stages; each one is committed, built and tested on GitHub 
   The manifest declares `UPDATE_PACKAGES_WITHOUT_USER_ACTION`; the session already asks `USER_ACTION_NOT_REQUIRED`.
 - Stage 4: `engine/.../Reminders.kt` (`Config`, `wakingDay`, `headsUpDay`, `digest`, `summary`, `padLine`) with
   `RemindersTest`. Item keys are the same `key`/`ym` that Today's ticks use (`months/<ym>.paid[key]`, `.moves[key]`).
+- Stage 5a: `notify/ReminderAlarm.kt` (`next`, `schedule`, `fire`, `refreshShown`, notification id 1) and
+  `ReminderReceiver` (alarm, boot, app update, clock change). Settings live in `Prefs` (`remindersOn`, `reminderTimes`
+  as minutes "510,1140", `reminderWeekendTimes`, `padDays`, `movesEveningBefore`, `reminderConfig()`), plus
+  `reminderDueAt` / `reminderFiredAt` for Stage 7 and `reminderShown` ("day|slot|slots"). `MainViewModel.change` and
+  `undo` call `refreshShown`. Tests: `app/src/test/.../ReminderAlarmTest.kt`. For 5b, replace the single InboxStyle
+  notification in `ReminderAlarm.post` with a group (summary id 1 + child per item) and action receivers.
 - Nothing here is released yet. The next release goes out after Stage 8 (or sooner if you ask).
 
 ## Update notifications
