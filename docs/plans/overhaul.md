@@ -274,7 +274,7 @@ Each stage from 2 on does the Android app first, then the web version, unless it
 - [x] **Stage 2**: engine, web first then Kotlin, parity tested: Take out cash (dates, one trip a day, food in cash,
   ATM limits with days or a second account, rounding to the ATM's bills, tellers, round-up to avoid coins), and
   `Views.todo(st, today)`: one list of every To do item with its kind, so both versions build To do the same way.
-- [ ] **Stage 3**: shared pieces: the row (tap, long-press or ⋯ menu, TalkBack actions, tick), the action menu, the
+- [x] **Stage 3**: shared pieces: the row (tap, long-press or ⋯ menu, TalkBack actions, tick), the action menu, the
   motion rules, settings pages; navigation (tabs, the floating button, the month switcher in the page); Settings as a
   list; the account page's ATM settings.
 - [ ] **Stage 4**: Today.
@@ -301,6 +301,17 @@ Each stage from 2 on does the Android app first, then the web version, unless it
 5. **1.0.0** only on the developer's explicit say-so, after his own testing.
 
 ## Notes for picking up
+
+- Stage 3 (done): `ui/Menu.kt` (`MenuItem`, `MenuRow`: tap, long-press menu with a buzz, the same items as TalkBack
+  actions; `TickButton`). `Motion` timings and `LocalScreen` / `SeenScreens` in Components.kt (cards fade in once per
+  screen per session; `rememberCountUp` and `GrowBar` / `ProgressRing` glide only on change; no pulse; still top line).
+  AppUi: pages are a stack (`StackSaver`, `rememberSaveableStateHolder`, `open` / `close` / `replace`), tab fade,
+  floating button by tab and collapsed once scrolled (`lists` of LazyListState), `MonthSwitcher` inside Month and
+  Spending; Bills and Savings build for the current month. Settings: `MoreScreen` is the grouped list
+  (`SettingsRow`, `GroupHeading`), `Sheet.Settings(section)` → `SettingsPage`; cards double as pages via `CardOrBare`.
+  Family income is on the Household page. Rows: `EventRow` (tick, tap to open, `billMenu`-style menus, `MoveDialog`,
+  `cashNotes`), `ExpenseRow` (menu, no bin), `QuickButton` + `quickMenu`, accounts and funds rows. Accounts:
+  `MainViewModel.AtmSettings` on `saveAccount`. Web: `atmFields` on its Accounts tab (row menus come with Stage 4).
 
 - Stage 2 (done): `Core.moneyMoves` (both engines) gives cash taken out `cash: true` with `src`, `items` ([{name, amount, key,
   ym}] of the bills it's for), `arrive`, `latest`, `atm` (rounded to the ATM's bills), `extra`, `fromHand` (cash on hand

@@ -2147,6 +2147,15 @@ function incomeSetup(){const s=settings(),dis=S.readOnly?'disabled':'';return as
      ${S.readOnly?'':`<div class="daterow" style="margin-top:10px"><select id="new-crd" aria-label="Benefit to add">${Object.entries(C.CREDIT_TYPES).filter(([k,v])=>s.showAllProv||!v.prov||v.prov===(s.province||'ON')).map(([k,v])=>`<option value="${k}">${esc(v.name)}</option>`).join('')}</select><button class="btn" data-act="add-crd">Add</button></div>`}</section>
 `}
 function mkF(dis){return(id,label,val,type,hint,extra)=>`<div class="field"><label for="${id}">${label}</label>${type==='money'?`<div class="money"><input id="${id}" inputmode="decimal" value="${esc(val)}" data-set="${id.slice(4)}" data-type="money" ${dis}></div>`:`<input id="${id}" type="${type}" value="${esc(val)}" data-set="${id.slice(4)}" data-type="${type}" ${extra||''} ${dis}>`}${hint?`<span class="hint">${hint}</span>`:''}</div>`}
+/* taking out cash: the ATM's daily limit and bills, tellers, and what to do over the limit (docs/plans/overhaul.md) */
+function atmFields(a,i,dis){const others=accts().filter(o=>o.id!==a.id&&(o.type==='chequing'||o.type==='prepaid'));
+  return`<fieldset style="border:0;padding:0;margin:0"><legend class="flabel" style="margin-bottom:6px">Taking out cash</legend>
+   <div class="fgrid"><div class="field"><label for="acc-lim-${i}">Daily ATM limit (optional)</label><div class="money"><input id="acc-lim-${i}" inputmode="decimal" value="${a.atmLimit?esc(a.atmLimit):''}" data-acc="${esc(a.id)}" data-accf="atmLimit" ${dis}></div><span class="hint">Check your banking app; it's often $500 or $1,000.</span></div>
+   <div class="field"><label for="acc-notes-${i}">Bills the ATM gives out</label><select id="acc-notes-${i}" data-acc="${esc(a.id)}" data-accf="atmNotes" ${dis}>${opts([['20','$20 bills'],['10','$10s and $20s'],['5','$5s and up']],String(a.atmNotes||20))}</select></div></div>
+   <label class="small" style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" data-acc="${esc(a.id)}" data-accf="tellers" ${a.tellers!==false?'checked':''} ${dis}> Branches with tellers <span class="muted">(untick for an online bank like Simplii or Tangerine)</span></label>
+   ${a.atmLimit?`<div class="fgrid" style="margin-top:6px"><div class="field"><label for="acc-over-${i}">When the cash is more than the limit</label><select id="acc-over-${i}" data-acc="${esc(a.id)}" data-accf="atmOver" ${dis}>${opts([['days','Go back each day'],['split','Use another account too']],a.atmOver==='split'?'split':'days')}</select></div>
+     ${a.atmOver==='split'?`<div class="field"><label for="acc-also-${i}">Take the rest from</label><select id="acc-also-${i}" data-acc="${esc(a.id)}" data-accf="atmAlso" ${dis}>${opts([['','Pick an account']].concat(others.map(o=>[o.id,o.name])),a.atmAlso||'')}</select></div>`:''}</div>`:''}
+   </fieldset>`}
 function vAccounts(){const s=settings(),dis=S.readOnly?'disabled':'',ck=lastCheckin(),today=todayStr();
   return`<div class="view">
    <section class="card"><div class="card-h"><div class="ttl">${ico('bank')}<h2>Balances</h2></div><button class="btn sm primary" data-act="checkin">Check my balances</button></div>
@@ -2161,6 +2170,7 @@ function vAccounts(){const s=settings(),dis=S.readOnly?'disabled':'',ck=lastChec
        <div class="fgrid"><div class="field"><label for="acc-name-${i}">Name</label><input id="acc-name-${i}" type="text" maxlength="40" value="${esc(a.name)}" data-acc="${esc(a.id)}" data-accf="name" ${dis}></div>
        <div class="field"><label for="acc-type-${i}">Type</label><select id="acc-type-${i}" data-acc="${esc(a.id)}" data-accf="type" ${dis}>${opts(ACCT_TYPES,a.type)}</select></div></div>
        ${a.type==='savings'?`<div class="field"><label for="acc-kind-${i}">Kind of savings account</label><select id="acc-kind-${i}" data-acc="${esc(a.id)}" data-accf="kind" ${dis}>${opts(SAV_KINDS,a.kind||'hisa')}</select><span class="hint">TFSAs, RDSPs and RESPs get extra help on the Savings tab.</span></div>`:''}
+       ${a.type==='chequing'||a.type==='prepaid'?atmFields(a,i,dis):''}
        <fieldset style="border:0;padding:0;margin:0" ${a.type==='savings'?'hidden':''}><legend class="flabel" style="margin-bottom:6px">What it's for</legend><div class="chips">
        ${PURPOSES.map(([k,l])=>`<label><input type="checkbox" data-acc="${esc(a.id)}" data-accp="${k}" ${(a.purposes||[]).includes(k)?'checked':''} ${dis}><span>${l}</span></label>`).join('')}</div></fieldset>
        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span class="small muted">${used?`Used by ${used} bill${used>1?'s':''}`:'Not used by any bills'}</span>${S.readOnly?'':`<button class="btn sm ghost danger" data-act="del-acct" data-acct="${esc(a.id)}">Remove account</button>`}</div></div></details>`}).join('')||'<div class="empty">No accounts yet. Add the accounts you use.</div>'}</div></section>
@@ -2736,7 +2746,14 @@ main.addEventListener('change',async e=>{
     if(el.dataset.accp){const k=el.dataset.accp;
       if(el.checked){if(!t.purposes.includes(k))t.purposes.push(k);if(k!=='savings')list.forEach(o=>{if(o!==t&&o.purposes.includes(k)&&k!=='savings')o.purposes=o.purposes.filter(x=>x!==k)})}
       else t.purposes=t.purposes.filter(x=>x!==k)}
-    else{const f=el.dataset.accf;let v=el.value;if(f==='name'){v=v.trim();if(!v)return}t[f]=v}
+    else{const f=el.dataset.accf;let v=el.value;if(f==='name'){v=v.trim();if(!v)return}
+      /* taking out cash (docs/plans/overhaul.md): the same fields the app saves */
+      if(f==='atmLimit'){const m=parseMoney(v);if(Number.isNaN(m)||m!=null&&m<0){toast('Enter the daily ATM limit in dollars, or leave it blank.',true);return}if(m)t.atmLimit=m;else{delete t.atmLimit;delete t.atmOver;delete t.atmAlso}}
+      else if(f==='atmNotes')t.atmNotes=+v||20;
+      else if(f==='tellers')t.tellers=el.checked;
+      else if(f==='atmOver'){t.atmOver=v==='split'?'split':'days';if(v!=='split')delete t.atmAlso}
+      else if(f==='atmAlso'){if(v)t.atmAlso=v;else delete t.atmAlso}
+      else t[f]=v}
     await saveSettings({accounts:list});toast('Saved');return}
   if(el.dataset.ded){const sid=el.dataset.sid,k=el.dataset.ded,s0=settings(),list=C.incomesOf(s0).map(x=>Object.assign({},x));const t=list.find(x=>x.id===sid);if(!t)return;
     const cfg=Object.assign({},C.dedCfg(s0,t));
