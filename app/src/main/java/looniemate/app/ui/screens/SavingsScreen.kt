@@ -183,13 +183,14 @@ private fun ProgramsCard(p: SavingsViews.Programs) {
         p.asset?.let { a ->
             Spacer(Modifier.height(10.dp))
             Text("${a.short} asset limit", fontWeight = FontWeight.SemiBold)
-            if (a.counted == null) Muted("Do a balance check on the Today screen to see how close you are to the ${a.short} asset limit.")
+            val counted = a.counted
+            if (counted == null) Muted("Do a balance check on the Today screen to see how close you are to the ${a.short} asset limit.")
             else {
                 Muted("From your balance check on ${Fmt.dShort(a.checkDate ?: "")}")
                 Spacer(Modifier.height(4.dp))
                 GrowBar((a.pct / 100).toFloat(), if (a.pct >= 90) x.bad else if (a.pct >= 75) x.warn else x.good)
                 Spacer(Modifier.height(4.dp))
-                Muted("Counted: ${Fmt.money(a.counted)} of ${fmt0(a.limit)} · " + (if (a.short == "ODSP") "RDSPs and RESPs aren't counted" else "RDSPs and RESPs left out; check with your worker"))
+                Muted("Counted: ${Fmt.money(counted)} of ${fmt0(a.limit)} · " + (if (a.short == "ODSP") "RDSPs and RESPs aren't counted" else "RDSPs and RESPs left out; check with your worker"))
                 if (a.pct >= 75) Text("Getting close to the limit. Money in an RDSP doesn't count, if someone qualifies.", style = MaterialTheme.typography.bodySmall, color = toneColors("bad").first)
             }
         }
