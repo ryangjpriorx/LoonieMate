@@ -43,8 +43,8 @@ GitHub before the next, and released when a group of fixes is worth updating for
 - [x] **Stage 0**: this plan.
 - [x] **Stage 1**: the audit; findings written below (2026-10-26).
 - [x] **Stage 2**: must-fix batch(es). M1, M2 done; released in 0.9.0.
-- [x] **Stage 3**: should-fix batches. S1–S6 released in 0.9.0; the nice-to-haves and W gaps done on branch `polish-1-settings`.
-- [x] **Stage 4**: polish pass (branch `polish-1-settings`, not released yet). README screenshots refresh when it's merged to main.
+- [x] **Stage 3**: should-fix batches. S1–S6 released in 0.9.0; the nice-to-haves and W gaps released in 0.12.0.
+- [x] **Stage 4**: polish pass. Released in 0.12.0 (with steps 1–3: the W gaps and nice-to-haves).
 
 ## Findings
 
