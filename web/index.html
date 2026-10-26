@@ -544,6 +544,8 @@ const sum=a=>round2(a.reduce((t,x)=>t+num(x),0));
 const QMONTHS=[1,4,7,10];
 /* an amount from saved data, never below $0: the forms refuse negatives, and imported or synced data can't sneak one in */
 const amt=x=>Math.max(0,num(x&&x.amount));
+/* a bill's amount: a cash bill within $2 of the next $5 can be rounded up to avoid coins (bills/<id>.cashRound, the person's choice) */
+const bAmt=b=>{const a=amt(b);if(b&&b.method==='Cash'&&b.cashRound===true){const up=Math.ceil(round2(a)/5-1e-9)*5;if(up>a&&up-a<=2+1e-9)return up}return a};
 const FOOD=new Set(['groceries','takeout']);
 /* Personal Expenses (docs/plans/personal-expenses.md): settings.selfPlan is a list of things bought for yourself,
    [{name,amount,times,per:'day'|'week'|'month'|'pay'}] ("a $3 coffee, 5 times a week"); together they give a monthly amount
@@ -701,9 +703,9 @@ function billPlanForMonth(b,ym,s){
   if(b.freq==='quarterly'||b.freq==='yearly'){
     const st=effectiveStart(b,s);
     const on=(!st||st<=last)&&(!isDate(b.end)||b.end>=first);
-    return{amount:on?round2(amt(b)/(b.freq==='quarterly'?3:12)):0,dates,setAside:true};
+    return{amount:on?round2(bAmt(b)/(b.freq==='quarterly'?3:12)):0,dates,setAside:true};
   }
-  return{amount:round2(amt(b)*dates.length),dates};
+  return{amount:round2(bAmt(b)*dates.length),dates};
 }
 /* Month-by-month value that carries forward: this month's entry, else the most recent earlier month's, else the default.
    Later months never change earlier ones. */
@@ -748,12 +750,12 @@ function billEvents(st,from,to){
   const s=st.settings,out=[];
   for(const [id,b] of Object.entries(st.bills||{})){if(!b||b.active===false)continue;
     const left={};
-    for(const d of billDates(b,from,to,s)){const ym=ymOf(d);let am=round2(amt(b));
+    for(const d of billDates(b,from,to,s)){const ym=ymOf(d);let am=round2(bAmt(b));
       const red=isDeferred(st,b,id,ym)?getDef(st.months[ym],id):isSkipped(st,b,id,ym)?getSkip(st.months[ym],id):null;
       if(red){if(red.amount==null)continue;
         if(left[ym]==null){/* take the skipped or deferred part from the month's earliest payments first */
           const all=billDates(b,ym+'-01',dayIn(ym,31),s);let rem=red.amount;left[ym]={};
-          for(const x of all){const cut=Math.min(rem,amt(b));left[ym][x]=round2(amt(b)-cut);rem=round2(rem-cut)}}
+          for(const x of all){const cut=Math.min(rem,bAmt(b));left[ym][x]=round2(bAmt(b)-cut);rem=round2(rem-cut)}}
         am=left[ym][d]!=null?left[ym][d]:am;if(am<=0.004)continue}
       out.push({id,key:id+'@'+d,date:d,ym,name:b.name||'Bill',amount:am,group:b.group||'adults',account:b.account||'',acct:acctId(s,b.account),method:b.method||'',fund:b.fund||'',example:!!b.example})}}
   for(let ym=ymOf(from);ym<=ymOf(to);ym=ymAdd(ym,1))for(const l of deferredIn(st,ym)){const d=l.dates[0];if(d>=from&&d<=to)out.push({id:l.billId,key:l.billId+'@'+d+'~d',date:d,ym,name:l.name,amount:l.amount,group:l.group,account:l.account,acct:acctId(s,l.account),method:l.method,fund:(st.bills[l.billId]||{}).fund||'',deferredFrom:l.deferredFrom})}
@@ -909,22 +911,35 @@ function moneyMoves(st,from,to){
   const everyday=(acctFor(s,'everyday')||{}).id||'';
   const cashAcct=(A.find(a=>a.type==='cash')||{}).id||'';
   const acctOf=ref=>acctId(s,ref)||main;
-  const add=(date,fromId,toId,amount,why,kind)=>{amount=round2(amount);if(!(amount>0.004&&date>=from&&date<=to))return;
+  const toCash=(toId,kind)=>!kind&&(acctById(s,toId)||{}).type==='cash';
+  const add=(date,fromId,toId,amount,why,kind)=>{amount=round2(amount);if(!(amount>0.004&&date&&(toCash(toId,kind)||date>=from&&date<=to)))return;
     const fk=kind?kind.replace('-out',''):'',out=!!kind&&kind.endsWith('-out'),toFund=!!kind&&!out;
     const fCode=FUNDCODE[fk]||('f'+fk.slice(0,20));
     const cFrom=out?fCode:fromId,cTo=toFund?fCode:toId;
     if(!cFrom||!cTo||cFrom===cTo)return;
-    raw.push({date,code:cFrom+'-'+cTo,from:out?F(fk).name:nm(fromId),to:toFund?F(fk).name:nm(toId),fromAcct:out?nm(F(fk).account):'',toAcct:toFund?nm(F(fk).account):'',amount,why,sav:kind||''})};
+    const r={date,code:cFrom+'-'+cTo,from:out?F(fk).name:nm(fromId),to:toFund?F(fk).name:nm(toId),fromAcct:out?nm(F(fk).account):'',toAcct:toFund?nm(F(fk).account):'',amount,why,sav:kind||''};
+    /* money into a "Cash on hand" account is cash taken out of the bank */
+    if(toCash(toId,kind))Object.assign(r,{cash:true,src:fromId,items:[],arrive:date,latest:date});
+    raw.push(r)};
+  /* cash for bills paid in cash, taken out of the account that pays them */
+  const addCash=(date,src,amount,name,arrive,due)=>{amount=round2(amount);if(!(amount>0.004&&date)||!src||src===cashAcct)return;
+    raw.push({date,code:src+'-'+(cashAcct||'cash'),from:nm(src),to:cashAcct?nm(cashAcct):'Cash',fromAcct:'',toAcct:'',amount,why:'',sav:'',cash:true,src,items:[{name,amount}],arrive:arrive||date,latest:due})};
+  const mc={},calc=ym=>mc[ym]||(mc[ym]=monthCalc(ym,st,from));
+  /* the latest day on or before [due] that money lands in [src]: a main payday (the main account funds the others then) or income paid into it */
+  const arrive=(src,due)=>{let best=null;for(const ym of[ymAdd(ymOf(due),-1),ymOf(due)]){const c=calc(ym),ds=(c.paydays||[]).slice();
+    for(const inc of c.incomes||[])if(acctOf(inc.account)===src)ds.push(...inc.dates);
+    for(const cr of c.credits||[])if(acctOf(cr.account)===src)ds.push(...cr.dates);
+    for(const d of ds)if(d<=due&&(!best||d>best))best=d}return best};
   const paysAround=ym=>mainPaydays(s,ymAdd(ym,-1)).concat(mainPaydays(s,ym));
   const lastPayOnOrBefore=(d)=>{const ps=paysAround(ymOf(d)).filter(p=>p<=d);return ps.length?ps[ps.length-1]:null};
   const why=id=>{const a=acctById(s,id)||{},p=a.purposes||[];return p.includes('online')?'Online bills and subscriptions due before next payday':a.type==='cash'?'Cash bills before next payday':'Bills paid from '+(a.name||'this account')+' before next payday'};
   for(let ym=ymAdd(ymOf(from),-1);ym<=ymAdd(ymOf(to),1);ym=ymAdd(ym,1)){
-    const c=monthCalc(ym,st,from),first=ym+'-01',last=dayIn(ym,31);
+    const c=calc(ym),first=ym+'-01',last=dayIn(ym,31);
     const all=billEvents(st,first,last),ev=all.filter(x=>!x.fund);
     /* bills that pay into a savings fund become moves into that fund */
     all.filter(x=>x.fund).forEach(x=>add(x.date,x.acct||main,'',x.amount,x.name,x.fund));
-    /* cash bills: withdraw from the account that pays them */
-    if(cashAcct)ev.filter(x=>x.method==='Cash'&&x.acct&&x.acct!==cashAcct).forEach(x=>add(x.date,x.acct,cashAcct,x.amount,'Withdraw cash for '+x.name));
+    /* cash bills: take the cash out the day before it's due (ATMs work every day), but not before the money that pays for it is there */
+    ev.filter(x=>x.method==='Cash').forEach(x=>{const src=x.acct||main,p=arrive(src,x.date);let d=addDays(x.date,-1);if(p&&p>d)d=p;addCash(d,src,x.amount,x.name,p,x.date)});
     /* any account that receives income (other than the main account) pays its own bills first; the rest goes to the main account, or the main account tops it up */
     const ins={};
     for(const inc of c.incomes||[]){const a=acctOf(inc.account);if(a===main)continue;for(const d of inc.regular.concat(inc.bonusDates))(ins[a]=ins[a]||[]).push({date:d,amount:inc.amount,name:inc.name})}
@@ -956,11 +971,47 @@ function moneyMoves(st,from,to){
       add(c.ccbDate,pa,'',c.ccbChild,'Child benefits (protected)','child');
       add(c.ccbDate,pa,'',c.ccbToEm,'Your share of the child benefits for Emergency Savings','emergency')}
   }
-  const map=new Map();
-  for(const r of raw){const k=r.code+'@'+r.date;
-    if(map.has(k)){const m=map.get(k);m.amount=round2(m.amount+r.amount);m.why+=' · '+r.why}else map.set(k,Object.assign({key:k,ym:ymOf(r.date)},r))}
-  return[...map.values()].map(m=>{const mm=(st.months||{})[m.ym]||{};m.done=!!(mm.moves&&mm.moves[m.key]);return m});
+  const merge=list=>{const map=new Map();
+    for(const r of list){const k=r.code+'@'+r.date;
+      if(map.has(k)){const m=map.get(k);m.amount=round2(m.amount+r.amount);if(r.why)m.why=m.why?m.why+' · '+r.why:r.why;
+        if(r.cash){m.items=m.items.concat(r.items);if(r.arrive>m.arrive)m.arrive=r.arrive;if(r.latest<m.latest)m.latest=r.latest;if(r.atm!=null)m.atm=round2(m.atm+r.atm)}}
+      else map.set(k,Object.assign({key:k,ym:ymOf(r.date)},r,r.cash?{items:r.items.slice()}:{}))}
+    return[...map.values()]};
+  /* cash taken out: rounding up to the ATM's bills leaves a little cash on hand, which the next trip that month uses first */
+  const merged=merge(raw),parts=new Map(),carry={};
+  merged.filter(m=>m.cash).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.code<b.code?-1:a.code>b.code?1:0).forEach(m=>{
+    if(m.items.length)m.why=['Cash for '+m.items.map(x=>x.name).join(', '),m.why].filter(Boolean).join(' · ');
+    const r=atmParts(s,m,carry[m.ym]||0);carry[m.ym]=r.carry;parts.set(m.key,r.parts)});
+  const out=[];for(const m of merged)out.push(...(m.cash?parts.get(m.key):[m]));
+  return merge(out).filter(m=>m.date>=from&&m.date<=to).map(m=>{const mm=(st.months||{})[m.ym]||{};m.done=!!(mm.moves&&mm.moves[m.key]);return m});
 }
+/* What an account's ATM can do (settings.accounts[]): the bills it gives out (atmNotes: 20, 10 or 5), a daily limit (atmLimit),
+   whether the bank has tellers (tellers:false for an online bank), and what to do over the limit (atmOver: days | split, atmAlso). */
+function atmOf(s,id){const a=acctById(s,id)||{},n=[5,10,20].indexOf(num(a.atmNotes))>=0?num(a.atmNotes):20,L0=num(a.atmLimit);
+  return{n,L:L0>0?Math.max(n,Math.floor(L0/n+1e-9)*n):0,tellers:a.tellers!==false,over:a.atmOver==='days'||a.atmOver==='split'?a.atmOver:'',also:a.atmAlso||''}}
+/* Cash taken out at the ATM: rounded up to the bills it gives, the coins an exact amount would need (online banks only),
+   and, over the daily limit, spread over the days before (from when the money is there) or partly from a second account. */
+function atmParts(s,m,hand){const c=atmOf(s,m.src),A=round2(m.amount),fromHand=round2(Math.min(Math.max(0,hand),A)),need=round2(A-fromHand);
+  if(need<=0.004)return{parts:[],carry:round2(hand-A)};
+  const atm=round2(Math.ceil(need/c.n-1e-9)*c.n),carry=round2(hand+atm-A);
+  const five=round2(A-Math.floor(A/5+1e-9)*5),coins=c.tellers?0:round2(Math.round(five*20)/20);
+  const base=x=>Object.assign({},m,{cash:true,notes:c.n,teller:c.tellers,coins,fromHand},x);
+  const done=list=>({parts:list,carry});
+  if(!c.L||atm<=c.L)return done([base({atm,extra:round2(atm-need)})]);
+  if(c.over==='split'&&c.also&&c.also!==m.src&&acctById(s,c.also)){const cb=atmOf(s,c.also),restAtm=round2(atm-c.L),fromB=cb.L?Math.min(restAtm,cb.L):restAtm;
+    const restA=round2(need-c.L),nb=(acctById(s,c.also)||{}).name||'';
+    return done([base({amount:c.L,atm:c.L,extra:0,coins:0,split:nb}),
+      {date:m.date,code:m.src+'-'+c.also,from:m.from,to:nb,fromAcct:'',toAcct:'',amount:Math.max(0,restA),why:'So the rest of the cash can come out of '+nb+"'s ATM",sav:'',key:m.src+'-'+c.also+'@'+m.date,ym:m.ym},
+      base({code:c.also+'-'+m.code.slice(m.src.length+1),src:c.also,from:nb,amount:Math.max(0,restA),atm:fromB,extra:round2(fromB-restA>0?fromB-restA:0),overBy:round2(restAtm-fromB),notes:cb.n,teller:cb.tellers,
+        key:c.also+'-'+m.code.slice(m.src.length+1)+'@'+m.date})])}
+  const k=Math.ceil(atm/c.L-1e-9),start=m.arrive&&m.arrive>addDays(m.date,-(k-1))?m.arrive:addDays(m.date,-(k-1));
+  /* back from the day it's taken out to when the money is there; if that's not enough days, the due day itself too */
+  const days=[];for(let d=start;d<=m.date;d=addDays(d,1))days.push(d);
+  for(let d=addDays(m.date,1);days.length<k&&m.latest&&d<=m.latest;d=addDays(d,1))days.push(d);
+  const parts=[];let leftAtm=atm,leftA=need;
+  days.forEach((d,i)=>{const lastOne=i===days.length-1,pa=lastOne?leftAtm:c.L,pA=lastOne?leftA:Math.min(c.L,leftA);leftAtm=round2(leftAtm-pa);leftA=round2(leftA-pA);
+    parts.push(base({date:d,ym:ymOf(d),key:m.code+'@'+d,amount:round2(pA),atm:round2(pa),extra:lastOne?round2(pa-pA):0,overBy:lastOne?round2(Math.max(0,pa-c.L)):0,part:i+1,parts:days.length,ask:!c.over}))});
+  return done(parts)}
 function upcoming(st,today,days,labelOf){
   const s=st.settings,end=addDays(today,days);
   let from=addDays(today,-21);if(isDate(s.trackFrom)&&from<s.trackFrom)from=s.trackFrom;
@@ -1074,7 +1125,7 @@ function foodPeriod(c,today,s){
   const spent=first?c.foodH1:c.foodH2,left=round2(allow-spent),daysLeft=len-idx+1;
   return{half:first?1:2,allow,spent,left,target:round2(allow/len),expected:round2(allow*idx/len),daysLeft,perDay:round2(Math.max(0,left)/Math.max(1,daysLeft)),end:first?ym+'-15':dayIn(ym,31),len};
 }
-root.Core={SELF,selfPlanFor,selfItemMonthly,pad,num,round2,ymd,parse,ymOf,ymAdd,dim,addDays,diffDays,dayIn,isYm,isDate,sum,billDates,billPlanForMonth,resolve,listExp,monthCalc,snapshot,savingsState,targetsThrough,projection,upcoming,foodPeriod,FOOD,billEvents,moneyMoves,startingMonth,runway,debtInfo,debtParts,ASSIST,assistOf,assistSched,dedCfg,countsAs,inRange,fundsOf,fundOf,holidaysOf,isBiz,schedDates,schedEstimated,CREDIT_TYPES,incomesOf,creditsOf,creditSched,creditName,mainPaydays,accountsOf,acctById,acctId,acctFor};
+root.Core={SELF,bAmt,atmOf,atmParts,selfPlanFor,selfItemMonthly,pad,num,round2,ymd,parse,ymOf,ymAdd,dim,addDays,diffDays,dayIn,isYm,isDate,sum,billDates,billPlanForMonth,resolve,listExp,monthCalc,snapshot,savingsState,targetsThrough,projection,upcoming,foodPeriod,FOOD,billEvents,moneyMoves,startingMonth,runway,debtInfo,debtParts,ASSIST,assistOf,assistSched,dedCfg,countsAs,inRange,fundsOf,fundOf,holidaysOf,isBiz,schedDates,schedEstimated,CREDIT_TYPES,incomesOf,creditsOf,creditSched,creditName,mainPaydays,accountsOf,acctById,acctId,acctFor};
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 
@@ -1434,7 +1485,7 @@ function vOverview(){
     let h='';if(e.date!==lastD){lastD=e.date;h+=`<div class="dayhead ${e.date===today?'today':''}">${e.overdue?'Past due · ':''}${relDay(e.date,today)}</div>`}
     if(e.kind==='in')return h+`<div class="row"><span class="gdot ${e.protect?'protect':'in'}"></span><div><div class="nm">${esc(e.name)}</div><div class="meta">${esc(e.note||'')}</div></div><div class="amt"><span class="num plus">+${fmt(e.amount)}</span></div></div>`;
     if(e.kind==='move'){const sav=e.sav||'';
-      return h+`<div class="row ${e.overdue?'overdue':''}"><span class="gdot move" aria-hidden="true">→</span><div><div class="nm">Move ${fmt(e.amount)} to ${esc(e.to)}${e.toAcct?` <span class="muted small">(${esc(e.toAcct)})</span>`:''}</div><div class="meta">From ${esc(e.from)}${e.fromAcct?' ('+esc(e.fromAcct)+')':''} · ${esc(e.why)}</div></div>
+      return h+`<div class="row ${e.overdue?'overdue':''}"><span class="gdot move" aria-hidden="true">→</span><div><div class="nm">${moveTitle(e)}</div><div class="meta">From ${esc(e.from)}${e.fromAcct?' ('+esc(e.fromAcct)+')':''} · ${esc(e.why)}</div></div>
       <div class="amt"><button class="paidbtn ${e.done?'on':''}" data-act="move-done" data-ym="${e.ym}" data-key="${esc(e.key)}" data-sav="${sav}" data-amt="${e.amount}" aria-pressed="${e.done}" aria-label="${e.done?'Done':'Mark done'}: move ${esc(fmt(e.amount))} to ${esc(e.to||'')}">${e.done?'✓ Done':'Mark done'}</button></div></div>`}
     if(e.kind==='oneoff')return h+`<div class="row"><span class="gdot ${esc(e.group)}"></span><div><div class="nm">${esc(e.name)}</div><div class="meta">One-time · ${esc(OGROUPS[e.group]||'')}${e.account?' · '+esc(e.account):''}</div></div><div class="amt"><span class="num">${fmt(e.amount)}</span></div></div>`;
     return h+`<div class="row ${e.overdue?'overdue':''}"><span class="gdot ${esc(e.group)}"></span><div><div class="nm">${esc(e.name)} ${e.example?'<span class="pill ex">Example</span>':''}${e.deferredFrom?` <span class="pill warn">Deferred from ${monthShort(e.deferredFrom)}</span>`:''}</div><div class="meta">${esc(GROUPS[e.group]?GROUPS[e.group].l:'')}${e.account?' · '+esc(acctName(e.account)):''}${e.method?' · '+esc(shortMethod(e.method)):''}</div></div>
@@ -1526,7 +1577,7 @@ function vToday(){
   const todo=up.filter(e=>(e.kind==='bill'&&!e.paid&&e.date<=today)||(e.kind==='move'&&!e.done&&e.date<=today));
   const incoming=up.filter(e=>e.kind==='in'&&e.date===today);
   const next=up.filter(e=>e.date>today&&(e.kind!=='bill'||!e.paid)).slice(0,6);
-  const row=e=>{if(e.kind==='move')return`<div class="row ${e.overdue?'overdue':''}"><span class="gdot move" aria-hidden="true">→</span><div><div class="nm">Move ${fmt(e.amount)} to ${esc(e.to)}${e.toAcct?` <span class="muted small">(${esc(e.toAcct)})</span>`:''}</div><div class="meta">From ${esc(e.from)}${e.fromAcct?' ('+esc(e.fromAcct)+')':''}${e.overdue?' · from '+dShort(e.date):''}</div></div>
+  const row=e=>{if(e.kind==='move')return`<div class="row ${e.overdue?'overdue':''}"><span class="gdot move" aria-hidden="true">→</span><div><div class="nm">${moveTitle(e)}</div><div class="meta">From ${esc(e.from)}${e.fromAcct?' ('+esc(e.fromAcct)+')':''}${e.overdue?' · from '+dShort(e.date):''}</div></div>
       <div class="amt"><button class="paidbtn" data-act="move-done" data-ym="${e.ym}" data-key="${esc(e.key)}" data-sav="${e.sav||''}" data-amt="${e.amount}">Mark done</button></div></div>`;
     return`<div class="row ${e.overdue?'overdue':''}"><span class="gdot ${esc(e.group)}"></span><div><div class="nm">${esc(e.name)}</div><div class="meta">${e.overdue?'Was due '+dShort(e.date)+' · ':''}${esc(acctName(e.account)||'')}${e.method?' · '+esc(shortMethod(e.method)):''}</div></div>
       <div class="amt"><span class="num">${fmt(e.amount)}</span><button class="paidbtn" data-act="paid" data-ym="${e.ym}" data-key="${esc(e.key)}" aria-label="Mark paid: ${esc(e.name)}, ${esc(fmt(e.amount))}">Mark paid</button></div></div>`};
@@ -1551,7 +1602,7 @@ function vToday(){
    </div>
    <section class="card"><div class="card-h"><div class="ttl">${ico('wallet','amber')}<h2>Log spending</h2></div><span class="small muted">One tap logs it for today</span></div>${quickRow()}</section>
    ${debtCard(T,today)}
-   ${next.length?`<section class="card"><div class="card-h"><div class="ttl">${ico('cal')}<h2>Next few days</h2></div></div><div class="list">${next.map(e=>`<div class="row"><span class="gdot ${e.kind==='in'?(e.protect?'protect':'in'):e.kind==='move'?'move':esc(e.group||'')}" ${e.kind==='move'?'aria-hidden="true"':''}>${e.kind==='move'?'→':''}</span><div><div class="nm">${e.kind==='move'?'Move '+fmt(e.amount)+' to '+esc(e.to):esc(e.name)}</div><div class="meta">${dLabel(e.date)}</div></div><div class="amt"><span class="num ${e.kind==='in'?'plus':''}">${e.kind==='move'?'':(e.kind==='in'?'+':'')+fmt(e.amount)}</span></div></div>`).join('')}</div></section>`:''}
+   ${next.length?`<section class="card"><div class="card-h"><div class="ttl">${ico('cal')}<h2>Next few days</h2></div></div><div class="list">${next.map(e=>`<div class="row"><span class="gdot ${e.kind==='in'?(e.protect?'protect':'in'):e.kind==='move'?'move':esc(e.group||'')}" ${e.kind==='move'?'aria-hidden="true"':''}>${e.kind==='move'?'→':''}</span><div><div class="nm">${e.kind==='move'?moveTitle(e):esc(e.name)}</div><div class="meta">${dLabel(e.date)}</div></div><div class="amt"><span class="num ${e.kind==='in'?'plus':''}">${e.kind==='move'?'':(e.kind==='in'?'+':'')+fmt(e.amount)}</span></div></div>`).join('')}</div></section>`:''}
   </div>`;
 }
 /* what the day-to-day accounts should hold now, starting from the last check-in */
@@ -1601,6 +1652,8 @@ function checkinSheet(){
 }
 
 function lastCheckin(){const list=Object.values(S.checkins||{}).filter(x=>x&&isDate(x.date)).sort((a,b)=>a.date<b.date?1:-1);return list[0]||null}
+/* a money move's title: cash taken out of the bank reads as such (docs/plans/overhaul.md, cash and the ATM) */
+function moveTitle(e){return e.cash?`Take out ${fmt(e.atm)} cash${e.parts>1?` <span class="muted small">(${e.part} of ${e.parts})</span>`:''}`:`Move ${fmt(e.amount)} to ${esc(e.to)}${e.toAcct?` <span class="muted small">(${esc(e.toAcct)})</span>`:''}`}
 function isNew(){return!C.incomesOf(settings()).length&&!Object.keys(S.bills).length&&!C.accountsOf(settings()).length}
 function welcomeCard(){
   const steps=[['Name your household','Who\'s in it, so spending can be tagged by person.','Household'],['Add your bank accounts','Chequing, savings, prepaid cards and cash, and what each is for.','Accounts','accounts'],

@@ -156,6 +156,35 @@ const odspEi = {
   'bills/rent': { name: 'Rent', category: 'housing', amount: 1300, day: 1, account: 'm' },
 };
 
+/* 9. Cash and the ATM (docs/plans/overhaul.md): an online bank with no tellers and a $1,000 limit that uses a second
+   account for the rest, food money kept as cash on hand, a bill rounded up to avoid coins, and one that's too far to round */
+const cashA = {
+  'settings/main': household({ startYm: '2026-11', trackFrom: '2026-11-01',
+    accounts: [{ id: 'tg', name: 'Tangerine', type: 'chequing', purposes: ['main', 'rent'], atmLimit: 1000, atmNotes: 20, tellers: false, atmOver: 'split', atmAlso: 'sp' },
+               { id: 'sp', name: 'Simplii', type: 'chequing', purposes: [], atmLimit: 500, atmNotes: 10, tellers: false },
+               { id: 'box', name: 'Cash jar', type: 'cash', purposes: ['everyday'] }],
+    incomes: [{ id: 'od', name: 'ODSP', amount: 1520, assist: 'odsp', sched: { type: 'odsp' }, account: 'tg', role: 'rent', ded: {} },
+              { id: 'pay', name: 'Paycheque', amount: 980, kind: 'pay', sched: { type: 'biweekly', anchor: '2026-11-06' }, account: 'tg', role: 'main', odsp: 'spouse' }] }),
+  'bills/rent': { name: 'Rent', category: 'housing', amount: 1453, day: 1, account: 'tg', method: 'Cash' },
+  'bills/sit': { name: 'Babysitter', category: 'other', amount: 38, freq: 'weekly', anchor: '2026-11-07', account: 'tg', method: 'Cash', cashRound: true },
+  'bills/park': { name: 'Parking', category: 'other', amount: 37.5, day: 1, account: 'tg', method: 'Cash', cashRound: true },
+  'bills/odd': { name: 'Not cash', category: 'other', amount: 38, day: 9, account: 'tg', method: 'Debit card', cashRound: true },
+  'bills/phone': { name: 'Phone', category: 'phone', amount: 55, day: 24, account: 'tg', method: 'Pre-authorized debit (PAD)' },
+};
+/* 10. A bank with tellers, a $500 limit and no choice made yet (asks), cash bills from an account with no "Cash on hand" account,
+   and a limit that runs out of days before the money arrives */
+const cashB = {
+  'settings/main': household({ startYm: '2026-11', trackFrom: '2026-11-01',
+    accounts: [{ id: 'm', name: 'Main', type: 'chequing', purposes: ['main', 'everyday'], atmLimit: 500 },
+               { id: 'r', name: 'Rent account', type: 'chequing', purposes: ['rent'], atmLimit: '450', atmNotes: '10', atmOver: 'days' }],
+    incomes: [{ id: 'ow', name: 'Ontario Works', amount: 1250, assist: 'ow', sched: { type: 'odsp' }, account: 'r', role: 'rent', ded: {} },
+              { id: 'pay', name: 'Paycheque', amount: 700, kind: 'pay', sched: { type: 'biweekly', anchor: '2026-11-13' }, account: 'm', role: 'main' }] }),
+  'bills/rent': { name: 'Rent', category: 'housing', amount: 1180.35, day: 1, account: 'r', method: 'Cash' },
+  'bills/lunch': { name: 'Lunch money', category: 'other', amount: 25, freq: 'weekly', anchor: '2026-11-02', account: 'm', method: 'Cash' },
+  'bills/tutor': { name: 'Tutor', category: 'other', amount: 760, day: 20, account: 'm', method: 'Cash' },
+  'bills/sports': { name: 'Hockey', category: 'other', amount: 40, day: 20, account: 'm', method: 'Cash', cashRound: false },
+};
+
 module.exports = [
   { name: 'ontario', docs: on, todays: ['2026-10-25', '2026-11-16', '2026-12-31', '2027-03-15'] },
   { name: 'legacy-locked', docs: legacy, todays: ['2026-10-05', '2026-11-30'] },
@@ -165,4 +194,6 @@ module.exports = [
   { name: 'ontario-starting', docs: onStart, todays: ['2026-11-16', '2026-12-31'] },
   { name: 'ontario-works', docs: ow, todays: ['2026-11-20', '2026-12-31', '2027-01-16'] },
   { name: 'odsp-ei', docs: odspEi, todays: ['2026-11-05', '2027-01-02', '2027-02-10'] },
+  { name: 'cash-online-bank', docs: cashA, todays: ['2026-11-03', '2026-11-27'] },
+  { name: 'cash-tellers', docs: cashB, todays: ['2026-11-12', '2026-11-29'] },
 ];

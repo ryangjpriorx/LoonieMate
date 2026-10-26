@@ -65,7 +65,8 @@ fun EventRow(e: Obj, settings: J, vm: MainViewModel, showDate: Boolean = false, 
             else -> Dot(x.group(e.s("group")))
         }
         Column(Modifier.weight(1f)) {
-            val title = when (kind) { "move" -> "Move ${Fmt.money(e.n("amount"))} to ${e.s("to")}" + (if (e.s("toAcct").isNotEmpty()) " (${e.s("toAcct")})" else ""); else -> e.s("name") }
+            val title = when { e.t("cash") -> "Take out ${Fmt.money(e.n("atm"))} cash" + (if (e.n("parts") > 1) " (${e.n("part").toInt()} of ${e.n("parts").toInt()})" else "")
+                kind == "move" -> "Move ${Fmt.money(e.n("amount"))} to ${e.s("to")}" + (if (e.s("toAcct").isNotEmpty()) " (${e.s("toAcct")})" else ""); else -> e.s("name") }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = if (e.t("overdue")) x.bad else cs.onSurface, modifier = Modifier.weight(1f, fill = false))
                 if (e.t("example")) Pill("Example", "warn")
@@ -107,7 +108,7 @@ fun EventList(list: List<Obj>, today: String, settings: J, vm: MainViewModel) {
 fun spokenRow(e: Obj, acct: (String) -> String): String {
     val date = Fmt.dLabel(e.s("date")); val amt = Fmt.money(e.n("amount"))
     return when (e.s("kind")) {
-        "move" -> listOf("Move $amt to ${e.s("to")}", "from ${e.s("from")}", "on $date", e.s("why"), if (e.t("done")) "done" else "not done")
+        "move" -> listOf(if (e.t("cash")) "Take out ${Fmt.money(e.n("atm"))} cash" else "Move $amt to ${e.s("to")}", "from ${e.s("from")}", "on $date", e.s("why"), if (e.t("done")) "done" else "not done")
         "in" -> listOf("Money in: ${e.s("name")}", "plus $amt", "on $date", e.s("note"))
         "oneoff" -> listOf("One-time expense: ${e.s("name")}", amt, "on $date")
         else -> listOf(e.s("name"), amt, if (e.t("overdue")) "overdue since $date" else "due $date", Labels.GROUPS[e.s("group")]?.label ?: "", acct(e.s("account")),

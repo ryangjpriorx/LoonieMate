@@ -36,6 +36,10 @@ data class Skip(val amount: Double?)
 object Core {
     /** An amount from saved data, never below $0: the forms refuse negatives, and imported or synced data can't sneak one in (web amt). */
     fun amt(x: J?): Double = maxOf(0.0, x.n("amount"))
+    /** A bill's amount: a cash bill within $2 of the next $5 can be rounded up to avoid coins (bills/<id>.cashRound, the person's choice). */
+    fun bAmt(b: J?): Double { val a = amt(b)
+        if (b != null && b.s("method") == "Cash" && b["cashRound"] == J.B(true)) { val up = Math.ceil(round2(a) / 5 - 1e-9) * 5; if (up > a && up - a <= 2 + 1e-9) return up }
+        return a }
     val FOOD = setOf("groceries", "takeout")
     /** Personal Expenses (docs/plans/personal-expenses.md): spending logged under this category counts against the planned amount. */
     const val SELF = "self"
@@ -289,9 +293,9 @@ object Core {
         if (f == "quarterly" || f == "yearly") {
             val st = effectiveStart(b, s)
             val on = (st == null || st <= last) && (!isDate(b["end"]) || b.s("end") >= first)
-            return Plan(if (on) round2(amt(b) / (if (f == "quarterly") 3 else 12)) else 0.0, dates, true)
+            return Plan(if (on) round2(bAmt(b) / (if (f == "quarterly") 3 else 12)) else 0.0, dates, true)
         }
-        return Plan(round2(amt(b) * dates.size), dates)
+        return Plan(round2(bAmt(b) * dates.size), dates)
     }
 
     /** Month-by-month value that carries forward; later months never change earlier ones. */
@@ -375,7 +379,7 @@ object Core {
             if (b["active"].isFalse()) continue
             val left = HashMap<String, HashMap<String, Double>>()
             for (d in billDates(b, from, to, s)) {
-                val ym = ymOf(d); var am = round2(amt(b))
+                val ym = ymOf(d); var am = round2(bAmt(b))
                 val redAmt: Double?; val hasRed: Boolean
                 if (isDeferred(st, b, id, ym)) { hasRed = true; redAmt = getDef(st.months[ym], id)!!.amount }
                 else if (isSkipped(st, b, id, ym)) { hasRed = true; redAmt = getSkip(st.months[ym], id)!!.amount }
@@ -384,7 +388,7 @@ object Core {
                     if (redAmt == null) continue
                     if (left[ym] == null) { /* take the skipped or deferred part from the month's earliest payments first */
                         val all = billDates(b, "$ym-01", dayIn(ym, 31), s); var rem: Double = redAmt; val mp = HashMap<String, Double>(); left[ym] = mp
-                        for (x in all) { val cut = minOf(rem, amt(b)); mp[x] = round2(amt(b) - cut); rem = round2(rem - cut) }
+                        for (x in all) { val cut = minOf(rem, bAmt(b)); mp[x] = round2(bAmt(b) - cut); rem = round2(rem - cut) }
                     }
                     am = left[ym]!![d] ?: am; if (am <= 0.004) continue
                 }
@@ -590,27 +594,46 @@ object Core {
         val main = acctFor(s, "main")?.s("id") ?: ""; val everyday = acctFor(s, "everyday")?.s("id") ?: ""
         val cashAcct = A.find { it.s("type") == "cash" }?.s("id") ?: ""
         fun acctOf(ref: String): String = acctId(s, ref).ifEmpty { main }
+        fun toCash(toId: String, kind: String) = kind.isEmpty() && acctById(s, toId)?.s("type") == "cash"
         fun add(date: String?, fromId: String, toId: String, amount0: Double, why: String, kind: String = "") {
-            val amount = round2(amount0); if (date == null || !(amount > 0.004 && date >= from && date <= to)) return
+            val amount = round2(amount0); if (date == null || date.isEmpty() || !(amount > 0.004 && (toCash(toId, kind) || (date >= from && date <= to)))) return
             val fk = if (kind.isNotEmpty()) kind.replaceFirst("-out", "") else ""; val out = kind.isNotEmpty() && kind.endsWith("-out"); val toFund = kind.isNotEmpty() && !out
             val fCode = FUNDCODE[fk] ?: ("f" + fk.take(20))
             val cFrom = if (out) fCode else fromId; val cTo = if (toFund) fCode else toId
             if (cFrom.isEmpty() || cTo.isEmpty() || cFrom == cTo) return
-            raw.add(J.obj("date" to date, "code" to "$cFrom-$cTo", "from" to (if (out) fundOf(s, fk).s("name") else nm(fromId)), "to" to (if (toFund) fundOf(s, fk).s("name") else nm(toId)),
-                "fromAcct" to (if (out) nm(fundOf(s, fk).s("account")) else ""), "toAcct" to (if (toFund) nm(fundOf(s, fk).s("account")) else ""), "amount" to amount, "why" to why, "sav" to kind))
+            val r = J.obj("date" to date, "code" to "$cFrom-$cTo", "from" to (if (out) fundOf(s, fk).s("name") else nm(fromId)), "to" to (if (toFund) fundOf(s, fk).s("name") else nm(toId)),
+                "fromAcct" to (if (out) nm(fundOf(s, fk).s("account")) else ""), "toAcct" to (if (toFund) nm(fundOf(s, fk).s("account")) else ""), "amount" to amount, "why" to why, "sav" to kind)
+            /* money into a "Cash on hand" account is cash taken out of the bank */
+            if (toCash(toId, kind)) { r["cash"] = J.B(true); r["src"] = J.S(fromId); r["items"] = J.A(); r["arrive"] = J.S(date); r["latest"] = J.S(date) }
+            raw.add(r)
         }
+        /* cash for bills paid in cash, taken out of the account that pays them */
+        fun addCash(date: String, src: String, amount0: Double, name: String, arrive: String?, due: String) {
+            val amount = round2(amount0); if (!(amount > 0.004 && date.isNotEmpty()) || src.isEmpty() || src == cashAcct) return
+            raw.add(J.obj("date" to date, "code" to src + "-" + cashAcct.ifEmpty { "cash" }, "from" to nm(src), "to" to (if (cashAcct.isNotEmpty()) nm(cashAcct) else "Cash"), "fromAcct" to "", "toAcct" to "",
+                "amount" to amount, "why" to "", "sav" to "", "cash" to true, "src" to src, "items" to listOf(J.obj("name" to name, "amount" to amount)), "arrive" to (arrive ?: date), "latest" to due))
+        }
+        val mc = HashMap<String, Obj>(); fun calc(ym: String): Obj = mc.getOrPut(ym) { monthCalc(ym, st, from) }
+        /* the latest day on or before [due] that money lands in [src]: a main payday (the main account funds the others then) or income paid into it */
+        fun arrive(src: String, due: String): String? { var best: String? = null
+            for (ym in listOf(ymAdd(ymOf(due), -1), ymOf(due))) { val c = calc(ym); val ds = c.strList("paydays").toMutableList()
+                for (inc in c["incomes"].arr()) if (acctOf(inc.s("account")) == src) ds.addAll(inc.strList("dates"))
+                for (cr in c["credits"].arr()) if (acctOf(cr.s("account")) == src) ds.addAll(cr.strList("dates"))
+                for (d in ds) if (d <= due && (best == null || d > best!!)) best = d }
+            return best }
         fun paysAround(ym: String) = mainPaydays(s, ymAdd(ym, -1)) + mainPaydays(s, ym)
         fun lastPayOnOrBefore(d: String): String? = paysAround(ymOf(d)).filter { it <= d }.lastOrNull()
         fun why(id: String): String { val a = acctById(s, id); val p = a?.get("purposes").arr().map { str(it) }
             return if (p.contains("online")) "Online bills and subscriptions due before next payday" else if (a.s("type") == "cash") "Cash bills before next payday" else "Bills paid from " + (a.or("name", "this account")) + " before next payday" }
         var ym = ymAdd(ymOf(from), -1)
         while (ym <= ymAdd(ymOf(to), 1)) {
-            val c = monthCalc(ym, st, from); val first = "$ym-01"; val last = dayIn(ym, 31)
+            val c = calc(ym); val first = "$ym-01"; val last = dayIn(ym, 31)
             val all = billEvents(st, first, last); val ev = all.filter { !it.t("fund") }
             /* bills that pay into a savings fund become moves into that fund */
             all.filter { it.t("fund") }.forEach { x -> add(x.s("date"), x.s("acct").ifEmpty { main }, "", x.n("amount"), x.s("name"), x.s("fund")) }
-            /* cash bills: withdraw from the account that pays them */
-            if (cashAcct.isNotEmpty()) ev.filter { it.s("method") == "Cash" && it.t("acct") && it.s("acct") != cashAcct }.forEach { x -> add(x.s("date"), x.s("acct"), cashAcct, x.n("amount"), "Withdraw cash for " + x.s("name")) }
+            /* cash bills: take the cash out the day before it's due (ATMs work every day), but not before the money that pays for it is there */
+            ev.filter { it.s("method") == "Cash" }.forEach { x -> val src = x.s("acct").ifEmpty { main }; val p = arrive(src, x.s("date")); var d = addDays(x.s("date"), -1)
+                if (p != null && p > d) d = p; addCash(d, src, x.n("amount"), x.s("name"), p, x.s("date")) }
             /* any account that receives income (other than the main account) pays its own bills first */
             class In(val date: String, val amount: Double, val name: String)
             val ins = LinkedHashMap<String, MutableList<In>>()
@@ -648,11 +671,62 @@ object Core {
                 add(c.s("ccbDate"), pa, "", c.n("ccbToEm"), "Your share of the child benefits for Emergency Savings", "emergency") }
             ym = ymAdd(ym, 1)
         }
-        val map = LinkedHashMap<String, Obj>()
-        for (r in raw) { val k = r.s("code") + "@" + r.s("date"); val m = map[k]
-            if (m != null) { m["amount"] = js(round2(m.n("amount") + r.n("amount"))); m["why"] = js(m.s("why") + " · " + r.s("why")) }
-            else map[k] = J.obj("key" to k, "ym" to ymOf(r.s("date"))).also { o -> r.map.forEach { (kk, v) -> o[kk] = v } } }
-        return map.values.map { m -> val mm = st.months[m.s("ym")]; m["done"] = js(mm != null && truthy(mm["moves"]?.get(m.s("key")))); m }
+        fun merge(list: List<Obj>): List<Obj> { val map = LinkedHashMap<String, Obj>()
+            for (r in list) { val k = r.s("code") + "@" + r.s("date"); val m = map[k]
+                if (m != null) { m["amount"] = js(round2(m.n("amount") + r.n("amount")))
+                    if (r.s("why").isNotEmpty()) m["why"] = js(if (m.s("why").isNotEmpty()) m.s("why") + " · " + r.s("why") else r.s("why"))
+                    if (r.t("cash")) { m["items"] = J.A((m["items"].arr() + r["items"].arr()).toMutableList()); if (r.s("arrive") > m.s("arrive")) m["arrive"] = r["arrive"]!!
+                        if (r.s("latest") < m.s("latest")) m["latest"] = r["latest"]!!; if (r["atm"] != null && r["atm"] != J.Null) m["atm"] = js(round2(m.n("atm") + r.n("atm"))) } }
+                else map[k] = J.obj("key" to k, "ym" to ymOf(r.s("date"))).also { o -> r.map.forEach { (kk, v) -> o[kk] = v }; if (r.t("cash")) o["items"] = J.A(r["items"].arr().toMutableList()) } }
+            return map.values.toList() }
+        /* cash taken out: rounding up to the ATM's bills leaves a little cash on hand, which the next trip that month uses first */
+        val merged = merge(raw); val parts = HashMap<String, List<Obj>>(); val carry = HashMap<String, Double>()
+        merged.filter { it.t("cash") }.sortedWith(compareBy<Obj> { it.s("date") }.thenBy { it.s("code") }).forEach { m ->
+            if (m["items"].arr().isNotEmpty()) m["why"] = js(listOf("Cash for " + m["items"].arr().joinToString(", ") { it.s("name") }, m.s("why")).filter { it.isNotEmpty() }.joinToString(" · "))
+            val r = atmParts(s, m, carry[m.s("ym")] ?: 0.0); carry[m.s("ym")] = r.second; parts[m.s("key")] = r.first }
+        val out = mutableListOf<Obj>(); for (m in merged) out.addAll(if (m.t("cash")) parts[m.s("key")] ?: emptyList() else listOf(m))
+        return merge(out).filter { it.s("date") >= from && it.s("date") <= to }.map { m -> val mm = st.months[m.s("ym")]; m["done"] = js(mm != null && truthy(mm["moves"]?.get(m.s("key")))); m }
+    }
+
+    /** What an account's ATM can do (settings.accounts[]): the bills it gives out (atmNotes: 20, 10 or 5), a daily limit (atmLimit),
+     *  whether the bank has tellers (tellers: false for an online bank), and what to do over the limit (atmOver: days | split, atmAlso). */
+    class Atm(val n: Double, val L: Double, val tellers: Boolean, val over: String, val also: String)
+    fun atmOf(s: J, id: String?): Atm { val a = acctById(s, id); val nv = num(a?.get("atmNotes")); val n = if (nv == 5.0 || nv == 10.0 || nv == 20.0) nv else 20.0; val L0 = num(a?.get("atmLimit"))
+        val ov = a.s("atmOver")
+        return Atm(n, if (L0 > 0) maxOf(n, Math.floor(L0 / n + 1e-9) * n) else 0.0, a?.get("tellers") != J.B(false), if (ov == "days" || ov == "split") ov else "", a.s("atmAlso")) }
+
+    /** Cash taken out at the ATM: rounded up to the bills it gives, the coins an exact amount would need (online banks only), and, over
+     *  the daily limit, spread over the days before (from when the money is there) or partly from a second account. Returns the parts and
+     *  the cash left on hand afterwards. */
+    fun atmParts(s: J, m: Obj, hand: Double): Pair<List<Obj>, Double> {
+        val c = atmOf(s, m.s("src")); val A = round2(m.n("amount")); val fromHand = round2(minOf(maxOf(0.0, hand), A)); val need = round2(A - fromHand)
+        if (need <= 0.004) return emptyList<Obj>() to round2(hand - A)
+        val atm = round2(Math.ceil(need / c.n - 1e-9) * c.n); val carry = round2(hand + atm - A)
+        val five = round2(A - Math.floor(A / 5 + 1e-9) * 5); val coins = if (c.tellers) 0.0 else round2(Math.round(five * 20).toDouble() / 20)
+        fun base(vararg x: Pair<String, Any?>): Obj { val o = m.copy() as Obj; o["cash"] = J.B(true); o["notes"] = J.N(c.n); o["teller"] = J.B(c.tellers); o["coins"] = J.N(coins); o["fromHand"] = J.N(fromHand)
+            for ((k, v) in x) o[k] = J.of(v); return o }
+        if (c.L <= 0 || atm <= c.L) return listOf(base("atm" to atm, "extra" to round2(atm - need))) to carry
+        val also = acctById(s, c.also)
+        if (c.over == "split" && c.also.isNotEmpty() && c.also != m.s("src") && also != null) {
+            val cb = atmOf(s, c.also); val restAtm = round2(atm - c.L); val fromB = if (cb.L > 0) minOf(restAtm, cb.L) else restAtm
+            val restA = round2(need - c.L); val nb = also.s("name"); val tail = m.s("code").drop(m.s("src").length + 1)
+            return listOf(base("amount" to c.L, "atm" to c.L, "extra" to 0.0, "coins" to 0.0, "split" to nb),
+                J.obj("date" to m.s("date"), "code" to m.s("src") + "-" + c.also, "from" to m.s("from"), "to" to nb, "fromAcct" to "", "toAcct" to "", "amount" to maxOf(0.0, restA),
+                    "why" to "So the rest of the cash can come out of $nb's ATM", "sav" to "", "key" to m.s("src") + "-" + c.also + "@" + m.s("date"), "ym" to m.s("ym")),
+                base("code" to c.also + "-" + tail, "src" to c.also, "from" to nb, "amount" to maxOf(0.0, restA), "atm" to fromB, "extra" to round2(if (fromB - restA > 0) fromB - restA else 0.0),
+                    "overBy" to round2(restAtm - fromB), "notes" to cb.n, "teller" to cb.tellers, "key" to c.also + "-" + tail + "@" + m.s("date"))) to carry
+        }
+        val k = Math.ceil(atm / c.L - 1e-9).toInt(); val back = addDays(m.s("date"), -(k - 1))
+        val start = if (m.s("arrive").isNotEmpty() && m.s("arrive") > back) m.s("arrive") else back
+        /* back from the day it's taken out to when the money is there; if that's not enough days, the due day itself too */
+        val days = mutableListOf<String>(); var d = start; while (d <= m.s("date")) { days.add(d); d = addDays(d, 1) }
+        d = addDays(m.s("date"), 1); while (days.size < k && m.s("latest").isNotEmpty() && d <= m.s("latest")) { days.add(d); d = addDays(d, 1) }
+        val parts = mutableListOf<Obj>(); var leftAtm = atm; var leftA = need
+        days.forEachIndexed { i, dd -> val lastOne = i == days.size - 1; val pa = if (lastOne) leftAtm else c.L; val pA = if (lastOne) leftA else minOf(c.L, leftA)
+            leftAtm = round2(leftAtm - pa); leftA = round2(leftA - pA)
+            parts.add(base("date" to dd, "ym" to ymOf(dd), "key" to m.s("code") + "@" + dd, "amount" to round2(pA), "atm" to round2(pa), "extra" to (if (lastOne) round2(pa - pA) else 0.0),
+                "overBy" to (if (lastOne) round2(maxOf(0.0, pa - c.L)) else 0.0), "part" to i + 1, "parts" to days.size, "ask" to c.over.isEmpty())) }
+        return parts to carry
     }
 
     fun upcoming(st: Store, today: String, days: Int, labelOf: ((Obj) -> String)? = null): List<Obj> {
