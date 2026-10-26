@@ -273,9 +273,9 @@ private fun NotificationsCard(vm: MainViewModel) {
     val ask = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { vm.refreshNotif() }
     if (ok || System.currentTimeMillis() < vm.prefs.notifSnoozeUntil || tick < 0) return
     val asked = vm.prefs.notifAsked
-    SectionCard(if (asked) "Notifications are off" else "Get a heads-up", Icons.Rounded.Notifications, if (asked) "warn" else "accent", index = 1) {
-        Text(if (asked) "You won't get reminders to pay bills or move money, or hear about new versions of LoonieMate."
-            else "LoonieMate can remind you on days a bill needs paying or money needs moving, and tell you when there's a new version. Only when something needs doing, at times you choose.",
+    SectionCard(if (asked) "Notifications are off" else "Hear about updates", Icons.Rounded.Notifications, if (asked) "warn" else "accent", index = 1) {
+        Text(if (asked) "You won't hear about new versions of LoonieMate until you open it."
+            else "LoonieMate can tell you when there's a new version, so updates reach you without checking. Once per version, nothing else.",
             style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

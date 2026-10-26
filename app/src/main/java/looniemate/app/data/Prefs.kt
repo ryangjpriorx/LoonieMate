@@ -68,8 +68,9 @@ class Prefs(context: Context) {
         set(v) { sp.edit().putInt("notifiedVersion", v).apply() }
 
     /* ---- reminders (Stage 6 adds the settings card; until then these are the defaults) ---- */
+    /** off by default until the Reminders settings card exists (Stage 6); then the default becomes true */
     var remindersOn: Boolean
-        get() = sp.getBoolean("remindersOn", true)
+        get() = sp.getBoolean("remindersOn", false)
         set(v) { sp.edit().putBoolean("remindersOn", v).apply() }
     /** minutes after midnight, comma separated, first reminder first */
     var reminderTimes: String

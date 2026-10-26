@@ -47,7 +47,9 @@ Work is done in small stages; each one is committed, built and tested on GitHub 
   `reminderDueAt` / `reminderFiredAt` for Stage 7 and `reminderShown` ("day|slot|slots"). `MainViewModel.change` and
   `undo` call `refreshShown`. Tests: `app/src/test/.../ReminderAlarmTest.kt`. For 5b, replace the single InboxStyle
   notification in `ReminderAlarm.post` with a group (summary id 1 + child per item) and action receivers.
-- Nothing here is released yet. The next release goes out after Stage 8 (or sooner if you ask).
+- **Released in 0.2.1**: stages 1 to 3b (update checks and notifications). Reminders are in the app but switched off
+  by default (`Prefs.remindersOn` defaults to false) and the Today card talks about updates only. In Stage 6, flip the
+  default to true and reword `NotificationsCard` in `ui/screens/TodayScreen.kt` to mention reminders again. The next release goes out after Stage 8 (or sooner if you ask).
 
 ## Update notifications
 
