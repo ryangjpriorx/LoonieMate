@@ -115,8 +115,8 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
             }
         }
         item { Notice(vm, open, go, model.isNew) }
-        if (model.isNew) { item { WelcomeCard(open) }; return@LazyColumn }
-        if (model.readyToStart) item { StartHereCard(vm, open) }
+        if (model.isNew) { item { WelcomeCard(vm, open) }; return@LazyColumn }
+        if (model.readyToStart || (!vm.prefs.onboarded && vm.prefs.setupStep in 2 until looniemate.app.ui.sheets.SETUP_STEPS)) item { StartHereCard(vm, open) }
         item { TodoCard(model, s, vm, open) }
         item { MoneyCard(model) { go(Tab.Spending) } }
         item { QuickRow(model, vm, open) }
@@ -357,17 +357,17 @@ fun UpdateBanner(st: Updater.State, vm: MainViewModel, go: (Tab) -> Unit) {
 }
 
 @Composable
-private fun WelcomeCard(open: (Sheet) -> Unit) {
+private fun WelcomeCard(vm: MainViewModel, open: (Sheet) -> Unit) {
+    val step = vm.prefs.setupStep
     SectionCard("Welcome to LoonieMate", Icons.Rounded.AutoAwesome, "amber") {
         Text("LoonieMate plans every paycheque, tells you when to move money between accounts, protects child benefits, and helps when a month comes up short. Everything stays on this phone.",
             style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(10.dp))
-        Text("Already using LoonieMate somewhere else? Bring your encrypted backup over. Starting fresh? Add your bank accounts first, then your income and bills in Settings.",
+        Text("Starting fresh? Seven short steps set it up: your household, accounts, income, bills, food money, money for yourself, then where you stand today. Already using LoonieMate somewhere else? Bring your encrypted backup over.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(12.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { open(Sheet.Import) }) { Text("Import a backup") }
-            FilledTonalButton(onClick = { open(Sheet.Account(null)) }) { Text("Add an account") }
-            FilledTonalButton(onClick = { open(Sheet.Bill(null, "adults")) }) { Text("Add a bill") } }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { open(Sheet.Setup(maxOf(1, step))) }, modifier = Modifier.testTag("setup-start")) { Text(if (step > 1) "Continue setup (step $step of 7)" else "Set up step by step") }
+            FilledTonalButton(onClick = { open(Sheet.Import) }) { Text("Import a backup") } }
     }
 }
 
@@ -490,6 +490,14 @@ private fun SelfCard(c: looniemate.engine.Obj, toSpending: () -> Unit) {
 private fun StartHereCard(vm: MainViewModel, open: (Sheet) -> Unit) {
     val tick by vm.refreshTodayTick.collectAsStateWithLifecycle()
     if (vm.prefs.onboarded || tick < 0) return
+    val step = vm.prefs.setupStep
+    if (step in 2 until looniemate.app.ui.sheets.SETUP_STEPS) { SectionCard("Finish setting up", Icons.Rounded.AutoAwesome, "teal", index = 1) {
+        Text("You got to step $step of ${looniemate.app.ui.sheets.SETUP_STEPS}. Pick up where you left off, or skip the rest.", style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Button(onClick = { open(Sheet.Setup(step)) }, modifier = Modifier.testTag("setup-continue")) { Text("Continue setup") }
+            TextButton(onClick = { vm.skipOnboarding() }) { Text("Not now") } } }
+        return }
     SectionCard("Let's find where you stand today", Icons.Rounded.AutoAwesome, "teal", index = 1) {
         Text("You're starting partway through the month, so some money is already spent and some bills are paid. Six quick steps set your starting point from today, and show how to get to the next payday.",
             style = MaterialTheme.typography.bodyMedium)

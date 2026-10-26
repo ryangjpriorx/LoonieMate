@@ -98,6 +98,8 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
                 is Sheet.Import -> ImportSheet(vm, close)
                 is Sheet.Settings -> looniemate.app.ui.screens.SettingsPage(vm, sheet.section, open)
                 is Sheet.AddFund -> looniemate.app.ui.screens.AddFundSheet(vm, open, close)
+                is Sheet.AddIncome -> looniemate.app.ui.screens.AddIncomeSheet(vm, replace)
+                is Sheet.Setup -> SetupSheet(vm, sheet.step, open, replace, close)
             }
     } }
 }
@@ -122,28 +124,36 @@ private fun LogSheet(vm: MainViewModel, oneTime: Boolean, close: () -> Unit, cat
     OutlinedTextField(amt, marking { v: String -> amt = v.replace(',', '.').filter { it.isDigit() || it == '.' } }, Modifier.fillMaxWidth().focusRequester(focus), label = { Text(if (oneTime) "Amount" else "How much?") },
         prefix = { Text("$", style = MaterialTheme.typography.headlineMedium) }, textStyle = MaterialTheme.typography.headlineMedium.merge(Numbers), singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+    val pg = LocalPage.current
     if (!oneTime) {
         Text("What was it for?", fontWeight = FontWeight.SemiBold)
+        /* the kind logged last comes first */
+        val last = vm.prefs.lastCategory
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Labels.SPEND.forEach { (k, l) -> FilterChip(cat == k, { cat = k }, label = { Text(l) }) }
+            (Labels.SPEND.filter { it.first == last } + Labels.SPEND.filter { it.first != last }).forEach { (k, l) -> FilterChip(cat == k, { pg?.mark(); cat = k }, label = { Text(l) }, modifier = Modifier.testTag("cat-$k")) }
         }
     } else SelectField(group, Labels.OGROUPS.entries.map { it.key to it.value }, { group = it }, "Who it's for")
-    Text("When?", fontWeight = FontWeight.SemiBold)
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.Center) {
-        FilterChip(date == today, { date = today }, label = { Text("Today") })
-        if (!oneTime) FilterChip(date == addDays(today, -1), { date = addDays(today, -1) }, label = { Text("Yesterday") })
-    }
-    DateField(date, { date = it }, if (oneTime) "Date (today or later)" else "Or pick a date")
-    if (!oneTime) {
-        TextFieldRow(note, { note = it }, "Note (optional)", placeholder = "Store or what you bought")
-        if (people.isNotEmpty()) { Text("Who paid", fontWeight = FontWeight.SemiBold)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { people.forEach { p -> FilterChip(who == p, { who = if (who == p) "" else p }, label = { Text(p) }) } } }
-        if (edit.isEmpty()) Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(fav, { fav = it }); Text("Add a quick button for this (same amount and type)", style = MaterialTheme.typography.bodyMedium) }
+    /* the date, a note, who paid and the quick-button tick fold under More, unless they're already set */
+    var more by rememberSaveable { mutableStateOf(oneTime || edit.isNotEmpty() || date != today || (note.isNotEmpty() && !oneTime)) }
+    if (!more) TextButton(onClick = { more = true }, modifier = Modifier.testTag("log-more")) { Text(if (oneTime) "More" else "Date, note and more") }
+    else {
+        Text("When?", fontWeight = FontWeight.SemiBold)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.Center) {
+            FilterChip(date == today, { pg?.mark(); date = today }, label = { Text("Today") })
+            if (!oneTime) FilterChip(date == addDays(today, -1), { pg?.mark(); date = addDays(today, -1) }, label = { Text("Yesterday") })
+        }
+        DateField(date, { date = it }, if (oneTime) "Date (today or later)" else "Or pick a date")
+        if (!oneTime) {
+            TextFieldRow(note, { note = it }, "Note (optional)", placeholder = "Store or what you bought")
+            if (people.isNotEmpty()) { Text("Who paid", fontWeight = FontWeight.SemiBold)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { people.forEach { p -> FilterChip(who == p, { pg?.mark(); who = if (who == p) "" else p }, label = { Text(p) }) } } }
+            if (edit.isEmpty()) Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(fav, { fav = it }); Text("Add a quick button for this (same amount and type)", style = MaterialTheme.typography.bodyMedium) }
+        }
     }
     ErrorText(err)
     Button(onClick = {
         err = if (edit.isNotEmpty()) vm.updateExpense(edit, Views.parseMoney(amt), cat, date, note, who, oneTime, group) else vm.logExpense(Views.parseMoney(amt), cat, date, note, who, oneTime, group, fav)
-        if (err == null) close()
+        if (err == null) { if (!oneTime && cat.isNotEmpty()) vm.prefs.lastCategory = cat; close() }
     }, Modifier.fillMaxWidth().height(52.dp).testTag("log-save")) { Text(if (edit.isNotEmpty()) "Save changes" else if (oneTime) "Save one-time expense" else "Save") }
     if (e0 != null) TextButton(onClick = { vm.deleteExpense(J.obj("date" to e0.s("date"), "id" to edit.substringAfterLast('/'), "amount" to e0.n("amount"))); close() }, modifier = Modifier.testTag("log-delete")) {
         Text("Delete this", color = toneColors("bad").first) }

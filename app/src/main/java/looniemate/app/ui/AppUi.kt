@@ -119,6 +119,10 @@ sealed class Sheet {
     data class Settings(val section: String) : Sheet()
     /** Add a savings fund: ready-made ones or a blank one. */
     data object AddFund : Sheet()
+    /** Add income or a benefit: a page of choices. */
+    data object AddIncome : Sheet()
+    /** First-time setup, one step at a time (1 to 7). */
+    data class Setup(val step: Int) : Sheet()
 }
 
 /** Saves which page is open as plain values (polish-and-audit S1). */
@@ -130,7 +134,7 @@ private fun sheetToList(s: Sheet): ArrayList<Any?> = when (s) {
     Sheet.Update -> arrayListOf("Update"); is Sheet.CatchUp -> arrayListOf("CatchUp", s.first); is Sheet.Access -> arrayListOf("Access", s.next?.let { sheetToList(it) })
     Sheet.Self -> arrayListOf("Self"); Sheet.Export -> arrayListOf("Export"); Sheet.Import -> arrayListOf("Import"); Sheet.Reset -> arrayListOf("Reset"); Sheet.Household -> arrayListOf("Household")
     is Sheet.Settings -> arrayListOf("Settings", s.section)
-    Sheet.AddFund -> arrayListOf("AddFund")
+    Sheet.AddFund -> arrayListOf("AddFund"); Sheet.AddIncome -> arrayListOf("AddIncome"); is Sheet.Setup -> arrayListOf("Setup", s.step)
 }
 private fun listToSheet(l: List<Any?>): Sheet? = try { when (l[0]) {
     "Log" -> Sheet.Log(l[1] as Boolean, l[2] as String, (l.getOrNull(3) as? String) ?: "", (l.getOrNull(4) as? String) ?: ""); "Food" -> Sheet.Food(l[1] as String); "Bill" -> Sheet.Bill(l[1] as String?, l[2] as String)
@@ -138,7 +142,7 @@ private fun listToSheet(l: List<Any?>): Sheet? = try { when (l[0]) {
     "Checkin" -> Sheet.Checkin; "Fund" -> Sheet.Fund(l[1] as String?); "UseFund" -> Sheet.UseFund(l[1] as String); "Ccb" -> Sheet.Ccb(l[1] as String)
     "Income" -> Sheet.Income(l[1] as String?, l[2] as String?); "Credit" -> Sheet.Credit(l[1] as String?, l[2] as String?); "MonthIncome" -> Sheet.MonthIncome(l[1] as String)
     "Update" -> Sheet.Update; "CatchUp" -> Sheet.CatchUp(l[1] as Boolean); "Access" -> Sheet.Access((l[1] as List<*>?)?.let { listToSheet(it) })
-    "Self" -> Sheet.Self; "Export" -> Sheet.Export; "Import" -> Sheet.Import; "Reset" -> Sheet.Reset; "Household" -> Sheet.Household; "Settings" -> Sheet.Settings(l[1] as String); "AddFund" -> Sheet.AddFund; else -> null
+    "Self" -> Sheet.Self; "Export" -> Sheet.Export; "Import" -> Sheet.Import; "Reset" -> Sheet.Reset; "Household" -> Sheet.Household; "Settings" -> Sheet.Settings(l[1] as String); "AddFund" -> Sheet.AddFund; "AddIncome" -> Sheet.AddIncome; "Setup" -> Sheet.Setup((l[1] as Number).toInt()); else -> null
 } } catch (_: Exception) { null }
 private val SheetSaver = androidx.compose.runtime.saveable.Saver<Sheet?, ArrayList<Any?>>(save = { it?.let(::sheetToList) }, restore = { listToSheet(it) })
 /** The open pages, oldest first: closing one goes back to the page under it (Settings → Accounts → an account). */
@@ -175,7 +179,7 @@ fun LoonieMateApp(vm: MainViewModel) {
     /** swaps the open page for another (first-time setup going on to its next step) */
     val replace: (Sheet) -> Unit = { s -> stack.lastOrNull()?.let { holder.removeState(keyOf(it, stack.size)) }; stack = stack.dropLast(1) + s }
     /* first launch with an empty budget: the accessibility choices come first (docs/plans/accessibility.md) */
-    LaunchedEffect(todayModel?.isNew) { if (todayModel?.isNew == true && !vm.prefs.a11yAsked && stack.isEmpty()) open(Sheet.Access()) }
+    LaunchedEffect(todayModel?.isNew) { if (todayModel?.isNew == true && !vm.prefs.a11yAsked && stack.isEmpty()) open(Sheet.Access(next = Sheet.Setup(maxOf(1, vm.prefs.setupStep)))) }
     /* after Reset LoonieMate: back to Today, where first-time setup starts again */
     val resets by vm.resets.collectAsStateWithLifecycle()
     LaunchedEffect(resets) { if (resets > 0) tab = Tab.Today }

@@ -129,7 +129,7 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, sta
         item {
             Column(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("For testing", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { vm.prefs.onboarded = false; vm.prefs.a11yAsked = false; open(Sheet.Access(next = Sheet.CatchUp(first = true))) }, modifier = Modifier.testTag("redo-setup")) {
+                TextButton(onClick = { vm.prefs.onboarded = false; vm.prefs.a11yAsked = false; vm.prefs.setupStep = 1; open(Sheet.Access(next = Sheet.Setup(1))) }, modifier = Modifier.testTag("redo-setup")) {
                     Text("Redo first-time setup", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 /* the very bottom: erase everything and start from scratch (asks to type RESET) */
                 TextButton(onClick = { open(Sheet.Reset) }, modifier = Modifier.testTag("reset-open")) { Text("Reset LoonieMate", color = toneColors("bad").first) }
@@ -290,7 +290,7 @@ private fun QuickButtonsCard(vm: MainViewModel, bare: Boolean = false) {
 
 /** Every account the family uses, and what each one is for. Money moves, new bills and food money are routed by these. */
 @Composable
-private fun AccountsCard(vm: MainViewModel, open: (Sheet) -> Unit, bare: Boolean = false) {
+internal fun AccountsCard(vm: MainViewModel, open: (Sheet) -> Unit, bare: Boolean = false) {
     val docs by vm.repo.docs.collectAsStateWithLifecycle()
     val today by vm.today.collectAsStateWithLifecycle()
     val s = Docs.settings(docs["settings/main"], today)
@@ -337,7 +337,7 @@ private fun AccountsCard(vm: MainViewModel, open: (Sheet) -> Unit, bare: Boolean
 
 /** Paycheques, social assistance and government benefits: what comes in, when, and where it lands. */
 @Composable
-private fun IncomeCard(vm: MainViewModel, open: (Sheet) -> Unit, bare: Boolean = false) {
+internal fun IncomeCard(vm: MainViewModel, open: (Sheet) -> Unit, bare: Boolean = false) {
     val docs by vm.repo.docs.collectAsStateWithLifecycle()
     val today by vm.today.collectAsStateWithLifecycle()
     val s = Docs.settings(docs["settings/main"], today)
@@ -350,27 +350,18 @@ private fun IncomeCard(vm: MainViewModel, open: (Sheet) -> Unit, bare: Boolean =
         Head("Social assistance")
         assist.forEach { x -> val p = Core.ASSIST[Core.assistOf(x)]
             RowOf("income-${x.s("id")}", x.s("name"), "${p?.short ?: ""} · ${Fmt.money(x.n("amount"))}" + next(IncomeSetup.nextDates(Core.assistSched(x), today, 1))) { open(Sheet.Income(x.s("id"))) } }
-        val progs = IncomeSetup.programs(s)
-        if (progs.isEmpty()) Text("No programs for your province yet. Add it as a regular income.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        else { var pick by remember { mutableStateOf(progs.first().key) }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                looniemate.app.ui.sheets.SelectField(pick, progs.map { it.key to it.name }, { pick = it }, "Program", Modifier.weight(1f))
-                OutlinedButton(onClick = { open(Sheet.Income(null, pick)) }) { Text("Add") } } }
+        if (assist.isEmpty()) Text("None. Add ODSP, Ontario Works or your province's program with the button below.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         Head("Paycheques, EI and other income")
         if (pays.isEmpty()) Text("No paycheques yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         pays.forEach { x -> RowOf("income-${x.s("id")}", x.s("name"), "${Fmt.money(x.n("amount"))} · " + (if (x.s("kind") == "ei") "EI every 2 weeks" + (if (isDate(x["end"])) ", until ${Fmt.dShort(x.s("end"))}" else "")
             else IncomeSetup.typeLabel(x["sched"].s("type").ifEmpty { "monthly" })) + next(IncomeSetup.nextDates(x["sched"], today, 1).filter { Core.inRange(x, it) })) { open(Sheet.Income(x.s("id"))) } }
-        FilledTonalButton(onClick = { open(Sheet.Income(null)) }, modifier = Modifier.testTag("add-income")) { Text("+ Add a paycheque or other income") }
-        OutlinedButton(onClick = { open(Sheet.Income(null, IncomeSetup.EI)) }, modifier = Modifier.testTag("add-ei")) { Text("+ Add Employment Insurance (EI)") }
 
         Head("Government benefits and credits")
         Core.creditsOf(s).forEach { x -> RowOf("credit-${x.s("id")}", Core.creditName(x), Fmt.money(x.n("amount")) + (if (x.t("protect")) " · protected" else "") +
             next(IncomeSetup.nextDates(Core.creditSched(x), today, 1, x.s("start").takeIf { isYm(it) }))) { open(Sheet.Credit(x.s("id"))) } }
-        val types = IncomeSetup.creditTypes(s); var pickC by remember { mutableStateOf(types.first().key) }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            looniemate.app.ui.sheets.SelectField(pickC, types.map { it.key to it.name }, { pickC = it }, "Benefit", Modifier.weight(1f))
-            OutlinedButton(onClick = { open(Sheet.Credit(null, pickC)) }) { Text("Add") } }
+        Spacer(Modifier.height(12.dp))
+        Button(onClick = { open(Sheet.AddIncome) }, modifier = Modifier.testTag("add-any")) { Text("+ Add income or a benefit") }
     }
 }
 
@@ -409,4 +400,26 @@ private fun AccessibilityCard(vm: MainViewModel, bare: Boolean = false) {
         SwitchRow("More time", "Undo and other messages stay until you close them.", a.moreTime) { set(a.copy(moreTime = it)) }
         SwitchRow("Bigger buttons", "Larger buttons with more space between them.", a.bigButtons) { set(a.copy(bigButtons = it)) }
     }
+}
+
+
+/**
+ * Adding income (docs/plans/overhaul.md): a page of choices instead of drop-downs with Add buttons. Social assistance
+ * programs for the province, a paycheque or other income, EI, and government benefits, each with a line about it.
+ */
+@Composable
+fun AddIncomeSheet(vm: MainViewModel, replace: (Sheet) -> Unit) {
+    val s = vm.settings()
+    looniemate.app.ui.sheets.SheetTitle("Add income or a benefit")
+    @Composable fun Choice(tag: String, title: String, sub: String, go: () -> Unit) = Box(Modifier.testTag(tag)) { ClickRow(go) {
+        Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.SemiBold); if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
+    Text("Work and other income", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    Choice("add-income", "A paycheque or other income", "Pay from a job, support payments, a pension, or anything else that comes in.") { replace(Sheet.Income(null)) }
+    Choice("add-ei", "Employment Insurance (EI)", "Paid every two weeks, with a reminder to do your report.") { replace(Sheet.Income(null, IncomeSetup.EI)) }
+    val progs = IncomeSetup.programs(s)
+    if (progs.isNotEmpty()) { Text("Social assistance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+        progs.forEach { p -> Choice("add-${p.key}", p.name, "Its payment dates and how work pay is counted are built in.") { replace(Sheet.Income(null, p.key)) } } }
+    Text("Government benefits and credits", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+    IncomeSetup.creditTypes(s).forEach { t -> Choice("add-${t.key}", t.name, "") { replace(Sheet.Credit(null, t.key)) } }
 }

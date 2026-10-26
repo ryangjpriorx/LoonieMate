@@ -470,7 +470,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** counts resets, so the app goes back to Today afterwards */
     val resets = kotlinx.coroutines.flow.MutableStateFlow(0)
 
-    fun skipOnboarding() { prefs.onboarded = true; refreshTodayTick.value++ }
+    fun skipOnboarding() { prefs.onboarded = true; prefs.setupStep = 0; refreshTodayTick.value++ }
     val refreshTodayTick = MutableStateFlow(0)
 
     /** Where getting on track was left today (date to step), so closing it partway and coming back picks up there. */
@@ -492,7 +492,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         change(if (first) "You're all set from today" else "Back on track from today", listOf("settings/main", "months/$ym")) {
             if (first) saveSettings(J.obj("trackFrom" to "$ym-01"))
             patchMonth(ym, J.obj("starting" to true)) }
-        prefs.onboarded = true; catchUpAt = null }
+        prefs.onboarded = true; prefs.setupStep = 0; catchUpAt = null }
 
     /* ---------- the starting point: the balance is the truth (docs/plans/getting-on-track-fixes.md) ---------- */
 

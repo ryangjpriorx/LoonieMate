@@ -155,4 +155,12 @@ class Prefs(context: Context) {
     var group: String
         get() = sp.getString("billGroup", "adults")!!
         set(v) { sp.edit().putString("billGroup", v).apply() }
+    /** Where first-time setup was left (docs/plans/overhaul.md): its step, 1 to 7, or 0 when it isn't running. */
+    var setupStep: Int
+        get() = sp.getInt("setupStep", 0)
+        set(v) { sp.edit().putInt("setupStep", v).apply() }
+    /** The kind of spending logged last, offered first next time. */
+    var lastCategory: String
+        get() = sp.getString("lastCategory", "")!!
+        set(v) { sp.edit().putString("lastCategory", v).apply() }
 }

@@ -64,8 +64,11 @@ fun BillSheet(vm: MainViewModel, id: String?, group0: String, close: () -> Unit)
     val s = vm.settings(); val today = vm.today.value
     val b: Obj = id?.let { vm.repo.get("bills/$it") } ?: run {
         val main = Core.acctFor(s, "main"); val every = Core.acctFor(s, "everyday")
-        J.obj("group" to group0, "freq" to "monthly", "day" to 1, "category" to "other", "account" to (if (group0 == "adults") main else every ?: main)?.s("id"),
-            "method" to (if (group0 == "adults") "Pre-authorized debit (PAD)" else "Debit card"))
+        /* a new bill starts with the account and payment method of the last bill added to the same group */
+        val lastOne = vm.repo.docs.value.filterKeys { it.startsWith("bills/") }.values.filterIsInstance<Obj>().filter { it.or("group", "adults") == group0 }.maxByOrNull { it.n("updated") }
+        J.obj("group" to group0, "freq" to "monthly", "day" to 1, "category" to "other",
+            "account" to (lastOne?.s("account")?.ifEmpty { null } ?: (if (group0 == "adults") main else every ?: main)?.s("id")),
+            "method" to (lastOne?.s("method")?.ifEmpty { null } ?: (if (group0 == "adults") "Pre-authorized debit (PAD)" else "Debit card")))
     }
     val g = b.or("group", "adults")
     var name by rememberSaveable { mutableStateOf(b.s("name")) }
@@ -81,6 +84,8 @@ fun BillSheet(vm: MainViewModel, id: String?, group0: String, close: () -> Unit)
     var deferrable by rememberSaveable { mutableStateOf(b.t("deferrable")) }
     var start by rememberSaveable { mutableStateOf(b.s("start")) }; var end by rememberSaveable { mutableStateOf(b.s("end")) }
     var paused by rememberSaveable { mutableStateOf(b["active"].let { it is J.B && !it.v }) }
+    var cashRound by rememberSaveable { mutableStateOf(b["cashRound"] == J.B(true)) }; val pg = LocalPage.current
+    var optOpen by rememberSaveable { mutableStateOf(b.t("fund") || b["essential"].isFalse() || b.t("deferrable")) }
     val d0 = b["debt"]; val dp = Core.debtParts(d0)
     var debtOpen by rememberSaveable { mutableStateOf(dp != null && dp.P > 0) }
     var dmode by rememberSaveable { mutableStateOf(if (dp == null || dp.orig) "original" else "balance") }
@@ -109,10 +114,21 @@ fun BillSheet(vm: MainViewModel, id: String?, group0: String, close: () -> Unit)
     val accounts = Core.accountsOf(s).map { it.s("id") to it.s("name") }
     if (accounts.isNotEmpty()) SelectField(acct, accounts, { acct = it }, "Paid from")
     SelectField(method, Labels.METHODS.map { it to it }, { method = it }, "Paid by")
-    SelectField(fund, listOf("" to "No, it's a regular bill") + Core.fundsOf(s).filter { it.s("key") != "child" }.map { it.s("key") to it.s("name") }, { fund = it }, "Puts money into savings",
-        hint = "For savings like a vet fund or an RESP. It shows up as a money move instead of a bill.")
-    SwitchRow("Non-essential", "We could give this up for a month if money is short (for example a streaming service).", nonEss) { nonEss = it }
-    SwitchRow("Deferrable", "This can be paid late if we arrange it (for example a payment you can push back a few weeks).", deferrable) { deferrable = it }
+    /* a cash bill a dollar or two under the next $5 can be rounded up, so nobody has to deal with coins (docs/plans/overhaul.md) */
+    val amtNow = Views.parseMoney(amount)?.takeIf { !it.isNaN() } ?: 0.0
+    val up = Math.ceil(round2(amtNow) / 5 - 1e-9) * 5
+    if (method == "Cash" && amtNow > 0 && up > amtNow && up - amtNow <= 2.0000001)
+        SwitchRow("Round up to ${Fmt.money(up)} to avoid coins", "Plan ${Fmt.money(up)} instead of ${Fmt.money(amtNow)} each time, if whoever you're paying is fine with it.", cashRound) { pg?.mark(); cashRound = it }
+
+    Section("More options (optional)", optOpen) { optOpen = !optOpen }
+    AnimatedVisibility(optOpen) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SwitchRow("Non-essential", "We could give this up for a month if money is short (for example a streaming service).", nonEss) { nonEss = it }
+            SwitchRow("Deferrable", "This can be paid late if we arrange it (for example a payment you can push back a few weeks).", deferrable) { deferrable = it }
+            SelectField(fund, listOf("" to "No, it's a regular bill") + Core.fundsOf(s).filter { it.s("key") != "child" }.map { it.s("key") to it.s("name") }, { fund = it }, "Puts money into savings",
+                hint = "For savings like a vet fund or an RESP. It shows up as a money move instead of a bill.")
+        }
+    }
 
     /* ---- debt ---- */
     Section("This bill pays off a debt (optional)", debtOpen) { debtOpen = !debtOpen }
@@ -191,6 +207,7 @@ fun BillSheet(vm: MainViewModel, id: String?, group0: String, close: () -> Unit)
                 if (freq == "monthly") doc["day"] = J.N(dayN.toDouble()) else doc["anchor"] = J.S(anchor)
                 if (isDate(start)) doc["start"] = J.S(start); if (isDate(end)) doc["end"] = J.S(end)
                 if (debt != null) doc["debt"] = debt
+                if (method == "Cash" && amt > 0) { val up2 = Math.ceil(round2(amt) / 5 - 1e-9) * 5; if (up2 > amt && up2 - amt <= 2.0000001) doc["cashRound"] = J.B(cashRound) }
                 if (b.t("example") && id != null && num(b["amount"]) == amt) doc["example"] = J.B(true)
                 vm.saveBill(id, doc); close()
             }

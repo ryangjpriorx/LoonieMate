@@ -76,7 +76,7 @@ class ScreensTest {
             vm.repo.replaceAll(LinkedHashMap(docs))
             vm.prefs.setLook(Prefs.Look(if (dark) "dark" else "light", false, "iris", effects))
             /* phone-only settings can carry over from the README test; show the one-time cards here */
-            vm.prefs.onboarded = false; vm.prefs.notifAsked = false; vm.prefs.notifSnoozeUntil = 0; vm.catchUpAt = null; vm.prefs.a11yAsked = true
+            vm.prefs.onboarded = false; vm.prefs.notifAsked = false; vm.prefs.notifSnoozeUntil = 0; vm.catchUpAt = null; vm.prefs.a11yAsked = true; vm.prefs.setupStep = 0
         }
         settle()
         /* a fresh phone opens "Make LoonieMate easier to use?" before the budget loads; it's a page over the tabs now */
@@ -138,7 +138,9 @@ class ScreensTest {
         settingsPage("set-reminders"); shot("$theme-More-reminders", sheet = true); closePage()
         settingsPage("set-sync"); if (rule.onAllNodesWithTag("sync-create").fetchSemanticsNodes().isEmpty()) problems.add("$theme: no sync page"); shot("$theme-More-sync", sheet = true); closePage()
         settingsPage("set-income"); shot("$theme-More-income", sheet = true)
-        if (runCatching { rule.onNodeWithTag("add-income").performScrollTo().performClick() }.isSuccess) { settle(); shot("$theme-sheet-income", sheet = true) }; closePage()
+        if (runCatching { rule.onNodeWithTag("add-any").performScrollTo().performClick() }.isSuccess) { settle()
+            if (runCatching { rule.onNodeWithTag("add-income").performScrollTo().performClick() }.isSuccess) { settle(); shot("$theme-sheet-income", sheet = true) } else problems.add("$theme: no paycheque choice") }
+        else problems.add("$theme: no Add income button"); closePage()
         tab("Month")
         rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("month-income")); settle()
         rule.onNodeWithTag("month-income").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle()
@@ -184,6 +186,7 @@ class ScreensTest {
         org.junit.Assert.assertEquals(listOf("Sam", "Alex"), s.strList("people"))
         /* the people show up as "Who paid" in Log spending */
         tab("Today"); rule.onNodeWithTag("fab").performClick(); settle()
+        rule.onNodeWithTag("log-more").performScrollTo().performClick(); settle()
         assertTrue("Who paid lists the people", rule.onAllNodesWithText("Alex").fetchSemanticsNodes().isNotEmpty())
         closePage()
         /* the test household has one saved quick button; it can be removed */
@@ -201,7 +204,8 @@ class ScreensTest {
         assertTrue("no lag question", rule.onAllNodesWithText("Which payment a month's pay reduces").fetchSemanticsNodes().isEmpty())
         assertTrue("the rule as a sentence", rule.onAllNodes(androidx.compose.ui.test.hasText("lowers the", substring = true)).fetchSemanticsNodes().isNotEmpty())
         closePage()
-        settingsPage("set-income"); rule.onNodeWithTag("add-ei").performScrollTo().performClick(); settle()
+        settingsPage("set-income"); rule.onNodeWithTag("add-any").performScrollTo().performClick(); settle(); shot("sheet-add-income", sheet = true)
+        rule.onNodeWithTag("add-ei").performScrollTo().performClick(); settle()
         rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[1].performScrollTo().performTextInput("455")
         shot("sheet-ei", sheet = true)
         rule.onNodeWithText("Add").performScrollTo().performClick(); settle()
@@ -225,7 +229,18 @@ class ScreensTest {
         assertTrue("the budget is empty", vm.repo.docs.value.isEmpty())
         assertTrue("first-time setup starts again", rule.onAllNodesWithTag("a11y-continue").fetchSemanticsNodes().isNotEmpty())
         /* the first-run screens a new person sees: the accessibility choices, then the welcome on Today */
-        shot("first-run-access", sheet = true); closePage(); shot("first-run-today")
+        shot("first-run-access", sheet = true)
+        /* then setup, one step per page: Skip goes through all six, and the last one is getting on track */
+        rule.onNodeWithTag("a11y-continue").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle()
+        for (k in 1..6) {
+            if (rule.onAllNodesWithTag("setup-skip").fetchSemanticsNodes().isEmpty()) { problems.add("setup step $k didn't open"); break }
+            org.junit.Assert.assertEquals("setup remembers the step", k, vm.prefs.setupStep)
+            shot("first-run-setup-$k", sheet = true)
+            rule.onNodeWithTag("setup-skip").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle()
+        }
+        if (rule.onAllNodesWithText("Add your accounts in Settings first.", substring = true).fetchSemanticsNodes().isEmpty()) problems.add("setup didn't end with getting on track")
+        closePage(); shot("first-run-today")
+        if (rule.onAllNodesWithTag("setup-start").fetchSemanticsNodes().isEmpty()) problems.add("Welcome has no way back into setup")
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 
