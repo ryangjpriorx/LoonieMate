@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.Restaurant
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.AccountBalance
@@ -97,6 +98,8 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
         item { UpdateBanner(upd, vm, go) }
         items(model.reminders.size) { i -> ReminderCard(model.reminders[i], vm, open, i) }
         if (model.isNew) { item { WelcomeCard(open) }; return@LazyColumn }
+        /* asked once there's a budget to remind about, not on first launch */
+        item { NotificationsCard(vm) }
 
         item {
             val n = model.todo.size
@@ -258,3 +261,33 @@ private fun WelcomeCard(open: (Sheet) -> Unit) {
 
 @Composable
 fun EmptyIfNone(list: List<Any>, text: String) { if (list.isEmpty()) EmptyNote(text) }
+
+/**
+ * Asks about notifications once there's a budget to remind about, and says so when they're off.
+ * "Not now" hides it for 30 days. See docs/plans/reminders-and-updates.md.
+ */
+@Composable
+private fun NotificationsCard(vm: MainViewModel) {
+    val ok by vm.notifOk.collectAsStateWithLifecycle(); val tick by vm.notifTick.collectAsStateWithLifecycle()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val ask = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { vm.refreshNotif() }
+    if (ok || System.currentTimeMillis() < vm.prefs.notifSnoozeUntil || tick < 0) return
+    val asked = vm.prefs.notifAsked
+    SectionCard(if (asked) "Notifications are off" else "Get a heads-up", Icons.Rounded.Notifications, if (asked) "warn" else "accent", index = 1) {
+        Text(if (asked) "You won't get reminders to pay bills or move money, or hear about new versions of LoonieMate."
+            else "LoonieMate can remind you on days a bill needs paying or money needs moving, and tell you when there's a new version. Only when something needs doing, at times you choose.",
+            style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Button(onClick = {
+                val act = ctx as? android.app.Activity
+                val canAsk = looniemate.app.notify.Notifs.needsPermission() && androidx.core.content.ContextCompat.checkSelfPermission(ctx, looniemate.app.notify.Notifs.PERMISSION) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
+                    (!asked || (act != null && androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(act, looniemate.app.notify.Notifs.PERMISSION)))
+                vm.prefs.notifAsked = true
+                if (canAsk) ask.launch(looniemate.app.notify.Notifs.PERMISSION)
+                else try { ctx.startActivity(looniemate.app.notify.Notifs.settingsIntent(ctx)) } catch (_: Exception) {}
+            }, modifier = Modifier.testTag("notif-on")) { Text("Turn on") }
+            TextButton(onClick = { vm.snoozeNotifCard() }) { Text("Not now") }
+        }
+    }
+}

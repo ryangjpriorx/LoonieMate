@@ -84,6 +84,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val snack = messages.receiveAsFlow()
 
     fun todayStr(): String = LocalDate.now().toString()
+    /** whether reminders will actually be shown; checked again each time the app comes to the front */
+    val notifOk = MutableStateFlow(true)
+    fun refreshNotif() { notifOk.value = looniemate.app.notify.Notifs.enabled(getApplication()) }
+    fun snoozeNotifCard() { prefs.notifAsked = true; prefs.notifSnoozeUntil = System.currentTimeMillis() + 30L * 86_400_000; refreshNotif(); notifTick.value++ }
+    val notifTick = MutableStateFlow(0)
+
     fun refreshDay() { val t = todayStr(); if (t != today.value) today.value = t }
 
     private fun store(docs: Map<String, J>, t: String): Store = Docs.toStore(docs, t)

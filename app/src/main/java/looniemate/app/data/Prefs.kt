@@ -54,6 +54,14 @@ class Prefs(context: Context) {
         get() = sp.getInt("skippedVersion", 0)
         set(v) { sp.edit().putInt("skippedVersion", v).apply() }
 
+    /** whether LoonieMate has asked about notifications yet, and until when the "notifications are off" card stays hidden */
+    var notifAsked: Boolean
+        get() = sp.getBoolean("notifAsked", false)
+        set(v) { sp.edit().putBoolean("notifAsked", v).apply() }
+    var notifSnoozeUntil: Long
+        get() = sp.getLong("notifSnoozeUntil", 0)
+        set(v) { sp.edit().putLong("notifSnoozeUntil", v).apply() }
+
     var group: String
         get() = sp.getString("billGroup", "adults")!!
         set(v) { sp.edit().putString("billGroup", v).apply() }

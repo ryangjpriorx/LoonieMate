@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- installing a new version the person chose to download -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- reminders to pay bills and move money, and word of a new version (asked for, Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- allowBackup is off: Android's own cloud backup would copy the budget unencrypted.
          LoonieMate's encrypted backups are used instead. -->

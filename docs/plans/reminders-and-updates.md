@@ -7,7 +7,7 @@ Work is done in small stages; each one is committed, built and tested on GitHub 
 ## Progress
 
 - [x] **Stage 0**: this plan.
-- [ ] **Stage 1**: update check when the app comes to the front (at most hourly), not just on a fresh start.
+- [x] **Stage 1**: update check when the app comes to the front (at most hourly), not just on a fresh start.
 - [ ] **Stage 2**: notification setup: channels (Reminders, Updates), asking for permission at a sensible moment, a "notifications are off" card on Today.
 - [ ] **Stage 3**: background update check (WorkManager, about twice a day, needs internet) and the update notification: once per version, **Download** button opens an update screen with **Start update**; "Ready to install" notification if the download finishes in the background.
 - [ ] **Stage 4**: reminder rules in the shared engine (what to send, when) with tests.
