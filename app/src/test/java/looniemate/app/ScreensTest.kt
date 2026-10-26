@@ -1,15 +1,8 @@
 package looniemate.app
 
 import android.graphics.Bitmap
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.test.SemanticsNodeInteraction
-import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import looniemate.app.data.Prefs
 import looniemate.engine.J
@@ -39,14 +32,21 @@ class ScreensTest {
 
     private fun settle() { repeat(12) { Thread.sleep(60); rule.waitForIdle() } }
 
-    private fun save(node: SemanticsNodeInteraction, name: String) {
-        val b = node.captureToImage().asAndroidBitmap()
-        File(out, "$name.png").outputStream().use { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    /** Every window on screen (the app, plus a bottom sheet when one is open). */
+    private fun windows(): List<android.view.View> {
+        val g = Class.forName("android.view.WindowManagerGlobal"); val inst = g.getMethod("getInstance").invoke(null)
+        val f = g.getDeclaredField("mViews"); f.isAccessible = true
+        @Suppress("UNCHECKED_CAST") return (f.get(inst) as List<android.view.View>).filter { it.isShown && it.width > 0 }
     }
+
     private fun shot(name: String, sheet: Boolean = false) {
         settle()
-        try { save(if (sheet) rule.onAllNodes(isRoot()).onLast() else rule.onRoot(), name) }
-        catch (e: Throwable) { problems.add("$name: ${e.javaClass.simpleName}: ${e.message?.take(300)}") }
+        try {
+            val all = windows(); val v = if (sheet) all.last() else all.first()
+            val b = Bitmap.createBitmap(v.width, v.height, Bitmap.Config.ARGB_8888)
+            rule.runOnUiThread { v.draw(android.graphics.Canvas(b)) }
+            File(out, "$name.png").outputStream().use { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        } catch (e: Throwable) { problems.add("$name: ${e.javaClass.simpleName}: ${e.message?.take(300)}") }
     }
 
     private fun seed(dark: Boolean, effects: Boolean) {
