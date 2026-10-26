@@ -35,11 +35,12 @@ data class Extra(
     fun group(g: String): Color = when (g) { "baby" -> baby; "pets" -> pets; "household" -> house; else -> adults }
 }
 
-private val LightExtra = Extra(
-    Color(0xFF1E7B45), Color(0xFFDDF1E4), Color(0xFF9A6200), Color(0xFFFBEFD6), Color(0xFFB53A24), Color(0xFFFBE2DC),
-    Color(0xFF2F67A8), Color(0xFFE1ECF8), Color(0xFFB83E72), Color(0xFFF8E3EC), Color(0xFF0E7A70), Color(0xFFDDF2EF),
-    Color(0xFF6B5A2E), Color(0xFFF1EBDC), Color(0xFF1F7FB8), Color(0xFFDDEFFA))
-private val DarkExtra = Extra(
+/* light text colours are dark enough for 4.5:1 on every card colour (checked by ContrastTest) */
+internal val LightExtra = Extra(
+    Color(0xFF1C7240), Color(0xFFDDF1E4), Color(0xFF8C5900), Color(0xFFFBEFD6), Color(0xFFB33924), Color(0xFFFBE2DC),
+    Color(0xFF2E65A5), Color(0xFFE1ECF8), Color(0xFFAB3A6A), Color(0xFFF8E3EC), Color(0xFF0D7067), Color(0xFFDDF2EF),
+    Color(0xFF6B5A2E), Color(0xFFF1EBDC), Color(0xFF1A6999), Color(0xFFDDEFFA))
+internal val DarkExtra = Extra(
     Color(0xFF5FD08F), Color(0xFF14301F), Color(0xFFF0B95A), Color(0xFF352812), Color(0xFFFF8A70), Color(0xFF3A1A14),
     Color(0xFF86B4E8), Color(0xFF1B2A3D), Color(0xFFF09AC0), Color(0xFF3A1E2C), Color(0xFF5CCFC2), Color(0xFF12312E),
     Color(0xFFD8C08A), Color(0xFF2E2817), Color(0xFF7CC4F0), Color(0xFF14293A))
@@ -51,15 +52,15 @@ val LocalFx = staticCompositionLocalOf { true }
 class Palette(val key: String, val name: String, val l: List<Long>, val d: List<Long>)
 /** The same colour themes as the web version: accent, second accent, soft background. */
 val PALETTES = listOf(
-    Palette("iris", "Iris", listOf(0xFF4740C4, 0xFF8A3FC8, 0xFFE6E4FB), listOf(0xFF9C97FF, 0xFFD69CFF, 0xFF26244A)),
-    Palette("ocean", "Ocean", listOf(0xFF0B6E99, 0xFF138A80, 0xFFDCEEF6), listOf(0xFF6CC4EA, 0xFF5FD3C4, 0xFF112A3A)),
-    Palette("forest", "Forest", listOf(0xFF2F7A3A, 0xFF6B8E23, 0xFFE1F0DD), listOf(0xFF7FD38A, 0xFFB6D96B, 0xFF17301B)),
-    Palette("sunset", "Sunset", listOf(0xFFC2410C, 0xFFC93C74, 0xFFFCE6D9), listOf(0xFFFF9A66, 0xFFFF8FB7, 0xFF3A2016)),
+    Palette("iris", "Iris", listOf(0xFF4740C4, 0xFF873EC4, 0xFFE6E4FB), listOf(0xFF9C97FF, 0xFFD69CFF, 0xFF26244A)),
+    Palette("ocean", "Ocean", listOf(0xFF0B6B94, 0xFF0F7068, 0xFFDCEEF6), listOf(0xFF6CC4EA, 0xFF5FD3C4, 0xFF112A3A)),
+    Palette("forest", "Forest", listOf(0xFF2C7136, 0xFF516C1B, 0xFFE1F0DD), listOf(0xFF7FD38A, 0xFFB6D96B, 0xFF17301B)),
+    Palette("sunset", "Sunset", listOf(0xFFB23C0B, 0xFFAF3465, 0xFFFCE6D9), listOf(0xFFFF9A66, 0xFFFF8FB7, 0xFF3A2016)),
     Palette("berry", "Berry", listOf(0xFFAD2D66, 0xFF7A3FC0, 0xFFF8E0EB), listOf(0xFFF28AB8, 0xFFC69CFF, 0xFF3A1A2A)),
-    Palette("slate", "Slate", listOf(0xFF3F5770, 0xFF5E6F84, 0xFFE2E8EF), listOf(0xFF9DB4CC, 0xFFB7C4D4, 0xFF1E2833)),
+    Palette("slate", "Slate", listOf(0xFF3F5770, 0xFF566578, 0xFFE2E8EF), listOf(0xFF9DB4CC, 0xFFB7C4D4, 0xFF1E2833)),
 )
 
-private fun paletteScheme(key: String, dark: Boolean): ColorScheme {
+internal fun paletteScheme(key: String, dark: Boolean): ColorScheme {
     val p = PALETTES.find { it.key == key } ?: PALETTES[0]
     return if (!dark) {
         val (a, a2, bg) = p.l.map { Color(it) }
