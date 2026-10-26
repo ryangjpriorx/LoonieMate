@@ -29,8 +29,8 @@ GitHub before the next, and released when a group of fixes is worth updating for
   restart, time zone and date changes, large text and TalkBack, small and large screens.
 - **Speed:** the month calculation is re-run inside screens on every redraw (9 places in the UI); the Today,
   Month and Settings screens with a full year of data.
-- **Code health:** ~~the old family names still used as field names in the engine~~ (done 2026-10-26, ships in the next release: renamed to
-  `rentIncome`, `rentDate`, `rentLeft`, `mainPer`, `mainRegular`; old snapshots still read), "Sheet" names left over now that forms are pages,
+- **Code health:** ~~the old family names still used as field names in the engine~~ (done: renamed to
+  `rentIncome`, `rentDate`, `rentLeft`, `mainPer`, `mainRegular`; old data support dropped, agreed 2026-10-26), "Sheet" names left over now that forms are pages,
   31 catch-all `catch (e: Exception)` blocks that may hide real problems, the 585-line view model, duplicated logic
   between the web UI and the Kotlin views, unused code and imports.
 - **Web version:** keeping up with Android features, the 2,650-line single page, and dialogs and forms on a phone
@@ -42,8 +42,8 @@ GitHub before the next, and released when a group of fixes is worth updating for
 
 - [x] **Stage 0**: this plan.
 - [x] **Stage 1**: the audit; findings written below (2026-10-26).
-- [ ] **Stage 2**: must-fix batch(es).
-- [ ] **Stage 3**: should-fix batches.
+- [x] **Stage 2**: must-fix batch(es). M1, M2 done; released in 0.9.0.
+- [ ] **Stage 3**: should-fix batches. S1–S6 done; released in 0.9.0. Nice-to-haves still open.
 - [ ] **Stage 4**: polish pass and fresh screenshots. Then release.
 
 ## Findings
@@ -51,18 +51,20 @@ GitHub before the next, and released when a group of fixes is worth updating for
 Read-only audit of 2026-10-26 (engine, data, sync, backups, updater, reminders, Android screens, web). Each finding has
 an id for the fix commits. Already done during the audit: **the first family's names** are gone from the engine
 (`ryan` → `rentIncome`, `ryanDate` → `rentDate`, `ryanLeft` → `rentLeft`, `staceyPer` → `mainPer`,
-`staceyRegular` → `mainRegular`); months locked by older versions still read, and a parity household checks it. The
-only remaining mentions are the two labelled tables that read data saved by the first version.
+`staceyRegular` → `mainRegular`). Agreed afterwards: old data doesn't need to keep working (only the developer used the
+early versions), so the legacy keys and old snapshot names aren't read any more.
+
+**Status (0.9.0):** M1, M2 and S1–S6 are fixed. N2 no longer applies. The rest of the nice-to-haves are open.
 
 ### Must fix
 
-- **M1. A weekly or bi-weekly payday entered as a future date wipes out the earlier paydays.** `schedDates` (both
+- **M1 (fixed in 0.9.0). A weekly or bi-weekly payday entered as a future date wipes out the earlier paydays.** `schedDates` (both
   engines) never goes back before the anchor. The weekday picker (`IncomeSetup.withWeekday` / `schedFor`) always stores
   the *next* matching day, and the bi-weekly field says "Any real payday works", so the natural answer is the next
   payday. Example: a weekly Friday paycheque set up on Monday Oct 26 keeps only Oct 30; Oct 2, 9, 16 and 23 vanish, so
   October looks short, food money shrinks, and getting on track's "money that already came in" is empty. Fix: run the
   cycle backwards too (incomes already have `start` for a new job), add a parity case, and keep the hint honest.
-- **M2. Sync can delete or undo recent changes when the sync file is stale.** `Sync.mergeDoc`: when this phone's copy
+- **M2 (fixed in 0.9.0). Sync can delete or undo recent changes when the sync file is stale.** `Sync.mergeDoc`: when this phone's copy
   equals the base and the file's copy differs, the file wins, including when the file simply *lacks* the item. Cloud
   apps (Drive especially) can hand a phone an older cached copy, or the other phone can write over the file from an
   older copy. Then a bill added on phone A after its last sync is deleted on A, and an edit is reverted. Fix: deletions
@@ -71,25 +73,27 @@ only remaining mentions are the two labelled tables that read data saved by the 
 
 ### Should fix
 
-- **S1. A form is lost if Android closes LoonieMate in the background.** Pages and their fields live in `remember`,
+- **S1 (fixed in 0.9.0). A form is lost if Android closes LoonieMate in the background.** Pages and their fields live in `remember`,
   not saved state, and `Sheet` isn't saveable. "Check my balances" tells people to open their banking apps, which is
   exactly when a low-memory phone closes LoonieMate; coming back, the typed balances are gone. Fix: save the open page
   and its fields (rememberSaveable with a Sheet saver, or the view model's SavedStateHandle).
-- **S2. A save that fails is silent.** `Repository.persist` catches the error and carries on (a full phone, for
+- **S2 (fixed in 0.9.0). A save that fails is silent.** `Repository.persist` catches the error and carries on (a full phone, for
   example); the person thinks it's saved and it's gone after a restart. Fix: say "Couldn't save on this phone" with a
   way to make a backup.
-- **S3. A damaged budget file starts an empty budget without a word.** `Repository.load` keeps a copy
+- **S3 (fixed in 0.9.0). A damaged budget file starts an empty budget without a word.** `Repository.load` keeps a copy
   (`budget-damaged-…json`) but the app opens empty and the next change writes over `budget.json`. Fix: tell the
   person, and offer to restore from that copy or a backup.
-- **S4. Undo of a delete can be undone by sync.** `Repository.restore` puts back the old document with its old `_u`;
+- **S4 (fixed in 0.9.0). Undo of a delete can be undone by sync.** `Repository.restore` puts back the old document with its old `_u`;
   if a sync ran between the delete and the Undo, the tombstone on the file is newer and deletes it again. Fix: restore
   with a fresh `_u` and drop only that item's tombstone.
-- **S5. The sync file could be left half-written.** `SyncManager.writeText` falls back to mode "w", which some
+- **S5 (fixed in 0.9.0). The sync file could be left half-written.** `SyncManager.writeText` falls back to mode "w", which some
   providers don't truncate; a shorter file then keeps old bytes on the end and stops opening. Fix: read back and
   check after writing (and retry with a fresh write).
-- **S6. The web version can lose everything on iPhone.** It keeps the budget only in `localStorage`, which Safari
+- **S6 (fixed in 0.9.0). The web version can lose everything on iPhone.** It keeps the budget only in `localStorage`, which Safari
   clears after 7 days without a visit (unless it's added to the Home Screen), and no `navigator.storage.persist()` is
-  requested. Fix: request persistence, and nudge toward a backup or Add to Home Screen on Safari.
+  requested. Fix: request persistence, and nudge toward a backup or Add to Home Screen on Safari. Done as a notice on
+  iPhone and iPad: add it to the Home Screen (Chrome on iPhone has the same 7-day limit, since all iOS browsers use
+  WebKit, so recommending Chrome wouldn't have helped).
 
 ### Nice to have
 
@@ -136,3 +140,22 @@ only remaining mentions are the two labelled tables that read data saved by the 
 2. S1–S5 (Android data safety), then a release.
 3. S6 (web storage).
 4. Nice-to-haves and the polish pass.
+
+## Notes for picking up
+
+- M1: `schedDates` weekly / bi-weekly no longer clamp to the anchor (both engines); parity schedules with a future anchor.
+  Bills still treat a weekly / bi-weekly anchor as the first due date (that's their "next due date" field).
+- M2 and the emptied-phone case: `Sync.mergeDoc` keeps whichever side still has an item when the other lacks it and the
+  base has it (deletions are settled by tombstones in `reconcile`), and keeps this phone's copy when the file's copy is
+  older (`_u`) than the base. `SyncTest`: stale file, stale edit, deletions with the guard, an emptied phone.
+- S1: `Sheet` subclasses are data classes / data objects; `SheetSaver` in `ui/AppUi.kt`; form fields use
+  `rememberSaveable`; `stateMapSaver`, `stringListSaver` (Page.kt) and `selfRowsSaver`; `PageState.Saver` keeps the
+  "typed something" flag. `ScreensTest.aFormSurvivesBeingRebuilt`. Not saved: BillSheet's extra payments list, the
+  balance-check result and an opened backup (they're re-made in a tap).
+- S2/S3: `Repository.problem` ("save" / "damaged"), `damagedCopy`, `dismissProblem()`; `StorageProblemCard` on Today.
+- S4: `Repository.restoreAll` (fresh `_u`, per-item tombstones; an undone add gets a tombstone);
+  `replaceAll(data, recordRemoved = true)` for "Replace this phone's budget". `RepositoryTest`.
+- S5: `SyncManager.writeText` reads the file back and requires `Backup.envelope` to succeed, trying "wt" then "w".
+- S6: web `iosNotice()` (iPhone/iPad, not when opened from the Home Screen, dismissed with `rs-ios-ok`), shown on
+  the welcome view, the month overview and Today; `navigator.storage.persist()`; pages.yml adds
+  `apple-touch-icon.png` (docs/assets) and web-app meta tags.
