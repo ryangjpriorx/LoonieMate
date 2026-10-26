@@ -94,7 +94,8 @@ object Views {
     const val STUDIOTAX = "https://www.studiotax.com/paymentpage.html"
     const val REPORT_HELP = "https://stepstojustice.ca/steps/income-assistance/5-tell-odsp-about-money-you-make-and-life-changes/"
 
-    private fun reportCfg(src: J): Pair<Boolean, Int> {
+    /** whether to remind about reporting this income, and the day of the month it's due */
+    fun reportCfg(src: J): Pair<Boolean, Int> {
         val r = src["report"]; if (truthy(r)) return r.t("on") to (r.n("day").toInt().takeIf { it > 0 } ?: 7)
         val k = Core.assistOf(src); val rep = k?.let { Core.ASSIST[it]?.report } ?: 0
         return if (rep > 0) true to rep else false to 7

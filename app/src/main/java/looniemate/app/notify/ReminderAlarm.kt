@@ -19,6 +19,10 @@ import looniemate.app.data.Ticks
 import looniemate.engine.Docs
 import looniemate.engine.Fmt
 import looniemate.engine.Reminders
+import looniemate.engine.Views
+import looniemate.engine.Core
+import looniemate.engine.diffDays
+import looniemate.engine.s
 import looniemate.engine.addDays
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -101,13 +105,36 @@ object ReminderAlarm {
     private fun prefs(ctx: Context) = (ctx.applicationContext as LoonieApp).prefs
 
     /** One row in the bundle. [kind] is bill, move, pad (an automatic payment heads-up) or tomorrow (a move due tomorrow). */
-    private class Row(val kind: String, val key: String, val ym: String, val title: String, val text: String, val sav: String, val amount: Double, val locked: Boolean)
+    private class Row(val kind: String, val key: String, val ym: String, val title: String, val text: String, val sav: String, val amount: Double, val locked: Boolean,
+                      val arg: String = "")
 
     private fun rows(d: Reminders.Digest): List<Row> =
         d.todo.map { Row(it.kind, it.key, it.ym, if (it.kind == "move") it.name else "Pay ${it.name} ${Fmt.money(it.amount)}",
             (if (it.overdue) "Overdue since ${Fmt.dShort(it.date)}" else if (it.kind == "move") "From ${it.account}" else "From ${it.account}"), it.sav, it.amount, it.locked) } +
         d.pads.map { g -> Row("pad", "pad:" + g.account, "", "Payment coming out of ${g.account}", Reminders.padLine(g), "", g.total, false) } +
         d.tomorrowMoves.map { Row("tomorrow", it.key, it.ym, "Tomorrow: ${it.name}", "From ${it.account}", it.sav, it.amount, it.locked) }
+
+    /**
+     * Ride-along rows for the first reminder of the day, spaced out so they don't nag: reporting income (3 days before,
+     * on the day, then every 3 days while late), tax season (Mondays), an old backup and the weekly balance check (Sundays).
+     */
+    private fun extraRows(app: LoonieApp, day: String): List<Row> {
+        val docs = app.repo.docs.value; val st = Docs.toStore(docs, LocalDate.now().toString()); val s = st.settings
+        val date = LocalDate.parse(day); val dow = date.dayOfWeek.value; val dom = date.dayOfMonth
+        val out = mutableListOf<Row>()
+        for (r in Views.reminders(st, day, app.prefs.lastBackup)) when (r.action) {
+            "reported" -> { val src = Core.incomesOf(s).find { it.s("id") == r.arg } ?: continue
+                val due = minOf(28, maxOf(1, Views.reportCfg(src).second))
+                if (dom == due || dom == due - 3 || (dom > due && (dom - due) % 3 == 0))
+                    out.add(Row("report", "note:report:${r.arg}:${r.arg2}", r.arg2, r.title, "Tap Reported once it's done.", "", 0.0, false, r.arg)) }
+            "tax-filed" -> if (dow == 1) out.add(Row("tax", "note:tax:${r.arg}", "", r.title, "Benefits depend on filing every year, even with no income.", "", 0.0, false, r.arg))
+            "backup" -> if (dow == 7) out.add(Row("note", "note:backup", "", r.title, "Open LoonieMate and make a backup in Settings.", "", 0.0, false))
+        }
+        val ck = Docs.checkins(docs).firstOrNull()
+        if (dow == 7 && Core.accountsOf(s).isNotEmpty() && (ck == null || diffDays(ck.s("date"), day) >= 7))
+            out.add(Row("note", "note:balances", "", "Time for a balance check", "Type in what your accounts hold so LoonieMate can spot missing money.", "", 0.0, false))
+        return out
+    }
 
     private fun broadcast(ctx: Context, action: String, req: Int, fill: Intent.() -> Unit): PendingIntent =
         PendingIntent.getBroadcast(ctx, req, Intent(ctx, ReminderReceiver::class.java).setAction(action).apply(fill), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -127,7 +154,7 @@ object ReminderAlarm {
         .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setContentIntent(openApp(ctx))
 
     private fun extras(i: Intent, day: String, r: Row) { i.putExtra("day", day).putExtra("kind", r.kind).putExtra("key", r.key).putExtra("ym", r.ym)
-        .putExtra("sav", r.sav).putExtra("amount", r.amount).putExtra("title", r.title) }
+        .putExtra("sav", r.sav).putExtra("amount", r.amount).putExtra("title", r.title).putExtra("arg", r.arg) }
 
     @SuppressLint("MissingPermission")
     private fun post(ctx: Context, day: String, slot: Int, slots: Int, alert: Boolean) {
@@ -137,7 +164,7 @@ object ReminderAlarm {
         val gotIt = pr.reminderGotIt.filter { it.startsWith("$day|") }.map { it.substringAfter('|') }.toSet()
         val snoozed = pr.reminderSnoozed.mapNotNull { s -> s.split('|').takeIf { it.size == 2 && (it[1].toLongOrNull() ?: 0) > now }?.get(0) }.toSet()
         val undo = pr.reminderUndo
-        val list = rows(d).filter { it.key !in gotIt && it.key !in snoozed && it.key !in undo }
+        val list = (rows(d) + if (slot == 0) extraRows(app, day) else emptyList()).filter { it.key !in gotIt && it.key !in snoozed && it.key !in undo }
         val shown = list.map { childId(it.key) }.toSet() + undo.map { childId(it) }
         /* rows that are no longer needed go away */
         pr.reminderChildren.mapNotNull { it.toIntOrNull() }.filter { it !in shown }.forEach { nm.cancel(it) }
@@ -150,6 +177,8 @@ object ReminderAlarm {
                 .setSilent(true).setOnlyAlertOnce(true).setAutoCancel(true)
                 .setPublicVersion(public(ctx, if (r.kind == "pad") "A payment is coming out soon" else "Something to do today"))
             when {
+                r.kind == "note" -> b.addAction(action("Got it", broadcast(ctx, A_GOTIT, id * 8 + 1) { extras(this, day, r) }))
+                r.kind == "report" || r.kind == "tax" -> b.addAction(action(if (r.kind == "report") "Reported" else "We've filed", broadcast(ctx, A_DONE, id * 8 + 2) { extras(this, day, r) }))
                 r.kind == "pad" -> b.addAction(action("Got it", broadcast(ctx, A_GOTIT, id * 8 + 1) { extras(this, day, r) }))
                 r.locked -> {}
                 else -> {
@@ -160,7 +189,7 @@ object ReminderAlarm {
             }
             nm.notify(id, b.build())
         }
-        val title = if (list.isEmpty()) "All done for now" else Reminders.summary(Reminders.without(d, gotIt + snoozed + undo))
+        val title = if (list.isEmpty()) "All done for now" else Reminders.summary(Reminders.without(d, gotIt + snoozed + undo)).ifEmpty { list.first().title }
         val style = NotificationCompat.InboxStyle().setBigContentTitle(title).also { st -> list.take(6).forEach { st.addLine(it.title) }; if (list.size > 6) st.setSummaryText("and ${list.size - 6} more") }
         val summary = base(ctx).setContentTitle(title).setContentText(list.firstOrNull()?.title ?: "Nothing left to do").setStyle(style)
             .setGroupSummary(true).setOnlyAlertOnce(true).setSilent(!alert).setAutoCancel(true)
@@ -179,6 +208,17 @@ object ReminderAlarm {
         return true
     }
 
+    /** Paid, Moved it, Reported or We've filed (or undoing one). The same saved fields as Today uses. */
+    private fun mark(app: LoonieApp, i: Intent, done: Boolean) {
+        val key = i.getStringExtra("key") ?: return; val ym = i.getStringExtra("ym") ?: ""; val arg = i.getStringExtra("arg") ?: ""
+        when (i.getStringExtra("kind")) {
+            "bill" -> Ticks.setPaid(app.repo, ym, key, done)
+            "report" -> app.repo.update("months/$ym", looniemate.engine.J.obj("reported" to looniemate.engine.J.obj(arg to done)))
+            "tax" -> app.repo.update("settings/main", looniemate.engine.J.obj("taxFiled" to looniemate.engine.J.obj(arg to done)))
+            else -> Ticks.setMoved(app.repo, ym, key, i.getStringExtra("sav") ?: "", i.getDoubleExtra("amount", 0.0), done)
+        }
+    }
+
     /** A button on a row was pressed. */
     @SuppressLint("MissingPermission")
     fun onAction(ctx: Context, i: Intent) {
@@ -187,10 +227,10 @@ object ReminderAlarm {
         val id = childId(key)
         when (i.action) {
             A_DONE -> {
-                if (kind == "bill") Ticks.setPaid(app.repo, ym, key, true) else Ticks.setMoved(app.repo, ym, key, i.getStringExtra("sav") ?: "", i.getDoubleExtra("amount", 0.0), true)
+                mark(app, i, true)
                 pr.reminderUndo = pr.reminderUndo + key
                 val title = i.getStringExtra("title") ?: ""
-                val n = base(ctx).setContentTitle(if (kind == "bill") "Marked paid" else "Marked done").setContentText(title.removePrefix("Pay "))
+                val n = base(ctx).setContentTitle(when (kind) { "bill" -> "Marked paid"; "report" -> "Marked reported"; "tax" -> "Marked filed"; else -> "Marked done" }).setContentText(title.removePrefix("Pay "))
                     .setSilent(true).setOnlyAlertOnce(true)
                     .addAction(action("Undo", broadcast(ctx, A_UNDO, id * 8 + 5) { putExtras(i) }))
                     .setDeleteIntent(broadcast(ctx, A_FORGET, id * 8 + 6) { putExtras(i) })
@@ -198,7 +238,7 @@ object ReminderAlarm {
                 if (Notifs.enabled(ctx)) nm.notify(id, n.build())
             }
             A_UNDO -> {
-                if (kind == "bill") Ticks.setPaid(app.repo, ym, key, false) else Ticks.setMoved(app.repo, ym, key, i.getStringExtra("sav") ?: "", i.getDoubleExtra("amount", 0.0), false)
+                mark(app, i, false)
                 pr.reminderUndo = pr.reminderUndo - key
             }
             A_FORGET -> pr.reminderUndo = pr.reminderUndo - key
