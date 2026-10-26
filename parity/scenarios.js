@@ -116,10 +116,15 @@ const ns = {
 /* 5. Nothing set up yet */
 const empty = { 'settings/main': { startYm: '2026-11', trackFrom: '2026-11-01' } };
 
+/* 6. The Ontario household starting partway through November (a starting month: no savings target or savings moves) */
+const onStart = JSON.parse(JSON.stringify(on));
+onStart['months/2026-11'] = Object.assign({}, onStart['months/2026-11'] || {}, { starting: true });
+
 module.exports = [
   { name: 'ontario', docs: on, todays: ['2026-10-25', '2026-11-16', '2026-12-31', '2027-03-15'] },
   { name: 'legacy-locked', docs: legacy, todays: ['2026-10-05', '2026-11-30'] },
   { name: 'quebec', docs: qc, todays: ['2026-12-01', '2027-01-20'] },
   { name: 'nova-scotia', docs: ns, todays: ['2026-11-03', '2026-12-24'] },
   { name: 'empty', docs: empty, todays: ['2026-11-01'] },
+  { name: 'ontario-starting', docs: onStart, todays: ['2026-11-16', '2026-12-31'] },
 ];

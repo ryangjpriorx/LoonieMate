@@ -821,20 +821,23 @@ function savingsState(st){
   for(const k in funds)funds[k]=round2(funds[k]);
   return{emergency:funds.emergency||0,child:funds.child||0,funds};
 }
+/* a starting month (months/<ym>.starting, set when someone starts or gets back on track partway through a month):
+   no savings target and no "save what's left" or "cover the shortfall" moves; the Child Benefit still counts */
+function startingMonth(st,ym){const m=(st.months||{})[ym];return!!(m&&m.starting)}
 /* Cumulative savings targets from the plan start through month upTo */
 function targetsThrough(st,upTo,today){
   const s=st.settings;let em=num(s.emergencyStart),ch=num(s.childStart),chSoFar=num(s.childStart);
   if(isYm(s.startYm)&&isYm(upTo)){let guard=0;
-    for(let ym=s.startYm;ym<=upTo&&guard<240;ym=ymAdd(ym,1),guard++){const c=monthCalc(ym,st,today);em+=(c.net!=null?c.net:c.target)+num(c.ccbToEm);const cc=c.ccbChild!=null?c.ccbChild:c.ccb;ch+=cc;if(cc>0&&c.ccbDate<=today)chSoFar+=cc}}
+    for(let ym=s.startYm;ym<=upTo&&guard<240;ym=ymAdd(ym,1),guard++){const c=monthCalc(ym,st,today);em+=(startingMonth(st,ym)?0:(c.net!=null?c.net:c.target))+num(c.ccbToEm);const cc=c.ccbChild!=null?c.ccbChild:c.ccb;ch+=cc;if(cc>0&&c.ccbDate<=today)chSoFar+=cc}}
   return{emergency:round2(em),child:round2(ch),childSoFar:round2(chSoFar)};
 }
 function projection(st,today,from,count){
   const bal=savingsState(st);const first=targetsThrough(st,from,today);
   let em=0,ch=0;const rows=[];
-  for(let i=0;i<count;i++){const ym=ymAdd(from,i);const c=monthCalc(ym,st,today);
+  for(let i=0;i<count;i++){const ym=ymAdd(from,i);const c=monthCalc(ym,st,today);const netOr=startingMonth(st,ym)?0:(c.net!=null?c.net:c.target);
     if(i===0){em=round2(Math.max(bal.emergency,first.emergency));ch=round2(Math.max(bal.child,first.child))}
-    else{em=round2(em+(c.net!=null?c.net:c.target)+num(c.ccbToEm));ch=round2(ch+(c.ccbChild!=null?c.ccbChild:c.ccb))}
-    rows.push({ym,income:round2(c.spendable+c.bonus),bills:c.billsTotal,food:c.food,spent:round2(c.otherSpent+c.foodOver),toSavings:round2((c.net!=null?c.net:c.target)+num(c.ccbToEm)),bonus:c.bonus,surplus:c.liveSurplus,em,ch,ccb:c.ccb})}
+    else{em=round2(em+netOr+num(c.ccbToEm));ch=round2(ch+(c.ccbChild!=null?c.ccbChild:c.ccb))}
+    rows.push({ym,income:round2(c.spendable+c.bonus),bills:c.billsTotal,food:c.food,spent:round2(c.otherSpent+c.foodOver),toSavings:round2(netOr+num(c.ccbToEm)),bonus:c.bonus,surplus:c.liveSurplus,em,ch,ccb:c.ccb})}
   return rows;
 }
 /* When to move money between accounts, and how much. Everything is routed by the accounts' purposes in Settings. */
@@ -879,13 +882,13 @@ function moneyMoves(st,from,to){
       accts.forEach(id=>add(P,main,id,sum(win.filter(x=>x.acct===id).map(x=>x.amount)),why(id)));
 });
     /* extra paydays (a 3rd bi-weekly paycheck, a 5th weekly one) go to savings after any shortfall is covered */
-    if(ym>=start){let room=Math.max(0,c.net);for(const inc of c.incomes||[])for(const d of inc.bonusDates){const toSave=Math.min(inc.amount,room);room=round2(room-toSave);
+    if(ym>=start&&!startingMonth(st,ym)){let room=Math.max(0,c.net);for(const inc of c.incomes||[])for(const d of inc.bonusDates){const toSave=Math.min(inc.amount,room);room=round2(room-toSave);
       add(d,main,'',toSave,toSave<inc.amount-0.004?`Extra ${inc.name} this month, after covering a shortfall`:`Extra ${inc.name} this month`,'emergency')}}
     /* credits that land outside the main account */
     /* food money for each half of the month, sent on the payday before it starts */
     if(ym>=start&&c.foodHalf>0&&everyday)[first,ym+'-16'].forEach((H,i)=>add(lastPayOnOrBefore(H)||H,main,everyday,c.foodHalf,`Food for ${i?'the 16th–end':'the 1st–15th'} of ${new Date(+ym.slice(0,4),+ym.slice(5,7)-1,1).toLocaleDateString('en-CA',{month:'long'})}`));
     /* savings */
-    if(ym>=start){const bonusSaved=Math.max(0,Math.min(c.bonus,c.net)),movedReg=Math.max(0,c.moved.emergency-bonusSaved);
+    if(ym>=start&&!startingMonth(st,ym)){const bonusSaved=Math.max(0,Math.min(c.bonus,c.net)),movedReg=Math.max(0,c.moved.emergency-bonusSaved);
       add(last,main,'',Math.max(0,c.liveSurplus-movedReg),"What's left this month",'emergency');
       if(c.net<0){const fp=c.regularDays[0]||first;add(fp,'',main,-c.net,"Cover this month's shortfall (if savings can't, the Child Reserve is the last resort)",'emergency-out')}}
     if(c.ccb>0){const pa=acctOf(((c.crAll||[]).find(x=>x.protect&&x.dates.length)||{}).account);
@@ -960,7 +963,7 @@ function foodPeriod(c,today,s){
   const spent=first?c.foodH1:c.foodH2,left=round2(allow-spent),daysLeft=len-idx+1;
   return{half:first?1:2,allow,spent,left,target:round2(allow/len),expected:round2(allow*idx/len),daysLeft,perDay:round2(Math.max(0,left)/Math.max(1,daysLeft)),end:first?ym+'-15':dayIn(ym,31),len};
 }
-root.Core={pad,num,round2,ymd,parse,ymOf,ymAdd,dim,addDays,diffDays,dayIn,isYm,isDate,sum,billDates,billPlanForMonth,resolve,listExp,monthCalc,snapshot,savingsState,targetsThrough,projection,upcoming,foodPeriod,FOOD,billEvents,moneyMoves,debtInfo,debtParts,ASSIST,assistOf,assistSched,dedCfg,fundsOf,fundOf,holidaysOf,isBiz,schedDates,schedEstimated,CREDIT_TYPES,incomesOf,creditsOf,creditSched,creditName,mainPaydays,accountsOf,acctById,acctId,acctFor};
+root.Core={pad,num,round2,ymd,parse,ymOf,ymAdd,dim,addDays,diffDays,dayIn,isYm,isDate,sum,billDates,billPlanForMonth,resolve,listExp,monthCalc,snapshot,savingsState,targetsThrough,projection,upcoming,foodPeriod,FOOD,billEvents,moneyMoves,startingMonth,debtInfo,debtParts,ASSIST,assistOf,assistSched,dedCfg,fundsOf,fundOf,holidaysOf,isBiz,schedDates,schedEstimated,CREDIT_TYPES,incomesOf,creditsOf,creditSched,creditName,mainPaydays,accountsOf,acctById,acctId,acctFor};
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 

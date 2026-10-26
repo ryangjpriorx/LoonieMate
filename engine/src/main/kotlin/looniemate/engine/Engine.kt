@@ -521,11 +521,14 @@ object Core {
 
     class Targets(val emergency: Double, val child: Double, val childSoFar: Double)
     /** Cumulative savings targets from the plan start through month upTo. */
+    /** A starting month (months/<ym>.starting): no savings target and no "save what's left" or "cover the shortfall" moves. */
+    fun startingMonth(st: Store, ym: String): Boolean = st.months[ym].t("starting")
+
     fun targetsThrough(st: Store, upTo: String, today: String): Targets {
         val s = st.settings; var em = s.n("emergencyStart"); var ch = s.n("childStart"); var chSoFar = s.n("childStart")
         if (isYm(s["startYm"]) && isYm(upTo)) { var guard = 0; var ym = s.s("startYm")
             while (ym <= upTo && guard < 240) { val c = monthCalc(ym, st, today)
-                em += (if (c["net"] != null && c["net"] != J.Null) c.n("net") else c.n("target")) + c.n("ccbToEm")
+                em += (if (startingMonth(st, ym)) 0.0 else if (c["net"] != null && c["net"] != J.Null) c.n("net") else c.n("target")) + c.n("ccbToEm")
                 val cc = if (c["ccbChild"] != null && c["ccbChild"] != J.Null) c.n("ccbChild") else c.n("ccb"); ch += cc
                 if (cc > 0 && c.s("ccbDate") <= today) chSoFar += cc
                 ym = ymAdd(ym, 1); guard++ } }
@@ -535,7 +538,7 @@ object Core {
     fun projection(st: Store, today: String, from: String, count: Int): List<Obj> {
         val bal = savingsState(st); val first = targetsThrough(st, from, today); var em = 0.0; var ch = 0.0; val rows = mutableListOf<Obj>()
         for (i in 0 until count) { val ym = ymAdd(from, i); val c = monthCalc(ym, st, today)
-            val netOr = if (c["net"] != null && c["net"] != J.Null) c.n("net") else c.n("target")
+            val netOr = if (startingMonth(st, ym)) 0.0 else if (c["net"] != null && c["net"] != J.Null) c.n("net") else c.n("target")
             if (i == 0) { em = round2(maxOf(bal.emergency, first.emergency)); ch = round2(maxOf(bal.child, first.child)) }
             else { em = round2(em + netOr + c.n("ccbToEm")); ch = round2(ch + (if (c["ccbChild"] != null && c["ccbChild"] != J.Null) c.n("ccbChild") else c.n("ccb"))) }
             rows.add(J.obj("ym" to ym, "income" to round2(c.n("spendable") + c.n("bonus")), "bills" to c.n("billsTotal"), "food" to c.n("food"), "spent" to round2(c.n("otherSpent") + c.n("foodOver")),
@@ -592,14 +595,14 @@ object Core {
                 accts.forEach { id -> add(P, main, id, sumOf2(win.filter { it.s("acct") == id }.map { it.n("amount") }), why(id)) }
             }
             /* extra paydays go to savings after any shortfall is covered */
-            if (ym >= start) { var room = maxOf(0.0, c.n("net"))
+            if (ym >= start && !startingMonth(st, ym)) { var room = maxOf(0.0, c.n("net"))
                 for (inc in c["incomes"].arr()) for (d in inc.strList("bonusDates")) { val amt = inc.n("amount"); val toSave = minOf(amt, room); room = round2(room - toSave)
                     add(d, main, "", toSave, if (toSave < amt - 0.004) "Extra ${inc.s("name")} this month, after covering a shortfall" else "Extra ${inc.s("name")} this month", "emergency") } }
             /* food money for each half of the month, sent on the payday before it starts */
             if (ym >= start && c.n("foodHalf") > 0 && everyday.isNotEmpty()) listOf(first, "$ym-16").forEachIndexed { i, H ->
                 add(lastPayOnOrBefore(H) ?: H, main, everyday, c.n("foodHalf"), "Food for ${if (i > 0) "the 16th–end" else "the 1st–15th"} of ${Fmt.monthOnly(ym)}") }
             /* savings */
-            if (ym >= start) { val bonusSaved = maxOf(0.0, minOf(c.n("bonus"), c.n("net"))); val movedReg = maxOf(0.0, c["moved"].n("emergency") - bonusSaved)
+            if (ym >= start && !startingMonth(st, ym)) { val bonusSaved = maxOf(0.0, minOf(c.n("bonus"), c.n("net"))); val movedReg = maxOf(0.0, c["moved"].n("emergency") - bonusSaved)
                 add(last, main, "", maxOf(0.0, c.n("liveSurplus") - movedReg), "What's left this month", "emergency")
                 if (c.n("net") < 0) { val fp = c.strList("regularDays").firstOrNull() ?: first
                     add(fp, "", main, -c.n("net"), "Cover this month's shortfall (if savings can't, the Child Reserve is the last resort)", "emergency-out") } }
