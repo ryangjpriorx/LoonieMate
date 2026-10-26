@@ -8,6 +8,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.onAllNodesWithText
 import looniemate.app.data.Prefs
 import looniemate.engine.J
 import looniemate.engine.Json
@@ -82,7 +84,9 @@ class ScreensTest {
         tab("More"); if (runCatching { rule.onNodeWithTag("add-income").performScrollTo().performClick() }.isSuccess) { shot("$theme-sheet-income", sheet = true); back() }
         tab("Month")
         rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("month-income")); settle()
-        rule.onNodeWithTag("month-income").performClick(); shot("$theme-sheet-month-income", sheet = true); back()
+        rule.onNodeWithTag("month-income").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle()
+        if (rule.onAllNodesWithText("Lock this month").fetchSemanticsNodes().isEmpty()) problems.add("$theme: this month's income sheet didn't open")
+        shot("$theme-sheet-month-income", sheet = true); back()
         tab("More"); rule.onNodeWithTag("checkin-more").performClick(); settle()
         rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction()).fetchSemanticsNodes().indices.forEach { i -> rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[i].performScrollTo().performTextInput("${100 + i * 250}") }
         rule.onNodeWithTag("compare").performScrollTo().performClick(); shot("$theme-sheet-checkin", sheet = true); back()
