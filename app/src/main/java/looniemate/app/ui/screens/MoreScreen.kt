@@ -203,6 +203,7 @@ private fun AccountsCard(vm: MainViewModel, open: (Sheet) -> Unit) {
     val s = Docs.settings(docs["settings/main"], today)
     val list = Core.accountsOf(s)
     val bills = docs.filterKeys { it.startsWith("bills/") }.values
+    val ck = Docs.checkins(docs).firstOrNull()
     SectionCard("Accounts", Icons.Rounded.AccountBalance, "gold", index = 0) {
         Text("Every account you use. Tick what each one is for and LoonieMate works out where money should go: which account pays new bills, where food money goes, and where to send savings.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -224,13 +225,19 @@ private fun AccountsCard(vm: MainViewModel, open: (Sheet) -> Unit) {
                             Text(Accounts.summary(a), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (used > 0) Text("Pays $used bill${if (used > 1) "s" else ""}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        ck?.get("bal")?.get(a.s("id"))?.let { b -> if (b != J.Null) Text(Fmt.money(num(b)), style = MaterialTheme.typography.bodyMedium.merge(looniemate.app.ui.theme.Numbers)) }
                         Icon(Icons.Rounded.ChevronRight, "Edit ${a.s("name")}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
         }
         Spacer(Modifier.height(10.dp))
-        FilledTonalButton(onClick = { open(Sheet.Account(null)) }, modifier = Modifier.testTag("add-account")) { Text("+ Add an account") }
+        if (ck != null && list.isNotEmpty()) Text("Balances are from your last check on ${Fmt.dLabel(ck.s("date"))}.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FilledTonalButton(onClick = { open(Sheet.Account(null)) }, modifier = Modifier.testTag("add-account")) { Text("+ Add an account") }
+            if (list.isNotEmpty()) OutlinedButton(onClick = { open(Sheet.Checkin) }, modifier = Modifier.testTag("checkin-more")) { Text("Check balances") }
+        }
     }
 }
 

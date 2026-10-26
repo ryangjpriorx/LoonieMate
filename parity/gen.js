@@ -39,6 +39,19 @@ const UI = (() => {
   vm.createContext(u); vm.runInContext(src + ';this.getStatus=getStatus;', u);
   return { getStatus: u.getStatus, phaseOf: (ym, today, s) => { const cur = C.ymOf(today); if (ym === cur) return 'now'; if (ym < cur) return 'past'; if (ym === s.startYm && cur < s.startYm) return 'now'; return 'future'; } };
 })();
+/* balance checks, using the web app's own expectedSince() and coverage() */
+const CK = (() => {
+  const app = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const pick = re => app.match(re)[0];
+  const src = [pick(/function expectedSince\(prev,today\)\{[\s\S]*?\n\}/), pick(/function coverage\(bal,today\)\{[\s\S]*?\n\}/)].join('\n');
+  const u = { C, num: C.num, round2: C.round2, ymOf: C.ymOf, ymAdd: C.ymAdd, addDays: C.addDays, Math, Object, String, cur: null, exp: null };
+  vm.createContext(u); vm.runInContext('function st(){return cur}function allExpenses(){return exp}' + src + ';this.expectedSince=expectedSince;this.coverage=coverage;', u);
+  return { run: (st, docs, prev, bal, today) => { u.cur = st; u.exp = [];
+    for (const k of Object.keys(docs)) { const m = k.match(/^months\/(\d{4}-\d{2})\/expenses\/([^/]+)$/); if (m && docs[k] && C.isDate(docs[k].date)) u.exp.push(Object.assign({ id: m[2], ym: m[1] }, docs[k])); }
+    return { expected: u.expectedSince(prev, today), coverage: u.coverage(bal, today) }; } };
+})();
+/* the made-up balances the parity check types in: some accounts short, some not */
+const ckBal = s => { const bal = {}; C.accountsOf(s).forEach((a, i) => { bal[a.id] = i % 2 ? 900 + i * 13.37 : 25.5 * (i + 1); }); return bal; };
 const scenarios = require(process.env.SCENARIOS || './scenarios.js');
 const out = { generatedFrom: 'web/index.html', defaults: DEFAULTS, scenarios: [], holidays: {}, sched: [], bills: [] };
 
@@ -64,6 +77,7 @@ for (const sc of scenarios) {
     r.events = C.billEvents(st, C.ymAdd(cur, -1) + '-01', C.dayIn(C.ymAdd(cur, 1), 31));
     r.paydays = C.mainPaydays(st.settings, cur);
     r.funds = C.fundsOf(st.settings);
+    r.checkin = CK.run(st, docs, { date: C.addDays(today, -12), day: 1500.25 }, ckBal(st.settings), today);
     r.status = {}; for (const ym of [cur, C.ymAdd(cur, 1), C.ymAdd(cur, -1)]) { const c = C.monthCalc(ym, st, today); r.status[ym] = UI.getStatus(c, C.upcoming(st, today, 10, label), UI.phaseOf(ym, today, st.settings), today, st.settings); }
     res[today] = r;
   }

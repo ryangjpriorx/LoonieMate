@@ -84,6 +84,7 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
                 is Sheet.Adjust -> AdjustSheet(vm, sheet, close)
                 is Sheet.Transfer -> TransferSheet(vm, sheet, close)
                 is Sheet.Account -> AccountSheet(vm, sheet.id, close)
+                is Sheet.Checkin -> CheckinSheet(vm, close)
                 is Sheet.Export -> ExportSheet(vm, close)
                 is Sheet.Import -> ImportSheet(vm, close)
             }

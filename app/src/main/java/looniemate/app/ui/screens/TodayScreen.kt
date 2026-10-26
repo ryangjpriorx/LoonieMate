@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -126,6 +127,19 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
                 Spacer(Modifier.height(6.dp))
                 Text("${Fmt.money(fp.n("spent"))} of ${Fmt.money(allow)} spent · the line shows where you'd be at ${Fmt.money(fp.n("target"))} a day", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = { open(Sheet.Food(model.today.take(7))) }, modifier = Modifier.testTag("food-open")) { Text("Food plan and settings") }
+            }
+        }
+        if (model.hasAccounts) item {
+            val ck = model.lastCheck; val days = ck?.let { diffDays(it.s("date"), model.today) }
+            SectionCard("Balances", Icons.Rounded.AccountBalance, "gold", trailing = when (days) { null -> "Not checked yet"; 0 -> "Checked today"; 1 -> "Checked yesterday"; else -> "Checked $days days ago" }, index = 3) {
+                val gap = ck?.get("gap")?.let { if (it == J.Null) null else num(it) }
+                Text(if (ck != null && days!! <= 7 && gap != null) (if (Math.abs(gap) < 5) "At the last check, your accounts matched the plan."
+                    else "At the last check, your accounts were ${Fmt.money(Math.abs(gap))} ${if (gap < 0) "lower" else "higher"} than the plan.")
+                    else "Once a week, type in what your accounts actually hold. LoonieMate spots money that went missing or a bill that came out early.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+                if (days == null || days > 7) Button(onClick = { open(Sheet.Checkin) }, modifier = Modifier.testTag("checkin-open")) { Text("Check my balances") }
+                else FilledTonalButton(onClick = { open(Sheet.Checkin) }, modifier = Modifier.testTag("checkin-open")) { Text("Check my balances") }
             }
         }
         item {

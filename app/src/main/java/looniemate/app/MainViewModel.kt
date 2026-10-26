@@ -47,7 +47,7 @@ import looniemate.engine.*
 class TodayModel(
     val today: String, val title: String, val isNew: Boolean, val status: Views.Status, val reminders: List<Views.Reminder>,
     val todo: List<Obj>, val incoming: List<Obj>, val food: Obj, val foodTone: String, val quick: List<Views.Quick>,
-    val debts: List<Views.Debt>, val next: List<Obj>,
+    val debts: List<Views.Debt>, val next: List<Obj>, val lastCheck: Obj?, val hasAccounts: Boolean,
 )
 
 class MonthModel(
@@ -114,7 +114,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val fp = Core.foodPeriod(c, t)
         val tone = if (fp.n("spent") > fp.n("allow")) "bad" else if (fp.n("spent") > fp.n("expected") + 10) "warn" else "good"
         return TodayModel(t, titleFor(s), isNew(s, st.bills), status, Views.reminders(st, t, lastBackup), todo, incoming, fp, tone,
-            Views.quickButtons(s, Docs.allExpenses(d), t), Views.debts(st, t), next)
+            Views.quickButtons(s, Docs.allExpenses(d), t), Views.debts(st, t), next, Docs.checkins(d).firstOrNull(), Core.accountsOf(s).isNotEmpty())
     }
 
     private fun buildMonth(d: Map<String, J>, t: String, y: String?): MonthModel {
@@ -247,6 +247,40 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val s = settings(); val name = Core.acctById(s, id)?.s("name") ?: "the account"
         val used = Accounts.billsUsing(s, repo.docs.value.filterKeys { it.startsWith("bills/") }.values, id)
         change("Removed $name" + (if (used > 0) ". Give its bills a new account." else ""), listOf("settings/main")) { saveSettings(Accounts.removed(s, id)) }
+    }
+
+    /* ---------- balance checks (checkins/<date>, the same documents the web version saves) ---------- */
+
+    class CheckResult(val date: String, val bal: Map<String, Double>, val day: Double, val sav: Double, val prev: Obj?, val ex: Checkins.Expected?,
+                      val gap: Double?, val funds: Double, val hasSavings: Boolean, val coverage: List<Obj>)
+
+    /** Compares the balances typed in (by account id) with the plan. Returns the result, or an error message. */
+    fun compareBalances(typed: Map<String, String>): Pair<CheckResult?, String?> {
+        val t = today.value; val d = repo.docs.value; val st = Docs.toStore(d, t); val s = st.settings; val A = Core.accountsOf(s)
+        if (A.isEmpty()) return null to "Add your accounts first."
+        val bal = LinkedHashMap<String, Double>()
+        for (a in A) { val v = Views.parseMoney(typed[a.s("id")])
+            if (v == null) return null to "Enter the balance for ${a.s("name")} (0 if empty)."
+            if (v.isNaN()) return null to "${a.s("name")}: enter a dollar amount."
+            bal[a.s("id")] = v }
+        val day = sumOf2(A.filter { it.s("type") != "savings" }.map { bal[it.s("id")] ?: 0.0 }); val sav = sumOf2(A.filter { it.s("type") == "savings" }.map { bal[it.s("id")] ?: 0.0 })
+        val prev = Checkins.previous(d, t)
+        val ex = prev?.let { Checkins.expectedSince(st, Docs.allExpenses(d), it.s("date"), it.n("day"), t) }
+        val gap = ex?.let { round2(day - it.expected) }
+        val funds = round2(Core.savingsState(st).funds.values.sum())
+        return CheckResult(t, bal, day, sav, prev, ex, gap, funds, A.any { it.s("type") == "savings" }, Checkins.coverage(st, bal, t)) to null
+    }
+
+    /** Saves the check-in. With [logGap], money that's missing is logged as unlogged spending first, so the next check starts even. */
+    fun saveCheckin(r: CheckResult, logGap: Boolean) {
+        val p = "checkins/${r.date}"; val logIt = logGap && r.gap != null && r.gap < 0
+        val exp = if (logIt) "months/${ymOf(r.date)}/expenses/${repo.newId()}" else null
+        change(if (logIt) "Logged the difference and saved the check-in" else "Check-in saved", listOfNotNull(p, exp)) {
+            if (exp != null) repo.set(exp, J.obj("date" to r.date, "amount" to round2(-r.gap!!), "category" to "other", "note" to "Unlogged spending (found at balance check)",
+                "oneTime" to false, "created" to System.currentTimeMillis()))
+            repo.set(p, J.obj("date" to r.date, "bal" to J.O(LinkedHashMap(r.bal.mapValues { J.N(it.value) })), "day" to r.day, "sav" to r.sav,
+                "expected" to (if (logIt) r.day else r.ex?.expected), "gap" to (if (logIt) 0.0 else r.gap)))
+        }
     }
 
     /* ---------- food budget (settings.foodPct and foodMin, as on the web version's Food tab) ---------- */

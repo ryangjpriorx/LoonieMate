@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollTo
 import looniemate.app.data.Prefs
 import looniemate.engine.J
 import looniemate.engine.Json
@@ -73,6 +75,9 @@ class ScreensTest {
         tab("Bills"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-bill", sheet = true); back()
         tab("More"); rule.onNodeWithTag("account-0").performClick(); shot("$theme-sheet-account", sheet = true); back()
         tab("More"); rule.onNodeWithTag("food-settings").performClick(); shot("$theme-sheet-food", sheet = true); back()
+        tab("More"); rule.onNodeWithTag("checkin-more").performClick(); settle()
+        rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction()).fetchSemanticsNodes().indices.forEach { i -> rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[i].performScrollTo().performTextInput("${100 + i * 250}") }
+        rule.onNodeWithTag("compare").performScrollTo().performClick(); shot("$theme-sheet-checkin", sheet = true); back()
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 
