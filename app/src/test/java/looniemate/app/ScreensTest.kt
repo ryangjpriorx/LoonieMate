@@ -108,7 +108,7 @@ class ScreensTest {
         if (rule.onAllNodesWithTag("page").fetchSemanticsNodes().isNotEmpty()) { problems.add("$theme: an untouched page didn't close on back"); closePage() }
         tab("Bills"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-bill", sheet = true); closePage()
         tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("account-0")); settle()
-        rule.onNodeWithTag("account-0").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); shot("$theme-sheet-account", sheet = true); closePage()
+        rule.onNodeWithTag("account-0").performClick(); shot("$theme-sheet-account", sheet = true); closePage()
         tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("food-settings")); settle()
         rule.onNodeWithTag("food-settings").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); shot("$theme-sheet-food", sheet = true); closePage()
         /* Personal Expenses: the card on the Spending tab (logging one item with a tap), the list page, and the card on Today */
