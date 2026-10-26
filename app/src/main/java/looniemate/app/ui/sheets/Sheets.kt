@@ -78,7 +78,8 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             when (sheet) {
-                is Sheet.Log -> LogSheet(vm, sheet.oneTime, close)
+                is Sheet.Log -> LogSheet(vm, sheet.oneTime, close, sheet.category)
+                is Sheet.Food -> FoodSheet(vm, sheet.ym, close, open)
                 is Sheet.Bill -> BillSheet(vm, sheet.id, sheet.group, close)
                 is Sheet.Adjust -> AdjustSheet(vm, sheet, close)
                 is Sheet.Transfer -> TransferSheet(vm, sheet, close)
@@ -98,9 +99,9 @@ fun ErrorText(e: String?) { if (e != null) Text(e, color = toneColors("bad").fir
 
 /* ---------- log spending: three quick steps ---------- */
 @Composable
-private fun LogSheet(vm: MainViewModel, oneTime: Boolean, close: () -> Unit) {
+private fun LogSheet(vm: MainViewModel, oneTime: Boolean, close: () -> Unit, category: String = "") {
     val today = vm.today.value; val s = vm.settings(); val people = s.strList("people").filter { it.isNotBlank() }
-    var amt by remember { mutableStateOf("") }; var cat by remember { mutableStateOf("") }; var date by remember { mutableStateOf(today) }
+    var amt by remember { mutableStateOf("") }; var cat by remember { mutableStateOf(category) }; var date by remember { mutableStateOf(today) }
     var note by remember { mutableStateOf("") }; var who by remember { mutableStateOf("") }; var fav by remember { mutableStateOf(false) }
     var group by remember { mutableStateOf("household") }; var err by remember { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }

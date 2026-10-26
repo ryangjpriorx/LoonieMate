@@ -249,6 +249,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         change("Removed $name" + (if (used > 0) ". Give its bills a new account." else ""), listOf("settings/main")) { saveSettings(Accounts.removed(s, id)) }
     }
 
+    /* ---------- food budget (settings.foodPct and foodMin, as on the web version's Food tab) ---------- */
+
+    /** Reads the two food settings from what was typed, the way the web version checks them. Returns them, or an error message. */
+    fun readFood(pct: String, min: String): Pair<Pair<Int, Double>?, String?> {
+        val p = pct.trim().toDoubleOrNull()?.let { Math.round(it).toInt() }
+        if (p == null || p !in 0..100) return null to "Enter a share from 0 to 100."
+        val m = Views.parseMoney(min)
+        if (m == null || m.isNaN() || m < 0) return null to "Enter a dollar amount for the minimum."
+        return (p to m) to null
+    }
+
+    /** What a month would look like with these food settings, before saving them. */
+    fun foodPreview(ym: String, pct: Int, min: Double): Obj {
+        val t = today.value; val docs = LinkedHashMap(repo.docs.value)
+        val raw = (docs["settings/main"]?.copy() as? Obj) ?: Obj(); raw["foodPct"] = J.N(pct.toDouble()); raw["foodMin"] = J.N(min); docs["settings/main"] = raw
+        return Core.monthCalc(ym, Docs.toStore(docs, t), t)
+    }
+
+    fun saveFood(pct: Int, min: Double) = change("Food budget saved", listOf("settings/main")) { saveSettings(J.obj("foodPct" to pct, "foodMin" to min)) }
+
     fun skip(ym: String, id: String, amount: Double) = change("Giving up ${Fmt.money(amount)} in ${Fmt.monthOnly(ym)}", listOf("months/$ym")) {
         patchMonth(ym, J.obj("skipped" to J.obj(id to J.obj("amount" to round2(amount))))) }
     fun unskip(ym: String, id: String) = change("Back in the budget", listOf("months/$ym")) { patchMonth(ym, J.obj("skipped" to J.obj(id to J.Null))) }

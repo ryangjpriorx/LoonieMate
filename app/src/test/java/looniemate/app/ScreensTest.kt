@@ -72,6 +72,7 @@ class ScreensTest {
         tab("Today"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-log", sheet = true); back()
         tab("Bills"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-bill", sheet = true); back()
         tab("More"); rule.onNodeWithTag("account-0").performClick(); shot("$theme-sheet-account", sheet = true); back()
+        tab("More"); rule.onNodeWithTag("food-settings").performClick(); shot("$theme-sheet-food", sheet = true); back()
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 

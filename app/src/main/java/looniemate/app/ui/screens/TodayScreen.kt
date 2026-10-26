@@ -44,6 +44,7 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.testTag
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -124,6 +125,7 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
                 GrowBar(if (allow > 0) (fp.n("spent") / allow).toFloat() else 0f, fg, marker = if (allow > 0) (fp.n("expected") / allow).toFloat() else null)
                 Spacer(Modifier.height(6.dp))
                 Text("${Fmt.money(fp.n("spent"))} of ${Fmt.money(allow)} spent · the line shows where you'd be at ${Fmt.money(fp.n("target"))} a day", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = { open(Sheet.Food(model.today.take(7))) }, modifier = Modifier.testTag("food-open")) { Text("Food plan and settings") }
             }
         }
         item {

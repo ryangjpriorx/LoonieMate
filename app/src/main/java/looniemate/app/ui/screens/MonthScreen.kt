@@ -164,8 +164,8 @@ private fun Tiles(m: MonthModel, open: (Sheet) -> Unit) {
             }
             val fp = m.food
             if (fp != null) StatTile("Food left · " + (if (fp.n("half") == 1.0) "1st–15th" else "16th–end"), fp.n("left"),
-                "${Fmt.money(fp.n("perDay"))}/day for ${fp.n("daysLeft").toInt()} days", "green", mod)
-            else StatTile("Food allowance", c.n("food"), "${Fmt.money(c.n("foodHalf"))} for each half of the month", "green", mod)
+                "${Fmt.money(fp.n("perDay"))}/day for ${fp.n("daysLeft").toInt()} days", "green", mod, action = { TextButton(onClick = { open(Sheet.Food(m.ym)) }) { Text("Food details") } })
+            else StatTile("Food allowance", c.n("food"), "${Fmt.money(c.n("foodHalf"))} for each half of the month", "green", mod, action = { TextButton(onClick = { open(Sheet.Food(m.ym)) }) { Text("Food details") } })
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatTile("Bills due · next ${m.days} days", m.dueTotal, "${m.dueCount} bill${if (m.dueCount == 1) "" else "s"}" + (if (m.dueOverdue > 0) " · ${m.dueOverdue} past due" else ""), "sky", Modifier.weight(1f))

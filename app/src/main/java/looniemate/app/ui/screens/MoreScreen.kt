@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.Button
@@ -83,6 +84,7 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
     val ctx = LocalContext.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { AccountsCard(vm, open) }
+        item { FoodCard(vm, open) }
         item {
             SectionCard("Appearance", Icons.Rounded.Palette, trailing = "Only this phone", index = 0) {
                 Text("Light or dark", fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(6.dp))
@@ -131,7 +133,7 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
         }
         item {
             SectionCard("Coming to the app next", Icons.Rounded.Schedule, "amber", index = 3) {
-                Text("Food, Savings, Income and benefits and balance checks are next, then Google Drive sync, reminders and a home screen widget. Until then, change those in the web version and import a backup here.",
+                Text("Savings, Income and benefits and balance checks are next, then Google Drive sync, reminders and a home screen widget. Until then, change those in the web version and import a backup here.",
                     style = MaterialTheme.typography.bodyMedium)
             }
         }
@@ -229,5 +231,19 @@ private fun AccountsCard(vm: MainViewModel, open: (Sheet) -> Unit) {
         }
         Spacer(Modifier.height(10.dp))
         FilledTonalButton(onClick = { open(Sheet.Account(null)) }, modifier = Modifier.testTag("add-account")) { Text("+ Add an account") }
+    }
+}
+
+/** The food budget in one line, with a way into the full food view where it's changed. */
+@Composable
+private fun FoodCard(vm: MainViewModel, open: (Sheet) -> Unit) {
+    val docs by vm.repo.docs.collectAsStateWithLifecycle()
+    val today by vm.today.collectAsStateWithLifecycle()
+    val s = Docs.settings(docs["settings/main"], today)
+    SectionCard("Food budget", Icons.Rounded.Restaurant, "green", index = 0) {
+        Text("Food gets ${Math.round(s.n("foodPct"))}% of the money left after fixed bills each month, and never less than ${Fmt.money(s.n("foodMin"))}.",
+            style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(10.dp))
+        FilledTonalButton(onClick = { open(Sheet.Food(today.take(7))) }, modifier = Modifier.testTag("food-settings")) { Text("Change food budget") }
     }
 }

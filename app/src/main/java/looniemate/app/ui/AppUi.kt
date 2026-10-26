@@ -80,7 +80,8 @@ enum class Tab(val label: String, val icon: ImageVector) {
 
 /** Which sheet is open, if any. */
 sealed class Sheet {
-    class Log(val oneTime: Boolean = false) : Sheet()
+    class Log(val oneTime: Boolean = false, val category: String = "") : Sheet()
+    class Food(val ym: String) : Sheet()
     class Bill(val id: String?, val group: String) : Sheet()
     class Adjust(val ym: String, val id: String, val defer: Boolean) : Sheet()
     class Transfer(val kind: String, val amount: Double?) : Sheet()

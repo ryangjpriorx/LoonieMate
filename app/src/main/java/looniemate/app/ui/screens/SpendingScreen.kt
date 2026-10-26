@@ -75,7 +75,7 @@ fun SpendingScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit)
 }
 
 @Composable
-private fun ExpenseRow(e: Obj, locked: Boolean, onDelete: () -> Unit) {
+fun ExpenseRow(e: Obj, locked: Boolean, onDelete: () -> Unit) {
     val x = LocalExtra.current
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
