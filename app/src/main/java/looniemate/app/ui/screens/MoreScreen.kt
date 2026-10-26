@@ -421,5 +421,5 @@ fun AddIncomeSheet(vm: MainViewModel, replace: (Sheet) -> Unit) {
     if (progs.isNotEmpty()) { Text("Social assistance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
         progs.forEach { p -> Choice("add-${p.key}", p.name, "Its payment dates and how work pay is counted are built in.") { replace(Sheet.Income(null, p.key)) } } }
     Text("Government benefits and credits", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
-    IncomeSetup.creditTypes(s).forEach { t -> Choice("add-${t.key}", t.name, "") { replace(Sheet.Credit(null, t.key)) } }
+    IncomeSetup.creditTypes(s).forEach { t -> Choice("add-${t.key}", t.name, t.whenText) { replace(Sheet.Credit(null, t.key)) } }
 }
