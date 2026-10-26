@@ -118,6 +118,33 @@ early versions), so the legacy keys and old snapshot names aren't read any more.
 - **N10.** `android:allowBackup="false"` stops cloud backup, but phone-to-phone transfer on Android 12+ still copies the
   budget unless `dataExtractionRules` say otherwise. Probably wanted (moving to a new phone); decide and write it down.
 
+### Web and Android side by side (checked 2026-10-26, after 0.10.0)
+
+The first audit covered the risky code (money maths, sync, backups, updater, saving, reminders, web escaping); it was not
+a line-by-line read of every screen, and it didn't compare the two versions feature by feature. This pass did that
+comparison (every web action and Settings section against the Android screens and view model). The money maths and the
+status messages are already checked identical by the parity tests; these are the gaps around them.
+
+- **W1. Android can't set the province.** The web version has "Province and bank holidays"; Android has no setting, so
+  every Android budget uses Ontario's bank holidays (paydays and bills that move for a holiday move on the wrong days
+  outside Ontario). Must fix.
+- **W2. Android can't set the household name or the people in it.** "Who paid" chips in Log spending need people, so
+  Android users never get them; the title stays "LoonieMate". Should fix.
+- **W3. Android can't change the plan dates** (first month of the plan, start tracking bills from, baby's due date).
+  Setup and getting on track set them; there's no way to change them afterwards. Should fix.
+- **W4. Android can't remove a quick button** (the one-tap Log spending buttons). The web version can. Should fix.
+- **W5. Android can't clear example data** in one go; the web version has "Example data". Nice to have.
+- **W6. Android has no "Last 6 months"** (the web version's history of income, bills, food, spending and savings per
+  month; the engine already works it out). Nice to have.
+- **W7. Android has no spreadsheet view** (the web version's "as a spreadsheet" copy of bills and spending). Nice to have:
+  a Share button with a CSV file would fit Android better.
+- **W8. The web version still offers to copy in "your earlier online budget"** (`legacy-load`, `copyLegacy`, the old
+  `rs-budget-local` key). Old data no longer needs to work, so remove it.
+- **W9. Android's "Coming to the app next" card promises a home screen widget** that isn't planned. Remove it or plan it.
+- By design, not gaps: Android-only features (getting on track, the Personal Expenses list editor, reminders, sync,
+  updates, accessibility switches); the web version's Food, Income and Accounts tabs are pages or Settings cards on
+  Android.
+
 ### Checked and fine
 
 - **Updater:** the download is checked against the SHA-256 in `update.json` *and* must be signed with the same key as
