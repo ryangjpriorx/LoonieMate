@@ -449,6 +449,49 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             patchMonth(ym, J.obj("starting" to true)) }
         prefs.onboarded = true; catchUpAt = null }
 
+    /* ---------- the starting point: the balance is the truth (docs/plans/getting-on-track-fixes.md) ---------- */
+
+    /** Paydays and benefits dated today (not the protected child benefits), as id, name and amount. */
+    fun paydaysToday(): List<Triple<String, String, Double>> { val t = today.value; val c = Core.monthCalc(ymOf(t), Docs.toStore(repo.docs.value, t), t)
+        return (c["incomes"].arr() + c["crAll"].arr().filter { !it.t("protect") }).filter { t in it.strList("dates") && it.n("amount") > 0 }
+            .map { Triple(it.s("id"), it.s("name"), it.n("amount")) } }
+
+    /** The starting point confirmed so far today (months/<ym>.start), or null. */
+    fun startToday(): Obj? = (repo.get("months/${ymOf(today.value)}")?.get("start") as? Obj)?.takeIf { it.s("date") == today.value }
+
+    /** Saves which of today's paydays aren't in the balances yet. Starts the food and Personal Expenses check over. */
+    fun saveStartNotIn(notIn: List<String>) { val t = today.value
+        patchMonth(ymOf(t), J.obj("start" to J.obj("date" to t, "notIn" to notIn))) }
+
+    /** Where you stand from today's balance check: Core.runway with its `now` (bills before the next money, food and Personal Expenses left). */
+    fun startRunway(): Obj { val t = today.value; val d = repo.docs.value
+        val ck = Docs.checkins(d).firstOrNull()?.takeIf { it.s("date") == t }
+        val bal = (ck?.get("bal") as? Obj)?.map?.mapValues { num(it.value) } ?: emptyMap()
+        return Core.runway(Docs.toStore(d, t), t, bal) }
+
+    /**
+     * The food and Personal Expenses money really left, as the person confirmed it. What the plan expected beyond that
+     * was spent before today, so it's logged once as "Spent before…" (marked startSpent, replaced if the step is done again)
+     * and Month and Spending match what really happened.
+     */
+    fun saveStartLeft(food: Double?, self: Double?, first: Boolean) {
+        val t = today.value; val ym = ymOf(t); val d0 = repo.docs.value
+        val old = d0.keys.filter { it.startsWith("months/$ym/expenses/") && (d0[it] as? Obj)?.let { e -> e.t("startSpent") && e.s("date") == t } == true }
+        val foodPath = "months/$ym/expenses/${repo.newId()}"; val selfPath = "months/$ym/expenses/${repo.newId()}"
+        change("Starting point saved", listOf("months/$ym", "meta/tombstones", foodPath, selfPath) + old) {
+            old.forEach { repo.delete(it) }
+            val notIn = startToday()?.get("notIn").arr().map { str(it) }
+            patchMonth(ym, J.obj("start" to J.obj("date" to t, "notIn" to notIn)))
+            val now = startRunway()["now"]
+            val note = if (first) "Spent before LoonieMate" else "Spent before getting back on track"
+            fun spent(path: String, plan: Double, left: Double?, category: String) { if (left == null) return; val a = round2(plan - left)
+                if (a > 0.004) repo.set(path, J.obj("date" to t, "amount" to a, "category" to category, "note" to note, "oneTime" to false, "startSpent" to true, "created" to System.currentTimeMillis())) }
+            spent(foodPath, now.n("foodPlan"), food, "groceries"); spent(selfPath, now.n("selfPlan"), self, Core.SELF)
+            val start = J.obj("date" to t, "notIn" to notIn); if (food != null) start["foodLeft"] = J.N(food); if (self != null) start["selfLeft"] = J.N(self)
+            patchMonth(ym, J.obj("start" to start))
+        }
+    }
+
     /** An undecided item was paid, or turned into a date or a payment plan. */
     fun catchUpResolve(id: String, message: String = "") = change(message, listOf("settings/main")) {
         saveSettings(J.obj("catchUp" to CatchUp.undecided(settings()).filter { it.s("id") != id }.map { it.copy() })) }

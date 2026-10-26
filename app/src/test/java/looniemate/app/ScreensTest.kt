@@ -141,11 +141,13 @@ class ScreensTest {
         rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("get-on-track")); settle()
         rule.onNodeWithTag("get-on-track").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle(); shot("$theme-catchup-1", sheet = true)
         rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction()).fetchSemanticsNodes().indices.forEach { i -> rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[i].performScrollTo().performTextInput("${200 + i * 150}") }
-        repeat(4) { k -> rule.onNodeWithTag("cu-next").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle(); shot("$theme-catchup-${k + 2}", sheet = true) }
-        /* step 5 is Personal Expenses, saved with its own button */
-        rule.onNodeWithTag("self-save").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle(); shot("$theme-catchup-6", sheet = true)
+        repeat(3) { k -> rule.onNodeWithTag("cu-next").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle(); shot("$theme-catchup-${k + 2}", sheet = true) }
+        /* step 4 is Personal Expenses, saved with its own button; step 5 checks what's left for food (worked out from the balance) */
+        rule.onNodeWithTag("self-save").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle(); shot("$theme-catchup-5", sheet = true)
+        if (rule.onAllNodesWithTag("cu-change").fetchSemanticsNodes().isEmpty()) problems.add("$theme: what's left for food didn't offer Change it")
+        rule.onNodeWithTag("cu-next").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle(); shot("$theme-catchup-6", sheet = true)
         /* back goes a step back inside getting on track, not out of it */
-        back(); if (rule.onAllNodesWithTag("self-save").fetchSemanticsNodes().isEmpty()) problems.add("$theme: back didn't go to the previous step")
+        back(); if (rule.onAllNodesWithTag("cu-change").fetchSemanticsNodes().isEmpty()) problems.add("$theme: back didn't go to the previous step")
         closePage()
         /* balance check: only the first account typed in; the rest count as $0 after one question */
         tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("checkin-more")); settle()

@@ -1027,15 +1027,19 @@ function runway(st,today,bal){
   const monthEnd=dayIn(cur,31),firstPay=mainPaydays(s,next).find(d=>d>monthEnd);
   const end=firstPay||addDays(monthEnd,7);
   const start=round2(accountsOf(s).filter(a=>a.type!=='savings').reduce((t,a)=>t+num(bal&&bal[a.id]),0));
+  /* what the person confirmed today in getting on track (months/<ym>.start): paydays dated today that aren't in the balances yet, and the food and Personal Expenses money really left */
+  const sm0=(st.months[cur]||{}).start,sm=sm0&&sm0.date===today?sm0:{},notIn=Array.isArray(sm.notIn)?sm.notIn:[];
   const ev=[];const push=(date,kind,name,amount)=>{if(amount)ev.push({date,kind,name,amount:round2(amount)})};
+  const inToday=(d,id)=>d>today&&d<=end||d===today&&notIn.includes(id);
+  let foodNow=null,selfNow=null;
   for(let ym=cur;ym<=ymOf(end);ym=ymAdd(ym,1)){const c=monthCalc(ym,st,today);
-    for(const inc of c.incomes||[])for(const d of inc.dates)if(d>today&&d<=end)push(d,'in',inc.name,num(inc.amount));
-    for(const cr of c.crAll||[])if(!cr.protect)for(const d of cr.dates)if(d>today&&d<=end)push(d,'in',cr.name,num(cr.amount));
-    if(ym===cur){const fp=foodPeriod(c,today,s);push(today,'food','Food money left for '+(fp.half===1?'the 1st–15th':'the 16th–end'),Math.max(0,fp.left));if(fp.half===1)push(ym+'-16','food','Food for the 16th–end',num(c.foodHalf))}
+    for(const inc of c.incomes||[])for(const d of inc.dates)if(inToday(d,inc.id))push(d,'in',inc.name,num(inc.amount));
+    for(const cr of c.crAll||[])if(!cr.protect)for(const d of cr.dates)if(inToday(d,cr.id))push(d,'in',cr.name,num(cr.amount));
+    if(ym===cur){const fp=foodPeriod(c,today,s);foodNow={name:'Food money left for '+(fp.half===1?'the 1st–15th':'the 16th–end'),plan:Math.max(0,fp.left)};if(fp.half===1)push(ym+'-16','food','Food for the 16th–end',num(c.foodHalf))}
     else{if(ym+'-01'<=end)push(ym+'-01','food','Food for the 1st–15th',num(c.foodHalf));if(ym+'-16'<=end)push(ym+'-16','food','Food for the 16th–end',num(c.foodHalf))}
     /* Personal Expenses arrive with each main payday; this month, what was given out so far and not spent yet counts today */
     if(num(c.self)>0){const reg=c.regularDays||[],n=reg.length;
-      if(ym===cur)push(today,'self','Personal Expenses left',Math.max(0,round2((n?num(c.self)*reg.filter(d=>d<=today).length/n:num(c.self))-num(c.selfSpent))));
+      if(ym===cur)selfNow={plan:Math.max(0,round2((n?num(c.self)*reg.filter(d=>d<=today).length/n:num(c.self))-num(c.selfSpent)))};
       if(n){for(const d of reg)if(d>today&&d<=end)push(d,'self','Personal Expenses',num(c.perPaySelf))}
       else if(ym!==cur&&ym+'-01'<=end)push(ym+'-01','self','Personal Expenses',num(c.self))}}
   let from=addDays(today,-21);if(isDate(s.trackFrom)&&from<s.trackFrom)from=s.trackFrom;
@@ -1044,6 +1048,17 @@ function runway(st,today,bal){
   for(const ym in st.expenses||{})for(const e of listExp(st.expenses[ym]))if(e.oneTime&&e.date>=today&&e.date<=end)push(e.date,'oneoff',e.note||'One-time expense',amt(e));
   /* things the family is behind on but hasn't decided how to pay yet (settings.catchUp) count as owed today */
   for(const x of(Array.isArray(s.catchUp)?s.catchUp:[]))if(x&&x.id)push(today,'overdue',x.name||'Owed',num(x.amount));
+  /* the balance is the truth: what's in the accounts (plus today's paydays not in yet) pays the bills owed before the next money comes in first,
+     then this period's food money, then Personal Expenses. Whatever the plan expected that the balance can't cover was already spent. */
+  const nextIn=ev.filter(e=>e.kind==='in'&&e.date>today).map(e=>e.date).sort()[0]||null;
+  const avail=round2(start+sum(ev.filter(e=>e.kind==='in'&&e.date===today).map(e=>e.amount)));
+  const owed=round2(sum(ev.filter(e=>(e.kind==='overdue'||e.kind==='bill'||e.kind==='oneoff')&&(nextIn?e.date<nextIn:e.date<=end)).map(e=>e.amount)));
+  let room=Math.max(0,round2(avail-owed));
+  const now={nextIn,owed,room};
+  if(foodNow){const left=sm.foodLeft!=null&&sm.foodLeft!==''?Math.max(0,num(sm.foodLeft)):round2(Math.min(foodNow.plan,room));room=Math.max(0,round2(room-left));
+    now.foodPlan=round2(foodNow.plan);now.food=left;push(today,'food',foodNow.name,left)}
+  if(selfNow){const left=sm.selfLeft!=null&&sm.selfLeft!==''?Math.max(0,num(sm.selfLeft)):round2(Math.min(selfNow.plan,room));
+    now.selfPlan=round2(selfNow.plan);now.self=left;push(today,'self','Personal Expenses left',left)}
   const order={in:0,overdue:1,bill:2,oneoff:3,food:4,self:5};
   ev.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:order[a.kind]-order[b.kind]);
   const days=[];let b=start,low=start,lowDate=today,short=null;
@@ -1051,7 +1066,7 @@ function runway(st,today,bal){
     d.items.push(e);b=round2(b+(e.kind==='in'?e.amount:-e.amount));d.bal=b}
   for(const d of days){if(d.bal<low){low=d.bal;lowDate=d.date}
     if(!short&&d.bal<0){const nx=ev.find(e=>e.kind==='in'&&e.date>d.date);short={date:d.date,amount:round2(-d.bal),nextIn:nx?nx.date:null}}}
-  return{from:today,to:end,start,days,low:round2(low),lowDate,short};
+  return{from:today,to:end,start,days,low:round2(low),lowDate,short,now};
 }
 function foodPeriod(c,today,s){
   const ym=c.ym||ymOf(today),day=+today.slice(8,10),n=dim(ym),first=day<=15;

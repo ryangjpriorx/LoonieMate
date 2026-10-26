@@ -746,19 +746,26 @@ object Core {
         val monthEnd = dayIn(cur, 31); val firstPay = mainPaydays(s, next).find { it > monthEnd }
         val end = firstPay ?: addDays(monthEnd, 7)
         var t0 = 0.0; accountsOf(s).filter { it.s("type") != "savings" }.forEach { t0 += bal[it.s("id")] ?: 0.0 }; val start = round2(t0)
+        /* what the person confirmed today in getting on track (months/<ym>.start): paydays dated today that aren't in the balances yet,
+           and the food and Personal Expenses money really left */
+        val sm0 = st.months[cur]?.get("start"); val sm: J? = if (sm0 is Obj && sm0.s("date") == today) sm0 else null
+        val notIn = sm?.get("notIn").arr().map { str(it) }.toSet()
+        fun given(k: String): Double? { val v = sm?.get(k); return if (v == null || v == J.Null || (v is J.S && v.v.isEmpty())) null else maxOf(0.0, num(v)) }
         val ev = mutableListOf<Obj>()
         fun push(date: String, kind: String, name: String, amount: Double) { if (amount != 0.0 && !amount.isNaN()) ev.add(J.obj("date" to date, "kind" to kind, "name" to name, "amount" to round2(amount))) }
+        fun counts(d: String, id: String) = (d > today && d <= end) || (d == today && id in notIn)
+        var foodName: String? = null; var foodPlan = 0.0; var selfPlan: Double? = null
         var ym = cur
         while (ym <= ymOf(end)) { val c = monthCalc(ym, st, today)
-            for (inc in c["incomes"].arr()) for (d in inc.strList("dates")) if (d > today && d <= end) push(d, "in", inc.s("name"), num(inc["amount"]))
-            for (cr in c["crAll"].arr()) if (!cr.t("protect")) for (d in cr.strList("dates")) if (d > today && d <= end) push(d, "in", cr.s("name"), num(cr["amount"]))
+            for (inc in c["incomes"].arr()) for (d in inc.strList("dates")) if (counts(d, inc.s("id"))) push(d, "in", inc.s("name"), num(inc["amount"]))
+            for (cr in c["crAll"].arr()) if (!cr.t("protect")) for (d in cr.strList("dates")) if (counts(d, cr.s("id"))) push(d, "in", cr.s("name"), num(cr["amount"]))
             if (ym == cur) { val fp = foodPeriod(c, today)
-                push(today, "food", "Food money left for " + (if (fp.n("half") == 1.0) "the 1st–15th" else "the 16th–end"), maxOf(0.0, fp.n("left")))
+                foodName = "Food money left for " + (if (fp.n("half") == 1.0) "the 1st–15th" else "the 16th–end"); foodPlan = maxOf(0.0, fp.n("left"))
                 if (fp.n("half") == 1.0) push("$ym-16", "food", "Food for the 16th–end", c.n("foodHalf")) }
             else { if ("$ym-01" <= end) push("$ym-01", "food", "Food for the 1st–15th", c.n("foodHalf")); if ("$ym-16" <= end) push("$ym-16", "food", "Food for the 16th–end", c.n("foodHalf")) }
             /* Personal Expenses arrive with each main payday; this month, what was given out so far and not spent yet counts today */
             if (c.n("self") > 0) { val reg = c.strList("regularDays"); val n = reg.size
-                if (ym == cur) push(today, "self", "Personal Expenses left", maxOf(0.0, round2((if (n > 0) c.n("self") * reg.count { it <= today } / n else c.n("self")) - c.n("selfSpent"))))
+                if (ym == cur) selfPlan = maxOf(0.0, round2((if (n > 0) c.n("self") * reg.count { it <= today } / n else c.n("self")) - c.n("selfSpent")))
                 if (n > 0) { for (d in reg) if (d > today && d <= end) push(d, "self", "Personal Expenses", c.n("perPaySelf")) }
                 else if (ym != cur && "$ym-01" <= end) push("$ym-01", "self", "Personal Expenses", c.n("self")) }
             ym = ymAdd(ym, 1) }
@@ -768,6 +775,17 @@ object Core {
         for ((_, mp) in st.expenses) for (e in listExp(mp)) if (e.t("oneTime") && e.s("date") >= today && e.s("date") <= end) push(e.s("date"), "oneoff", if (e.t("note")) e.s("note") else "One-time expense", amt(e))
         /* things the family is behind on but hasn't decided how to pay yet (settings.catchUp) count as owed today */
         for (x in s["catchUp"].arr()) if (x is Obj && x.t("id")) push(today, "overdue", if (x.t("name")) x.s("name") else "Owed", num(x["amount"]))
+        /* the balance is the truth: what's in the accounts (plus today's paydays not in yet) pays the bills owed before the next money comes in
+           first, then this period's food money, then Personal Expenses. Whatever the plan expected that the balance can't cover was already spent. */
+        val nextIn = ev.filter { it.s("kind") == "in" && it.s("date") > today }.map { it.s("date") }.sorted().firstOrNull()
+        val avail = round2(start + sumOf2(ev.filter { it.s("kind") == "in" && it.s("date") == today }.map { it.n("amount") }))
+        val owed = sumOf2(ev.filter { val k = it.s("kind"); (k == "overdue" || k == "bill" || k == "oneoff") && (if (nextIn != null) it.s("date") < nextIn else it.s("date") <= end) }.map { it.n("amount") })
+        var room = maxOf(0.0, round2(avail - owed))
+        val now = J.obj("nextIn" to nextIn, "owed" to owed, "room" to room)
+        foodName?.let { nm -> val left = given("foodLeft") ?: round2(minOf(foodPlan, room)); room = maxOf(0.0, round2(room - left))
+            now["foodPlan"] = J.N(round2(foodPlan)); now["food"] = J.N(left); push(today, "food", nm, left) }
+        selfPlan?.let { pl -> val left = given("selfLeft") ?: round2(minOf(pl, room))
+            now["selfPlan"] = J.N(round2(pl)); now["self"] = J.N(left); push(today, "self", "Personal Expenses left", left) }
         val order = mapOf("in" to 0, "overdue" to 1, "bill" to 2, "oneoff" to 3, "food" to 4, "self" to 5)
         val sorted = ev.sortedWith(compareBy<Obj> { it.s("date") }.thenBy { order[it.s("kind")] ?: 9 })
         val days = mutableListOf<Obj>(); var b = start; var low = start; var lowDate = today; var short: Obj? = null
@@ -776,7 +794,7 @@ object Core {
         for (d in days) { if (d.n("bal") < low) { low = d.n("bal"); lowDate = d.s("date") }
             if (short == null && d.n("bal") < 0) { val nx = sorted.find { it.s("kind") == "in" && it.s("date") > d.s("date") }
                 short = J.obj("date" to d.s("date"), "amount" to round2(-d.n("bal")), "nextIn" to nx?.s("date")) } }
-        return J.obj("from" to today, "to" to end, "start" to start, "days" to days, "low" to round2(low), "lowDate" to lowDate, "short" to short)
+        return J.obj("from" to today, "to" to end, "start" to start, "days" to days, "low" to round2(low), "lowDate" to lowDate, "short" to short, "now" to now)
     }
 
     fun foodPeriod(c: J, today: String): Obj {

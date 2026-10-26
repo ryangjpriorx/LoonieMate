@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,9 +45,10 @@ import looniemate.engine.Views
 import looniemate.engine.*
 
 /**
- * Getting on track: where the family stands today, partway through a month. Steps: what's in the accounts,
- * this month so far, anything they're behind on, food so far, Personal Expenses, and where they stand until the next payday.
- * See docs/plans/getting-on-track.md. [first] is true for first-time setup (finishing marks the starting month).
+ * Getting on track: where the family stands today, partway through a month. Steps: what's in the accounts (and whether
+ * today's paydays are in yet), this month so far, anything they're behind on, Personal Expenses, what's really left for
+ * food and for themselves, and where they stand until the next payday. The balance is the truth: see
+ * docs/plans/getting-on-track.md and docs/plans/getting-on-track-fixes.md. [first] is true for first-time setup (finishing marks the starting month).
  */
 @Composable
 fun CatchUpSheet(vm: MainViewModel, first: Boolean, close: () -> Unit) {
@@ -56,7 +58,7 @@ fun CatchUpSheet(vm: MainViewModel, first: Boolean, close: () -> Unit) {
     val page = LocalPage.current
     androidx.compose.runtime.LaunchedEffect(step) { page?.saved(); vm.catchUpAt = vm.today.value to step }
     androidx.activity.compose.BackHandler(enabled = step > 0) { step-- }
-    val titles = listOf("What's in your accounts right now?", "This month so far", "Anything you're behind on?", "Food so far", "Personal Expenses", "Where you stand")
+    val titles = listOf("What's in your accounts right now?", "This month so far", "Anything you're behind on?", "Personal Expenses", "What's left for food", "Where you stand")
     Text("Step ${step + 1} of ${titles.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     LinearProgressIndicator(progress = { (step + 1f) / titles.size }, modifier = Modifier.fillMaxWidth())
     SheetTitle(titles[step])
@@ -64,8 +66,8 @@ fun CatchUpSheet(vm: MainViewModel, first: Boolean, close: () -> Unit) {
         0 -> BalancesStep(vm) { step = 1 }
         1 -> SoFarStep(vm) { step = 2 }
         2 -> BehindStep(vm) { step = 3 }
-        3 -> FoodStep(vm) { step = 4 }
-        4 -> SelfPlanEditor(vm, "Next") { step = 5 }
+        3 -> SelfPlanEditor(vm, "Next") { step = 4 }
+        4 -> LeftStep(vm, first) { step = 5 }
         else -> StandStep(vm) { vm.finishCatchUp(first); close() }
     }
     if (step > 0) TextButton(onClick = { step-- }) { Text("Back") }
@@ -84,9 +86,19 @@ private fun BalancesStep(vm: MainViewModel, next: () -> Unit) {
         style = MaterialTheme.typography.bodyMedium)
     if (A.isEmpty()) { EmptyNote("Add your accounts in Settings first."); return }
     A.forEach { a -> MoneyField(typed[a.s("id")] ?: "", { typed[a.s("id")] = it; err = null }, a.s("name") + if (a.s("type") == "savings") " (savings)" else "") }
+    /* a payday dated today may land later in the day: ask, so it isn't missed (yes by default) */
+    val todays = remember { vm.paydaysToday() }
+    val notIn = rememberSaveable(saver = stateMapSaver<String>()) { mutableStateMapOf<String, String>().apply { vm.startToday()?.get("notIn").arr().forEach { put(str(it), "no") } } }
+    todays.forEach { (id, name, amount) ->
+        Text("Your $name (${Fmt.money(amount)}) is due today. Is it already in these balances?", fontWeight = FontWeight.SemiBold)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(notIn[id] == null, { notIn.remove(id) }, label = { Text("Yes, it's in") }, modifier = Modifier.testTag("in-yes-$id"))
+            FilterChip(notIn[id] != null, { notIn[id] = "no" }, label = { Text("Not yet") }, modifier = Modifier.testTag("in-no-$id")) }
+    }
     ErrorText(err)
     Button(onClick = { val ids = A.map { it.s("id") }
-            blanks.run(ids.count { (typed[it] ?: "").isBlank() }) { val (r, e) = vm.compareBalances(blanksAsZero(typed, ids)); if (r == null) err = e else { vm.saveCheckin(r, false); next() } } },
+            blanks.run(ids.count { (typed[it] ?: "").isBlank() }) { val (r, e) = vm.compareBalances(blanksAsZero(typed, ids))
+                if (r == null) err = e else { vm.saveCheckin(r, false); vm.saveStartNotIn(todays.map { it.first }.filter { notIn[it] != null }); next() } } },
         Modifier.fillMaxWidth().testTag("cu-next")) { Text("Next") }
 }
 
@@ -97,7 +109,8 @@ private fun SoFarStep(vm: MainViewModel, next: () -> Unit) {
     val st = Docs.toStore(docs, today)
     val bills = Core.billEvents(st, vm.catchUpFrom(), today).filter { !it.t("fund") }
     val c = Core.monthCalc(ym, st, today)
-    val paid = c["incomes"].arr().flatMap { inc -> inc.strList("dates").filter { it <= today }.map { d -> Triple(d, inc.s("name"), inc.n("amount")) } }.sortedBy { it.first }
+    val waiting = vm.startToday()?.get("notIn").arr().map { str(it) }.toSet()
+    val paid = c["incomes"].arr().flatMap { inc -> inc.strList("dates").filter { it < today || (it == today && inc.s("id") !in waiting) }.map { d -> Triple(d, inc.s("name"), inc.n("amount")) } }.sortedBy { it.first }
     Text("Tick the bills that are already paid. Anything left unticked is something you're behind on, and you'll decide what to do about it next.", style = MaterialTheme.typography.bodyMedium)
     if (bills.isEmpty()) Hint3("No bills were due between the 1st and today.")
     bills.forEach { e -> val on = looniemate.app.data.Ticks.isPaid(vm.repo, e.s("ym"), e.s("key"))
@@ -170,23 +183,40 @@ private fun BehindStep(vm: MainViewModel, next: () -> Unit) {
     Button(onClick = next, Modifier.fillMaxWidth().testTag("cu-next")) { Text("Next") }
 }
 
-/* ---- step 4: food so far, one rough number ---- */
+/* ---- step 5: what's really left for food and Personal Expenses until the next money, worked out from the balance ---- */
 @Composable
-private fun FoodStep(vm: MainViewModel, next: () -> Unit) {
-    val today = vm.today.value; val half = if (today.substring(8, 10).toInt() <= 15) "the 1st" else "the 16th"
-    var amount by rememberSaveable { mutableStateOf("") }; var err by rememberSaveable { mutableStateOf<String?>(null) }
-    Text("About how much has gone on groceries and takeout since $half? A rough number is fine. It's logged so this half's food money starts in the right place.",
-        style = MaterialTheme.typography.bodyMedium)
-    MoneyField(amount, { amount = it; err = null }, "Food since $half")
-    ErrorText(err)
-    Button(onClick = {
-        if (amount.isBlank()) next() else { val a = Views.parseMoney(amount)
-            if (a == null || a.isNaN() || a < 0) err = "Enter a dollar amount, or leave it blank."
-            else { if (a > 0) err = vm.logExpense(a, "groceries", today, "Food so far (estimate)", "", false, "household", false); if (err == null) next() } }
-    }, Modifier.fillMaxWidth().testTag("cu-next")) { Text(if (amount.isBlank()) "Skip" else "Next") }
+private fun LeftStep(vm: MainViewModel, first: Boolean, next: () -> Unit) {
+    val docs by vm.repo.docs.collectAsStateWithLifecycle(); val today = vm.today.value
+    val r = remember(docs) { vm.startRunway() }; val now = r["now"]
+    val st = Docs.toStore(docs, today); val fp = Core.foodPeriod(Core.monthCalc(ymOf(today), st, today), today)
+    val hasSelf = now?.get("selfPlan") != null && now.n("selfPlan") > 0
+    var changing by rememberSaveable { mutableStateOf(false) }; var err by rememberSaveable { mutableStateOf<String?>(null) }
+    val typed = rememberSaveable(saver = stateMapSaver<String>()) { mutableStateMapOf("food" to money2(now.n("food")), "self" to money2(now.n("self"))) }
+    val blanks = rememberBlankCheck()
+    val nextIn = now.s("nextIn"); val owed = now.n("owed")
+    Text((if (owed > 0.004) "After the bills due before ${if (nextIn.isNotEmpty()) Fmt.dShort(nextIn) else "the end of the month"} (${Fmt.money(owed)}), about " else "About ") +
+        "${Fmt.money(now.n("food"))} is left for food until ${Fmt.dShort(fp.s("end"))}" +
+        (if (hasSelf) " and ${Fmt.money(now.n("self"))} for Personal Expenses" else "") + ". Sound right?", style = MaterialTheme.typography.bodyLarge)
+    /* kind words: a small or empty balance isn't a failure, it's just where things stand */
+    if (r.n("start") <= 0.004) Hint3("That's okay. It means what came in this month has gone on bills and spending. LoonieMate starts from here.")
+    else if (now.n("food") < now.n("foodPlan") - 0.5 || (hasSelf && now.n("self") < now.n("selfPlan") - 0.5))
+        Hint3("The rest of what the plan set aside was already spent, and that's okay. LoonieMate starts from here.")
+    if (!changing) {
+        Button(onClick = { vm.saveStartLeft(now.n("food"), if (hasSelf) now.n("self") else null, first); next() }, Modifier.fillMaxWidth().testTag("cu-next")) { Text("Yes, that's right") }
+        OutlinedButton(onClick = { changing = true }, Modifier.fillMaxWidth().testTag("cu-change")) { Text("Change it") }
+    } else {
+        MoneyField(typed["food"] ?: "", { typed["food"] = it; err = null }, "Really left for food until ${Fmt.dShort(fp.s("end"))}")
+        if (hasSelf) MoneyField(typed["self"] ?: "", { typed["self"] = it; err = null }, "Really left for Personal Expenses")
+        ErrorText(err)
+        Button(onClick = { val keys = if (hasSelf) listOf("food", "self") else listOf("food")
+                blanks.run(keys.count { (typed[it] ?: "").isBlank() }) { val v = blanksAsZero(typed, keys).mapValues { Views.parseMoney(it.value) }
+                    if (v.values.any { it == null || it.isNaN() || it < 0 }) err = "Enter a dollar amount."
+                    else { vm.saveStartLeft(v["food"], if (hasSelf) v["self"] else null, first); next() } } },
+            Modifier.fillMaxWidth().testTag("cu-next")) { Text("Next") }
+    }
 }
 
-/* ---- step 5: day by day from today, the first short day, and the fixes ---- */
+/* ---- step 6: day by day from today, the first short day, and the fixes ---- */
 @Composable
 private fun StandStep(vm: MainViewModel, done: () -> Unit) {
     val docs by vm.repo.docs.collectAsStateWithLifecycle(); val today = vm.today.value; val ym = ymOf(today)
@@ -195,7 +225,9 @@ private fun StandStep(vm: MainViewModel, done: () -> Unit) {
     val bal = (ck?.get("bal") as? Obj)?.map?.mapValues { num(it.value) } ?: emptyMap()
     val r = Core.runway(st, today, bal); val short = r["short"] as? Obj
     val bad = toneColors("bad").first
-    Text("You have ${Fmt.money(r.n("start"))} in your everyday accounts. Here's every payday and bill until ${Fmt.dShort(r.s("to"))}.", style = MaterialTheme.typography.bodyMedium)
+    val inToday = r["days"].arr().firstOrNull { it.s("date") == today }?.get("items").arr().filter { it.s("kind") == "in" }.sumOf { it.n("amount") }
+    Text("You have ${Fmt.money(r.n("start"))} in your everyday accounts" + (if (inToday > 0) ", plus ${Fmt.money(inToday)} coming in today" else "") +
+        ". Here's every payday and bill until ${Fmt.dShort(r.s("to"))}.", style = MaterialTheme.typography.bodyMedium)
     val (fg, bg) = toneColors(if (short != null) "bad" else "good")
     Surface(shape = MaterialTheme.shapes.medium, color = bg, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {

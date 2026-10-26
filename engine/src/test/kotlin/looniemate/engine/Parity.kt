@@ -45,6 +45,11 @@ object Parity {
                     cmp("$p status $ym", v, J.obj("tone" to stt.tone, "label" to stt.label, "pts" to stt.points)) }
             }
         }
+        for (x in fx["runways"].arr()) {
+            val today = x.s("today"); val st = Docs.toStore((x["docs"] as Obj).map, today, allMonthsLoaded = false)
+            val bal = (x["bal"] as Obj).map.mapValues { num(it.value) }
+            cmp("runway ${x.s("name")}", x["result"], Core.runway(st, today, bal))
+        }
         for ((k, v) in (fx["holidays"] as Obj).map) {
             val y = k.substring(0, 4).toInt(); val prov = k.substring(4)
             cmp("holidays $k", v, J.of(Core.holidaysOf(y, prov).map { J.obj("date" to it.date, "name" to it.name, "bank" to it.bank) }))

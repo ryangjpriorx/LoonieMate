@@ -86,6 +86,36 @@ for (const sc of scenarios) {
   out.scenarios.push({ name: sc.name, docs, todays: sc.todays, results: res });
 }
 
+/* Where you stand from a starting point (docs/plans/getting-on-track-fixes.md): the balance is the truth, today's paydays
+   in the balance or not yet, and food / Personal Expenses money the person confirmed */
+{ /* a plain household: ODSP pays the rent on the 1st, a paycheque every two weeks, a few bills, food and Personal Expenses */
+  const base = {
+    'settings/main': { householdName: 'Plain', people: ['Alex'], foodPct: 40, foodMin: 400, startYm: '2026-11', trackFrom: '2026-11-01',
+      accounts: [{ id: 'm', name: 'Main', type: 'chequing', purposes: ['main', 'rent', 'everyday', 'online'] }, { id: 'sv', name: 'Savings', type: 'savings', purposes: [] }],
+      incomes: [{ id: 'od', name: 'ODSP', amount: 1400, assist: 'odsp', sched: { type: 'odsp' }, account: 'm', role: 'rent', ded: {} },
+                { id: 'pay', name: 'Paycheque', amount: 900, kind: 'pay', sched: { type: 'biweekly', anchor: '2026-11-13' }, account: 'm', role: 'main', odsp: 'spouse' }],
+      selfPlan: [{ name: 'Coffee', amount: 25, per: 'week' }] },
+    'bills/rent': { name: 'Rent', group: 'adults', category: 'housing', amount: 1350, freq: 'monthly', day: 1, account: 'm' },
+    'bills/phone': { name: 'Phone', group: 'adults', category: 'phone', amount: 55, freq: 'monthly', day: 24, account: 'm' },
+    'bills/net': { name: 'Internet', group: 'adults', category: 'phone', amount: 80, freq: 'monthly', day: 26, account: 'm' },
+    'months/2026-11': { starting: true, paid: { 'rent@2026-11-01': true } },
+  };
+  const withStart = start => { const d = JSON.parse(JSON.stringify(base)); d['months/2026-11'].start = start; return d; };
+  const cases = [
+    { name: '$0 mid-half', docs: base, today: '2026-11-20', bal: { m: 0 } },
+    { name: '$0 first day of the half', docs: base, today: '2026-11-16', bal: { m: 0, sv: 50 } },
+    { name: 'some money, bills come first', docs: base, today: '2026-11-20', bal: { m: 210.4 } },
+    { name: 'more than the plan', docs: base, today: '2026-11-20', bal: { m: 2600, sv: 999 } },
+    { name: 'payday today, already in', docs: base, today: '2026-11-27', bal: { m: 1040 } },
+    { name: 'payday today, not in yet', docs: withStart({ date: '2026-11-27', notIn: ['pay'] }), today: '2026-11-27', bal: { m: 140 } },
+    { name: 'not in yet, but a later day', docs: withStart({ date: '2026-11-26', notIn: ['pay'] }), today: '2026-11-27', bal: { m: 140 } },
+    { name: 'confirmed amounts', docs: withStart({ date: '2026-11-20', foodLeft: 85, selfLeft: '12.5' }), today: '2026-11-20', bal: { m: 90 } },
+    { name: 'confirmed blank', docs: withStart({ date: '2026-11-20', foodLeft: '', selfLeft: null, notIn: 'x' }), today: '2026-11-20', bal: { m: 500 } },
+    { name: 'first half', docs: base, today: '2026-11-05', bal: { m: 300 } },
+  ];
+  out.runways = cases.map(k => ({ name: k.name, docs: k.docs, today: k.today, bal: k.bal, result: C.runway(fromDocs(k.docs, k.today), k.today, k.bal) }));
+}
+
 /* backups and merging, using the web version's own functions */
 async function backupVectors() {
   const src = html.match(/(const B64=[\s\S]*?)function backupPayload/)[1];
