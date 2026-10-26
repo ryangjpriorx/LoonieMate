@@ -1613,6 +1613,7 @@ function planCard(c,phase){
     <div><div class="label">Money in</div><div class="num cu">${fmt(c.spendable)}</div></div>
     <div><div class="label">Fixed bills</div><div class="num">${fmt(c.billsTotal)}</div></div>
     <div><div class="label">Food</div><div class="num">${fmt(c.food)}</div></div>
+    ${num(c.self)>0?`<div><div class="label">Personal Expenses</div><div class="num">${fmt(c.self)}</div></div>`:''}
     <div><div class="label">Planned surplus</div><div class="num" style="color:var(--${c.plannedSurplus<0?'bad':'good'})">${fmt(c.plannedSurplus)}</div></div>
   </div>
   <p class="small muted" style="margin-top:8px">Adults ${fmt(c.byGroup.adults)} · Kids ${fmt(c.byGroup.baby)} · Pets ${fmt(c.byGroup.pets)}${c.otherSpent?` · Everyday and one-time spending so far ${fmt(c.otherSpent)}`:''}</p>

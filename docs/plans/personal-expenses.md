@@ -38,9 +38,9 @@ before the next.
 - [x] **Stage 0**: this plan.
 - [x] **Stage 1**: the maths in both engines (web first, then Kotlin), checked by the parity tests: the planned amount in
   `monthCalc`, the `self` spending category, going over, a held-back amount for a month (`months/<ym>`), `runway`.
-- [ ] **Stage 2**: Android: the setup step, a Settings card, the "Personal Expenses" choice in Log spending, the Month line,
+- [x] **Stage 2**: Android: the setup step, a Settings card, the "Personal Expenses" choice in Log spending, the Month line,
   and the Today card.
-- [ ] **Stage 3**: Android: the "hold back" fix in Where you stand and the status note. Web shows the line. Then release.
+- [x] **Stage 3**: Android: the "hold back" fix in Where you stand and the status note. Web shows the line. Then release.
 
 ## Notes for picking up
 
@@ -56,3 +56,11 @@ before the next.
   The per-payday breakdown shows a Personal Expenses line. Spending category "Personal Expenses" (`self`) in both lists.
   Parity: the Ontario, Quebec and Nova Scotia households have `selfPlan`; Ontario has `self` spending, a hold, and a
   hold bigger than the plan.
+- Stage 2 (done): `ui/sheets/SelfSheet.kt`: `SelfSheet` (`Sheet.Self`: this month's planned / held back / logged /
+  left, the logged entries, "+ Log Personal Expenses", then the plan) and `SelfPlanEditor` (one line per person: who,
+  how much, per week / paycheque / month; blank = $0), also step 5 of getting on track (now six steps).
+  `MainViewModel`: `SelfRow`, `selfRows`, `readSelf`, `selfMonthly`, `saveSelf`, `holdSelf`. Today: `SelfCard`
+  (`TodayModel.self`, shown when planned or logged; calm "sky" colour, never red). Settings: `SelfPlanCard` under Food.
+  Month: a Personal Expenses tile. Log spending already lists the category.
+- Stage 3 (done): Where you stand offers "Hold back some Personal Expenses" (all of what's still unspent up to the
+  shortfall, or half), after giving up a non-essential and before Emergency Savings. Web month summary shows the line.

@@ -65,6 +65,7 @@ fun CatchUpSheet(vm: MainViewModel, first: Boolean, close: () -> Unit) {
         1 -> SoFarStep(vm) { step = 2 }
         2 -> BehindStep(vm) { step = 3 }
         3 -> FoodStep(vm) { step = 4 }
+        4 -> SelfPlanEditor(vm, "Next") { step = 5 }
         else -> StandStep(vm) { vm.finishCatchUp(first); close() }
     }
     if (step > 0) TextButton(onClick = { step-- }) { Text("Back") }
@@ -199,7 +200,7 @@ private fun StandStep(vm: MainViewModel, done: () -> Unit) {
     Surface(shape = MaterialTheme.shapes.medium, color = bg, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             if (short != null) { val day = r["days"].arr().find { it.s("date") == short.s("date") }
-                val biggest = day?.get("items").arr().filter { it.s("kind") != "in" && it.s("kind") != "food" }.maxByOrNull { it.n("amount") }
+                val biggest = day?.get("items").arr().filter { it.s("kind") != "in" && it.s("kind") != "food" && it.s("kind") != "self" }.maxByOrNull { it.n("amount") }
                 Text("Short ${Fmt.money(short.n("amount"))} on ${Fmt.dShort(short.s("date"))}", fontWeight = FontWeight.Bold, color = fg)
                 Text((if (biggest != null) "${biggest.s("name")} (${Fmt.money(biggest.n("amount"))}) is due ${if (short.s("date") == today) "now" else Fmt.dShort(short.s("date"))}. " else "") +
                     (if (short.t("nextIn")) "The next money comes in on ${Fmt.dShort(short.s("nextIn"))}." else "No more money is coming in before then."), style = MaterialTheme.typography.bodySmall)
@@ -231,6 +232,19 @@ private fun StandStep(vm: MainViewModel, done: () -> Unit) {
         /* give up a non-essential this month */
         lines.filter { !it.t("essential") && !it.t("skipped") && it.n("planned") > 0 && !it.t("deferredFrom") }.sortedByDescending { it.n("planned") }.take(2).forEach { l ->
             Fix("Give up ${l.s("name")} this month", "Saves ${Fmt.money(l.n("planned"))}. Call or cancel with the company yourself.", "Give it up") { vm.skip(ym, l.s("id"), l.n("planned")) } }
+        /* Personal Expenses: suggested, never expected; only what's still unspent this month, and it goes back next month */
+        val free = round2(c.n("self") - c.n("selfSpent"))
+        if (free >= 1) { val all = minOf(free, short.n("amount")); val half = round2(Math.ceil(all / 2))
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Hold back some Personal Expenses" + (if (nextIn.isNotEmpty()) " until ${Fmt.dShort(nextIn)}" else " this month"), fontWeight = FontWeight.SemiBold)
+                    Hint3("Only if you can. ${Fmt.money(free)} is still set aside for you this month; holding some back keeps it for the bills instead. It's back to normal next month.")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { vm.holdSelf(ym, c.n("selfHold") + all) }, modifier = Modifier.testTag("self-hold")) { Text("Hold back ${Fmt.money(all)}") }
+                        if (half >= 5 && half < all) OutlinedButton(onClick = { vm.holdSelf(ym, c.n("selfHold") + half) }) { Text("Half (${Fmt.money(half)})") }
+                    }
+                }
+            } }
         /* cover it from Emergency Savings */
         val em = Core.savingsState(st).emergency
         if (em > 0) { val amt = minOf(em, short.n("amount"))
