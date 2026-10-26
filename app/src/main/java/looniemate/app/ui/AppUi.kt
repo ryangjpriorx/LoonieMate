@@ -133,6 +133,10 @@ fun LoonieMateApp(vm: MainViewModel) {
     val monthTabs = tab == Tab.Month || tab == Tab.Bills || tab == Tab.Spending || tab == Tab.Savings
     val shownYm = ymSel ?: vm.shownYm()
     val big = bigText()
+    val syncState by vm.sync.state.collectAsStateWithLifecycle()
+    val syncLine = when (val s = syncState) { is looniemate.app.sync.SyncManager.State.Syncing -> "Syncing…"
+        is looniemate.app.sync.SyncManager.State.Error -> "Sync needs attention · see Settings"
+        is looniemate.app.sync.SyncManager.State.Ok -> looniemate.app.ui.screens.syncedAgo(s.at); else -> "" }
 
     Scaffold(
         topBar = {
@@ -147,7 +151,7 @@ fun LoonieMateApp(vm: MainViewModel) {
                             Text(if (tab == Tab.More) "Settings" else todayModel?.title ?: "LoonieMate", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
                                 maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             if (tab == Tab.Today && !big) { val days = lastBackup?.let { diffDays(it.take(10), today) }
-                                Text("Saved on this phone · " + when (days) { null -> "not backed up yet"; 0 -> "backed up today"; 1 -> "backed up yesterday"; else -> "backed up $days days ago" },
+                                Text(if (vm.sync.on) syncLine else "Saved on this phone · " + when (days) { null -> "not backed up yet"; 0 -> "backed up today"; 1 -> "backed up yesterday"; else -> "backed up $days days ago" },
                                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }
                     },

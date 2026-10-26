@@ -75,6 +75,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val repo = la.repo
     val prefs = la.prefs
     val updater = la.updater
+    val sync = la.sync
 
     val today = MutableStateFlow(todayStr())
     /** the month shown on Month, Bills and Spending */

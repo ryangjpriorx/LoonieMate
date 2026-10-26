@@ -71,6 +71,7 @@ It was built for a family living on social assistance and benefits, where a late
 - **One-tap spending buttons** for the things you buy often. LoonieMate suggests them from what you log.
 - **Debt payoff rings** with milestones: a quarter done, halfway there, almost done.
 - **Easier to use for more people**: bigger or bolder text, an easier-to-read font, stronger contrast, colour-blind friendly colours, less motion, more time and bigger buttons, in Settings → Accessibility (the app matches your phone's settings when you first open it). Screen readers get each row as one sentence, with Paid and Done as actions.
+- **Sync between phones** *(Android)*: keep the same budget on two phones through one encrypted file in Google Drive (or Nextcloud, or any cloud app in Android's file picker). No sign-in; an Undo on one phone sticks on the other.
 - **Start from today** *(Android)*: starting partway through a month, or after a rough patch? Five quick steps take what's in your accounts now, what's paid, what you're behind on and food so far, then show every payday and bill until the next payday, the first day money runs short, and ways to cover it. That month has no savings target.
 - **Reminders that don't nag** *(Android)*: only on days something needs doing, at times you pick. Tap **Paid** or **Moved it** right on the notification, get a heads-up a day or two before an automatic payment, and nothing is sent when nothing is due.
 - A status badge that says, in plain words, whether the month is **on track**, needs a **heads up**, or **needs attention**, and why.
@@ -150,7 +151,7 @@ It does everything the Android app does, without the extra visuals. Your budget 
 | Updates itself | ✅ | always current |
 | Food, Savings, Income and benefits, Accounts | ✅ | ✅ |
 | Balance checks | ✅ | ✅ |
-| Google Drive sync | 🔜 | — |
+| Sync between phones (Google Drive) | ✅ | import the file |
 | Accessibility settings | ✅ | ✅ |
 | Start from today and get back on track | ✅ | — |
 | Reminders and update notifications | ✅ | — |
@@ -218,7 +219,7 @@ Signing needs the `SIGNING_PASSPHRASE` Actions secret. Every release must be sig
 - [x] Encrypted backups shared between the app and the web version
 - [x] Updates itself from GitHub
 - [x] Food, Savings, Income and benefits, Accounts and balance checks in the app
-- [ ] Google Drive sync between two phones (the same encrypted backup file)
+- [x] Google Drive sync between two phones (the same encrypted backup file)
 - [x] Bill and money-move reminders, and update notifications
 - [ ] A home-screen widget
 - [ ] More provinces' assistance programs

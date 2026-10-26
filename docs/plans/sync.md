@@ -2,7 +2,7 @@
 
 The plan agreed on 2026-10-26. Keep the same budget on two phones through one encrypted file in Google Drive (or any
 cloud app that shows up in Android's file picker, like Nextcloud). Work in small stages; each is committed, built and
-tested on GitHub before the next. **To pick up again: find the first unticked stage below and start there.**
+tested on GitHub before the next. **All stages done; released in 0.6.0.**
 
 ## Decisions
 
@@ -35,7 +35,19 @@ tested on GitHub before the next. **To pick up again: find the first unticked st
 - [x] **Stage 0**: this plan.
 - [x] **Stage 1**: `Sync.reconcile(local, remote, base)` in the engine with tests (two phones through one file: edits on
   both, newest wins, Undo of a tick sticks, deletions carry over, first sync with no base).
-- [ ] **Stage 2**: `sync/SyncManager.kt`: file access with a persisted permission, password in the Keystore, the sync
+- [x] **Stage 2**: `sync/SyncManager.kt`: file access with a persisted permission, password in the Keystore, the sync
   steps, key cache, errors (can't reach the file, wrong password, not a LoonieMate file), triggers and the background job.
-- [ ] **Stage 3**: Settings card "Sync between phones" (create / use existing / password / status / Sync now / Stop
+- [x] **Stage 3**: Settings card "Sync between phones" (create / use existing / password / status / Sync now / Stop
   syncing); "Synced 5 min ago" under the title on Today; texts that said "later with Google Drive sync". Then release.
+
+## Notes for picking up
+
+- Engine: `Sync.reconcile` and `Sync.canon` (`engine/.../Sync.kt`), tests in `SyncTest`.
+- App: `sync/SyncManager.kt` (`setUp`, `sync`, `newPassword`, `stop`, `State`, `SyncWorker` every 6 h), `sync/SecretStore.kt`
+  (Keystore alias `looniemate-sync`), base in `filesDir/sync-base.json`, `Repository.replaceIfUnchanged`. Prefs:
+  `syncUri`, `syncName`, `syncPass` (sealed), `syncLast`. Triggers: `LoonieApp` (15 s after a change while open),
+  `MainActivity.onResume` (at most every 20 s) and `onPause`. UI: `ui/screens/SyncCard.kt` (after Backup in Settings),
+  `syncedAgo`, the Today subtitle in `AppUi.kt`.
+- Not tested on a real phone with Drive yet: Drive's file provider may serve a cached copy for a while before it
+  fetches the other phone's latest version, so changes can take a few minutes to go across.
+- Later: sync for the web version would need Google sign-in (a Google Cloud project with an OAuth client).

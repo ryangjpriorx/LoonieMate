@@ -129,18 +129,19 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
                 Text(when (days) { null -> "No backup yet. If this phone is lost, reset or the app is removed, the budget is gone."; 0 -> "Last backup: today."; 1 -> "Last backup: yesterday."; else -> "Last backup: $days days ago." },
                     fontWeight = if (days == null || days > 14) FontWeight.Bold else null, color = if (days == null || days > 14) toneColors("warn").first else MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(6.dp))
-                Text("Backups are locked with a password you choose and saved as a file. The same file works in the web version, on another phone, and later with Google Drive sync. If you lose the password, the file can't be opened by anyone.",
+                Text("Backups are locked with a password you choose and saved as a file. The same file works in the web version and on another phone. If you lose the password, the file can't be opened by anyone.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Button(onClick = { open(Sheet.Export) }) { Text("Export a backup") }; OutlinedButton(onClick = { open(Sheet.Import) }) { Text("Import a backup") } }
             }
         }
+        item { SyncCard(vm) }
         item {
             SectionCard("Updates", Icons.Rounded.SystemUpdate, "sky", trailing = "Version " + BuildConfig.VERSION_NAME, index = 2) { UpdatePanel(upd, vm) }
         }
         item {
             SectionCard("Coming to the app next", Icons.Rounded.Schedule, "amber", index = 3) {
-                Text("Google Drive sync and a home screen widget are next.",
+                Text("A home screen widget is next.",
                     style = MaterialTheme.typography.bodyMedium)
             }
         }
