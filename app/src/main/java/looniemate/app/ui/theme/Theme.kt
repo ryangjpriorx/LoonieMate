@@ -48,6 +48,8 @@ internal val DarkExtra = Extra(
 val LocalExtra = staticCompositionLocalOf { LightExtra }
 /** Whether the extra visuals (animation and motion) are on. */
 val LocalFx = staticCompositionLocalOf { true }
+/** The accessibility switches (Settings → Accessibility). */
+val LocalAccess = staticCompositionLocalOf { looniemate.app.data.Prefs.Access() }
 
 class Palette(val key: String, val name: String, val l: List<Long>, val d: List<Long>)
 /** The same colour themes as the web version: accent, second accent, soft background. */
@@ -100,11 +102,11 @@ private fun appTypography(): Typography {
 val Numbers = TextStyle(fontFeatureSettings = "tnum")
 
 @Composable
-fun LoonieTheme(themeMode: String, dynamicColor: Boolean, palette: String, effects: Boolean, content: @Composable () -> Unit) {
+fun LoonieTheme(themeMode: String, dynamicColor: Boolean, palette: String, effects: Boolean, access: looniemate.app.data.Prefs.Access = looniemate.app.data.Prefs.Access(), content: @Composable () -> Unit) {
     val dark = when (themeMode) { "light" -> false; "dark" -> true; else -> isSystemInDarkTheme() }
     val ctx = LocalContext.current
     val scheme = if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx) } else paletteScheme(palette, dark)
-    CompositionLocalProvider(LocalExtra provides if (dark) DarkExtra else LightExtra, LocalFx provides effects) {
+    CompositionLocalProvider(LocalExtra provides if (dark) DarkExtra else LightExtra, LocalFx provides effects, LocalAccess provides access) {
         MaterialTheme(colorScheme = scheme, typography = appTypography(), shapes = AppShapes, content = content)
     }
 }

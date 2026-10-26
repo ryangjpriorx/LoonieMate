@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Accessibility
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Restaurant
@@ -119,9 +120,9 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
                     }
                     Spacer(Modifier.height(10.dp))
                 }
-                SwitchRow("Visual effects", "Animations and motion. " + vm.prefs.effectsReason.ifEmpty { "Turn off for a calmer screen or to save battery." }, look.effects) { vm.prefs.setLook(look.copy(effects = it)) }
             }
         }
+        item { AccessibilityCard(vm) }
         item {
             SectionCard("Backup and moving to another phone", Icons.Rounded.Backup, "green", index = 1) {
                 val days = lastBackup?.let { diffDays(it.take(10), today) }
@@ -325,4 +326,30 @@ private fun RowOf(tag: String, title: String, sub: String, onClick: () -> Unit) 
         Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.SemiBold)
             Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         Icon(Icons.Rounded.ChevronRight, "Edit $title", tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
+}
+
+/** Settings → Accessibility (this phone only). Stage 2 of docs/plans/accessibility.md. */
+@Composable
+private fun AccessibilityCard(vm: MainViewModel) {
+    val a by vm.prefs.access.collectAsStateWithLifecycle(); val look by vm.prefs.look.collectAsStateWithLifecycle()
+    val still by vm.prefs.phoneNoMotion.collectAsStateWithLifecycle()
+    fun set(n: looniemate.app.data.Prefs.Access) = vm.prefs.setAccess(n)
+    SectionCard("Accessibility", Icons.Rounded.Accessibility, trailing = "Only this phone", index = 0) {
+        Text("Bigger text", fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(6.dp))
+        val sizes = listOf("Normal", "Large", "Larger", "Largest")
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            sizes.forEachIndexed { i, l -> SegmentedButton(selected = a.textSize == i, onClick = { set(a.copy(textSize = i)) }, shape = SegmentedButtonDefaults.itemShape(i, sizes.size)) {
+                Text(l, maxLines = 1) } }
+        }
+        Text("On top of your phone's own text size.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(10.dp))
+        SwitchRow("Bold text", "Heavier letters throughout.", a.bold) { set(a.copy(bold = it)) }
+        SwitchRow("Easier-to-read font", "Atkinson Hyperlegible, made for people with low vision.", a.font) { set(a.copy(font = it)) }
+        SwitchRow("Stronger contrast", "Darker text, outlined cards and solid status colours.", a.contrast) { set(a.copy(contrast = it)) }
+        SwitchRow("Colour-blind friendly colours", "Blue for good and orange for problems instead of green and red.", a.colorBlind) { set(a.copy(colorBlind = it)) }
+        SwitchRow("Less motion", if (still) "Your phone's \"Remove animations\" is on, so motion stays off." else
+            "No animations or moving colour. " + vm.prefs.effectsReason.ifEmpty { "Calmer, and easier on the battery." }, !look.effects || still) { vm.prefs.setLook(look.copy(effects = !it)) }
+        SwitchRow("More time", "Undo and other messages stay until you close them.", a.moreTime) { set(a.copy(moreTime = it)) }
+        SwitchRow("Bigger buttons", "Larger buttons with more space between them.", a.bigButtons) { set(a.copy(bigButtons = it)) }
+    }
 }

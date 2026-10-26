@@ -19,7 +19,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val look by vm.prefs.look.collectAsStateWithLifecycle()
-            LoonieTheme(look.themeMode, look.dynamicColor, look.palette, look.effects) { LoonieMateApp(vm) }
+            val access by vm.prefs.access.collectAsStateWithLifecycle()
+            val still by vm.prefs.phoneNoMotion.collectAsStateWithLifecycle()
+            LoonieTheme(look.themeMode, look.dynamicColor, look.palette, look.effects && !still, access) { LoonieMateApp(vm) }
         }
         handleOpen(intent)
     }
@@ -40,6 +42,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         (application as LoonieApp).foreground = true
+        vm.prefs.phoneNoMotion.value = try { android.provider.Settings.Global.getFloat(contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f } catch (_: Exception) { false }
         vm.refreshDay()
         vm.refreshNotif()
         vm.checkUpdates(false)

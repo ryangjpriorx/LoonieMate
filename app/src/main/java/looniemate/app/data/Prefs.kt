@@ -33,6 +33,28 @@ class Prefs(context: Context) {
         _look.value = l
     }
 
+    /**
+     * Accessibility switches (Settings → Accessibility; this phone only, not in the budget or backups).
+     * textSize: 0 Normal, 1 Large, 2 Larger, 3 Largest, on top of the phone's own size. Less motion is `Look.effects`
+     * shown the other way round. See docs/plans/accessibility.md.
+     */
+    data class Access(val textSize: Int = 0, val bold: Boolean = false, val font: Boolean = false, val contrast: Boolean = false,
+                      val colorBlind: Boolean = false, val moreTime: Boolean = false, val bigButtons: Boolean = false)
+    private val _access = MutableStateFlow(Access(sp.getInt("a11yText", 0).coerceIn(0, 3), sp.getBoolean("a11yBold", false), sp.getBoolean("a11yFont", false),
+        sp.getBoolean("a11yContrast", false), sp.getBoolean("a11yColorBlind", false), sp.getBoolean("a11yMoreTime", false), sp.getBoolean("a11yBigButtons", false)))
+    val access: StateFlow<Access> = _access
+    fun setAccess(a: Access) {
+        sp.edit().putInt("a11yText", a.textSize).putBoolean("a11yBold", a.bold).putBoolean("a11yFont", a.font).putBoolean("a11yContrast", a.contrast)
+            .putBoolean("a11yColorBlind", a.colorBlind).putBoolean("a11yMoreTime", a.moreTime).putBoolean("a11yBigButtons", a.bigButtons).apply()
+        _access.value = a
+    }
+    /** whether the accessibility choices have been offered (first-time setup, or the one-time Today card) */
+    var a11yAsked: Boolean
+        get() = sp.getBoolean("a11yAsked", false)
+        set(v) { sp.edit().putBoolean("a11yAsked", v).apply() }
+    /** the phone's own "Remove animations" is on: motion stays off whatever Less motion says (checked on each resume) */
+    val phoneNoMotion = MutableStateFlow(false)
+
     /** worked out fresh each time, so it stays right after an Android update */
     val effectsReason: String get() = DeviceClass.describe(appContext)
 
