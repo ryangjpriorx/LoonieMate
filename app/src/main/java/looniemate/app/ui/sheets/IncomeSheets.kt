@@ -2,6 +2,7 @@
 
 package looniemate.app.ui.sheets
 
+import androidx.compose.runtime.saveable.rememberSaveable
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
@@ -60,29 +61,29 @@ fun IncomeSheet(vm: MainViewModel, id: String?, assist0: String?, close: () -> U
     val base: Obj = remember { id?.let { i -> list.find { it.s("id") == i }?.copy() as? Obj }
         ?: if (assist0 != null) IncomeSetup.newAssist(list, "as" + vm.repo.newId(), assist0) else IncomeSetup.newIncome(list, "i" + vm.repo.newId()) }
     val isNew = id == null
-    var prog by remember { mutableStateOf(Core.assistOf(base)) }
+    var prog by rememberSaveable { mutableStateOf(Core.assistOf(base)) }
     val P = prog?.let { Core.ASSIST[it] }
     val sc = base["sched"] as? Obj ?: Obj()
-    var name by remember { mutableStateOf(base.s("name")) }
-    var amount by remember { mutableStateOf(money2(base.n("amount"))) }
-    var type by remember { mutableStateOf(sc.or("type", "monthly")) }
-    var day by remember { mutableStateOf(if (sc.t("day")) Math.round(sc.n("day")).toString() else "1") }
-    var anchor by remember { mutableStateOf(sc.s("anchor")) }
-    var slot by remember { mutableStateOf(if (sc.t("slot")) Math.round(sc.n("slot")).toInt() else 3) }
-    var account by remember { mutableStateOf(Core.acctId(s, base.s("account"))) }
-    var role by remember { mutableStateOf(base.or("role", "other")) }
-    var counts by remember { mutableStateOf(base.s("odsp")) }
-    var person by remember { mutableStateOf(base.s("person")) }
+    var name by rememberSaveable { mutableStateOf(base.s("name")) }
+    var amount by rememberSaveable { mutableStateOf(money2(base.n("amount"))) }
+    var type by rememberSaveable { mutableStateOf(sc.or("type", "monthly")) }
+    var day by rememberSaveable { mutableStateOf(if (sc.t("day")) Math.round(sc.n("day")).toString() else "1") }
+    var anchor by rememberSaveable { mutableStateOf(sc.s("anchor")) }
+    var slot by rememberSaveable { mutableStateOf(if (sc.t("slot")) Math.round(sc.n("slot")).toInt() else 3) }
+    var account by rememberSaveable { mutableStateOf(Core.acctId(s, base.s("account"))) }
+    var role by rememberSaveable { mutableStateOf(base.or("role", "other")) }
+    var counts by rememberSaveable { mutableStateOf(base.s("odsp")) }
+    var person by rememberSaveable { mutableStateOf(base.s("person")) }
     val rep0 = IncomeSetup.reportCfg(base)
-    var repOn by remember { mutableStateOf(rep0.t("on")) }; var repDay by remember { mutableStateOf(Math.round(rep0.n("day").takeIf { it > 0 } ?: 7.0).toString()) }
+    var repOn by rememberSaveable { mutableStateOf(rep0.t("on")) }; var repDay by rememberSaveable { mutableStateOf(Math.round(rep0.n("day").takeIf { it > 0 } ?: 7.0).toString()) }
     /* assistance deductions */
     val ded0 = if (prog != null) Core.dedCfg(s, base) else Obj()
-    val ded = remember { mutableStateMapOf<String, Boolean>().apply { listOf("dis", "work", "full", "wrb", "supported", "couple").forEach { k -> ded0[k]?.let { put(k, truthy(it)) } } } }
-    var lag by remember { mutableStateOf(ded0["lag"]?.takeIf { it != J.Null && str(it) != "" }?.let { Math.round(num(it)).toInt() }) }
-    var deps by remember { mutableStateOf(if (ded0["deps"] != null) Math.round(ded0.n("deps")).toString() else "0") }
-    var flat by remember { mutableStateOf(ded0["flat"]?.let { if (it == J.Null || str(it) == "") "" else money2(num(it)) } ?: "") }
-    var rate by remember { mutableStateOf(ded0["rate"]?.let { if (it == J.Null || str(it) == "") "" else Math.round(num(it)).toString() } ?: "") }
-    var err by remember { mutableStateOf<String?>(null) }; var confirm by remember { mutableStateOf(false) }
+    val ded = rememberSaveable(saver = stateMapSaver<Boolean>()) { mutableStateMapOf<String, Boolean>().apply { listOf("dis", "work", "full", "wrb", "supported", "couple").forEach { k -> ded0[k]?.let { put(k, truthy(it)) } } } }
+    var lag by rememberSaveable { mutableStateOf(ded0["lag"]?.takeIf { it != J.Null && str(it) != "" }?.let { Math.round(num(it)).toInt() }) }
+    var deps by rememberSaveable { mutableStateOf(if (ded0["deps"] != null) Math.round(ded0.n("deps")).toString() else "0") }
+    var flat by rememberSaveable { mutableStateOf(ded0["flat"]?.let { if (it == J.Null || str(it) == "") "" else money2(num(it)) } ?: "") }
+    var rate by rememberSaveable { mutableStateOf(ded0["rate"]?.let { if (it == J.Null || str(it) == "") "" else Math.round(num(it)).toString() } ?: "") }
+    var err by rememberSaveable { mutableStateOf<String?>(null) }; var confirm by rememberSaveable { mutableStateOf(false) }
     val ctx = LocalContext.current
 
     SheetTitle(when { isNew && P != null -> "Add ${P.short}"; isNew -> "Add income"; else -> "Edit ${base.s("name")}" })
@@ -212,13 +213,13 @@ fun CreditSheet(vm: MainViewModel, id: String?, type0: String?, close: () -> Uni
     val s = vm.settings(); val today = vm.today.value
     val base: Obj = remember { id?.let { i -> Core.creditsOf(s).find { it.s("id") == i }?.copy() as? Obj } ?: IncomeSetup.newCredit((type0 ?: "other") + "-" + vm.repo.newId(), type0 ?: "other") }
     val isNew = id == null; val t = base.s("type"); val ty = Core.CREDIT_TYPES[t]
-    var name by remember { mutableStateOf(base.s("name")) }
-    var day by remember { mutableStateOf(Math.round((base["sched"] as? Obj)?.n("day")?.takeIf { it > 0 } ?: 15.0).toString()) }
-    var amount by remember { mutableStateOf(money2(base.n("amount"))) }
-    var account by remember { mutableStateOf(Core.acctId(s, base.s("account"))) }
-    var start by remember { mutableStateOf(base.s("start")) }
-    var protect by remember { mutableStateOf(base.t("protect")) }
-    var err by remember { mutableStateOf<String?>(null) }; var confirm by remember { mutableStateOf(false) }
+    var name by rememberSaveable { mutableStateOf(base.s("name")) }
+    var day by rememberSaveable { mutableStateOf(Math.round((base["sched"] as? Obj)?.n("day")?.takeIf { it > 0 } ?: 15.0).toString()) }
+    var amount by rememberSaveable { mutableStateOf(money2(base.n("amount"))) }
+    var account by rememberSaveable { mutableStateOf(Core.acctId(s, base.s("account"))) }
+    var start by rememberSaveable { mutableStateOf(base.s("start")) }
+    var protect by rememberSaveable { mutableStateOf(base.t("protect")) }
+    var err by rememberSaveable { mutableStateOf<String?>(null) }; var confirm by rememberSaveable { mutableStateOf(false) }
 
     SheetTitle(Core.creditName(base))
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -251,10 +252,10 @@ fun MonthIncomeSheet(vm: MainViewModel, ym: String, close: () -> Unit) {
     val today = vm.today.value; val s = vm.settings()
     val c = Core.monthCalc(ym, Docs.toStore(vm.repo.docs.value, today), today); val locked = c.t("closed")
     val incs = c["incomes"].arr().filterIsInstance<Obj>(); val crs = c["crAll"].arr().filterIsInstance<Obj>().filter { it.t("scheduled") }
-    val amt = remember { mutableStateMapOf<String, String>().apply { incs.forEach { put("amt:" + it.s("id"), money2(it.n("amount"))) }; crs.forEach { put("cr:" + it.s("id"), money2(it.n("amount"))) }
+    val amt = rememberSaveable(saver = stateMapSaver<String>()) { mutableStateMapOf<String, String>().apply { incs.forEach { put("amt:" + it.s("id"), money2(it.n("amount"))) }; crs.forEach { put("cr:" + it.s("id"), money2(it.n("amount"))) }
         put("otherCredit", if (c.n("otherCredit") != 0.0) money2(c.n("otherCredit")) else "") } }
-    val dates = remember { mutableStateMapOf<String, String>().apply { incs.forEach { put(it.s("id"), it.strList("dates").firstOrNull() ?: "") } } }
-    var err by remember { mutableStateOf<String?>(null) }; var confirmUnlock by remember { mutableStateOf(false) }
+    val dates = rememberSaveable(saver = stateMapSaver<String>()) { mutableStateMapOf<String, String>().apply { incs.forEach { put(it.s("id"), it.strList("dates").firstOrNull() ?: "") } } }
+    var err by rememberSaveable { mutableStateOf<String?>(null) }; var confirmUnlock by rememberSaveable { mutableStateOf(false) }
     val mo = Fmt.monthOnly(ym)
     fun from(f: J?) = when { str(f) == ym -> "Set for this month"; f != null && f != J.Null && str(f).isNotEmpty() -> "Same as ${Fmt.monthOnly(str(f))}. Change it here to update $mo onward."
         else -> "The usual amount. Change it here to update this month onward." }

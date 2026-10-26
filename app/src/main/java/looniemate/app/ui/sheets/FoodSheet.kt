@@ -104,8 +104,8 @@ private fun Half(label: String, allow: Double, spent: Double, now: Boolean, modi
 @Composable
 private fun FoodSettings(vm: MainViewModel, ym: String, s: Obj) {
     val pct0 = s.n("foodPct").let { Math.round(it).toString() }; val min0 = money2(s.n("foodMin"))
-    var pct by remember(pct0) { mutableStateOf(pct0) }; var min by remember(min0) { mutableStateOf(min0) }
-    var err by remember { mutableStateOf<String?>(null) }
+    var pct by rememberSaveable(pct0) { mutableStateOf(pct0) }; var min by rememberSaveable(min0) { mutableStateOf(min0) }
+    var err by rememberSaveable { mutableStateOf<String?>(null) }
     Text("Food budget", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Text("Each month, food gets a share of the money left after fixed bills. It's split in two: one half for the 1st–15th and one for the 16th–end. Whatever food doesn't get goes to Emergency Savings.",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

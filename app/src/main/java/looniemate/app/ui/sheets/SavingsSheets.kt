@@ -33,11 +33,11 @@ import looniemate.engine.*
 fun FundSheet(vm: MainViewModel, key: String?, close: () -> Unit) {
     val s = vm.settings(); val f = key?.let { Core.fundOf(s, it) }
     val core = key == "emergency" || key == "child"
-    var name by remember { mutableStateOf(f?.s("name") ?: "") }
-    var account by remember { mutableStateOf(f?.let { Core.acctId(s, it.s("account")) } ?: (Core.accountsOf(s).find { it.s("type") == "savings" }?.s("id") ?: "")) }
-    var start by remember { mutableStateOf(money2(when (key) { "emergency" -> s.n("emergencyStart"); "child" -> s.n("childStart"); else -> f.n("start") })) }
-    var goal by remember { mutableStateOf(when (key) { "emergency" -> money2(s.n("emergencyGoal")); "child" -> Math.round(s.n("ccbEmergencyPct")).toString(); else -> if (f.n("goal") > 0) money2(f.n("goal")) else "" }) }
-    var err by remember { mutableStateOf<String?>(null) }; var confirm by remember { mutableStateOf(false) }
+    var name by rememberSaveable { mutableStateOf(f?.s("name") ?: "") }
+    var account by rememberSaveable { mutableStateOf(f?.let { Core.acctId(s, it.s("account")) } ?: (Core.accountsOf(s).find { it.s("type") == "savings" }?.s("id") ?: "")) }
+    var start by rememberSaveable { mutableStateOf(money2(when (key) { "emergency" -> s.n("emergencyStart"); "child" -> s.n("childStart"); else -> f.n("start") })) }
+    var goal by rememberSaveable { mutableStateOf(when (key) { "emergency" -> money2(s.n("emergencyGoal")); "child" -> Math.round(s.n("ccbEmergencyPct")).toString(); else -> if (f.n("goal") > 0) money2(f.n("goal")) else "" }) }
+    var err by rememberSaveable { mutableStateOf<String?>(null) }; var confirm by rememberSaveable { mutableStateOf(false) }
 
     SheetTitle(when { key == null -> "Add a savings fund"; core -> f!!.s("name"); else -> "Edit ${f!!.s("name")}" })
     if (!core) TextFieldRow(name, { name = it.take(40) }, "Fund", placeholder = "Vet fund")
@@ -64,7 +64,7 @@ fun FundSheet(vm: MainViewModel, key: String?, close: () -> Unit) {
 fun UseFundSheet(vm: MainViewModel, key: String, close: () -> Unit) {
     val s = vm.settings(); val f = Core.fundOf(s, key); val isVet = Regex("vet", RegexOption.IGNORE_CASE).containsMatchIn(f.s("name"))
     val bal = Core.savingsState(Docs.toStore(vm.repo.docs.value, vm.today.value)).funds[key] ?: 0.0
-    var amt by remember { mutableStateOf("") }; var note by remember { mutableStateOf("") }; var err by remember { mutableStateOf<String?>(null) }
+    var amt by rememberSaveable { mutableStateOf("") }; var note by rememberSaveable { mutableStateOf("") }; var err by rememberSaveable { mutableStateOf<String?>(null) }
     SheetTitle(if (isVet) "Cash out a vet visit" else "Use money from ${f.s("name")}")
     Text("${f.s("name")} has ${Fmt.money(bal)}. This takes the money out of the fund. It doesn't count as spending in your monthly budget, because you already saved for it.",
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -79,7 +79,7 @@ fun UseFundSheet(vm: MainViewModel, key: String, close: () -> Unit) {
 @Composable
 fun CcbSheet(vm: MainViewModel, ym: String, close: () -> Unit) {
     val c = Core.monthCalc(ym, Docs.toStore(vm.repo.docs.value, vm.today.value), vm.today.value); val total = c.n("ccb"); val mo = Fmt.monthOnly(ym)
-    var amt by remember { mutableStateOf(money2(c.n("ccbToEm"))) }; var err by remember { mutableStateOf<String?>(null) }
+    var amt by rememberSaveable { mutableStateOf(money2(c.n("ccbToEm"))) }; var err by rememberSaveable { mutableStateOf<String?>(null) }
     val v = Views.parseMoney(amt)?.takeIf { !it.isNaN() } ?: 0.0
     SheetTitle("Split the $mo Child Benefit")
     Text(if (c.n("net") >= 0) "$mo is on track (${Fmt.money(c.n("net"))} for savings), so this is a good month to put a little toward Emergency Savings."

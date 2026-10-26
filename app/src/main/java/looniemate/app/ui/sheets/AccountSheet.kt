@@ -2,6 +2,7 @@
 
 package looniemate.app.ui.sheets
 
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -44,13 +45,13 @@ fun AccountSheet(vm: MainViewModel, id: String?, close: () -> Unit) {
     val s = vm.settings()
     val a = id?.let { Core.acctById(s, it) }
     val others = Core.accountsOf(s).filter { it.s("id") != id }
-    var name by remember { mutableStateOf(a?.s("name") ?: "") }
-    var type by remember { mutableStateOf(a?.s("type")?.takeIf { t -> Accounts.TYPES.any { it.first == t } } ?: "chequing") }
-    var kind by remember { mutableStateOf(a?.s("kind")?.ifEmpty { null } ?: "hisa") }
+    var name by rememberSaveable { mutableStateOf(a?.s("name") ?: "") }
+    var type by rememberSaveable { mutableStateOf(a?.s("type")?.takeIf { t -> Accounts.TYPES.any { it.first == t } } ?: "chequing") }
+    var kind by rememberSaveable { mutableStateOf(a?.s("kind")?.ifEmpty { null } ?: "hisa") }
     /* a brand-new account gets "Main account" ticked if no account has it yet */
-    val purposes = remember { mutableStateListOf<String>().apply {
+    val purposes = rememberSaveable(saver = stringListSaver()) { mutableStateListOf<String>().apply {
         if (a != null) addAll(a["purposes"].arr().map { str(it) }) else if (Core.acctFor(s, "main") == null) add("main") } }
-    var err by remember { mutableStateOf<String?>(null) }; var confirmDelete by remember { mutableStateOf(false) }
+    var err by rememberSaveable { mutableStateOf<String?>(null) }; var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val used = if (id != null) Accounts.billsUsing(s, vm.repo.docs.value.filterKeys { it.startsWith("bills/") }.values, id) else 0
 
     SheetTitle(if (a != null) "Edit account" else "Add an account")

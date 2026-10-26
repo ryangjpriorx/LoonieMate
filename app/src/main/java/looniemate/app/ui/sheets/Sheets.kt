@@ -2,6 +2,7 @@
 
 package looniemate.app.ui.sheets
 
+import androidx.compose.runtime.saveable.rememberSaveable
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -109,9 +110,9 @@ fun ErrorText(e: String?) { if (e != null) Text(e, color = toneColors("bad").fir
 @Composable
 private fun LogSheet(vm: MainViewModel, oneTime: Boolean, close: () -> Unit, category: String = "") {
     val today = vm.today.value; val s = vm.settings(); val people = s.strList("people").filter { it.isNotBlank() }
-    var amt by remember { mutableStateOf("") }; var cat by remember { mutableStateOf(category) }; var date by remember { mutableStateOf(today) }
-    var note by remember { mutableStateOf("") }; var who by remember { mutableStateOf("") }; var fav by remember { mutableStateOf(false) }
-    var group by remember { mutableStateOf("household") }; var err by remember { mutableStateOf<String?>(null) }
+    var amt by rememberSaveable { mutableStateOf("") }; var cat by rememberSaveable { mutableStateOf(category) }; var date by rememberSaveable { mutableStateOf(today) }
+    var note by rememberSaveable { mutableStateOf("") }; var who by rememberSaveable { mutableStateOf("") }; var fav by rememberSaveable { mutableStateOf(false) }
+    var group by rememberSaveable { mutableStateOf("household") }; var err by rememberSaveable { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { try { focus.requestFocus() } catch (_: Exception) {} }
     SheetTitle(if (oneTime) "Add a one-time expense" else "Log spending")
@@ -153,10 +154,10 @@ private fun AdjustSheet(vm: MainViewModel, a: Sheet.Adjust, close: () -> Unit) {
     val line = c["billLines"].arr().find { it.s("id") == a.id && !it.s("deferredFrom").isNotEmpty() }
     val total = line?.n("planned") ?: b.n("amount"); val short = maxOf(0.0, -c.n("net"))
     val start = round2(if (short > 0) minOf(total, Math.ceil(short)) else total)
-    var v by remember { mutableStateOf(start) }; var text by remember { mutableStateOf(money2(start)) }
+    var v by rememberSaveable { mutableStateOf(start) }; var text by rememberSaveable { mutableStateOf(money2(start)) }
     val pays = (Core.mainPaydays(st.settings, ymAdd(a.ym, 1)) + Core.mainPaydays(st.settings, ymAdd(a.ym, 2))).take(3)
-    var date by remember { mutableStateOf(pays.firstOrNull() ?: (ymAdd(a.ym, 1) + "-01")) }
-    var err by remember { mutableStateOf<String?>(null) }
+    var date by rememberSaveable { mutableStateOf(pays.firstOrNull() ?: (ymAdd(a.ym, 1) + "-01")) }
+    var err by rememberSaveable { mutableStateOf<String?>(null) }
     val mo = Fmt.monthOnly(a.ym); val name = b.s("name")
     SheetTitle(if (a.defer) "Pay $name later" else "Give up $name")
     Text("$name costs ${Fmt.money(total)} in $mo. " + (if (a.defer) "Choose how much to push to later." else "Choose how much of it to go without this month.") + (if (short > 0) " $mo is short ${Fmt.money(short)}." else ""),
@@ -197,8 +198,8 @@ private fun Tile(label: String, v: Double, modifier: Modifier) {
 @Composable
 private fun TransferSheet(vm: MainViewModel, t: Sheet.Transfer, close: () -> Unit) {
     val funds = Core.fundsOf(vm.settings())
-    var kind by remember { mutableStateOf(t.kind) }; var out by remember { mutableStateOf(false) }
-    var amt by remember { mutableStateOf(t.amount?.let { money2(it) } ?: "") }; var err by remember { mutableStateOf<String?>(null) }
+    var kind by rememberSaveable { mutableStateOf(t.kind) }; var out by rememberSaveable { mutableStateOf(false) }
+    var amt by rememberSaveable { mutableStateOf(t.amount?.let { money2(it) } ?: "") }; var err by rememberSaveable { mutableStateOf<String?>(null) }
     SheetTitle("Record a savings transfer")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { funds.forEach { f -> FilterChip(kind == f.s("key"), { kind = f.s("key") }, label = { Text(f.s("name")) }) } }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(!out, { out = false }, label = { Text("Moved money in") }); FilterChip(out, { out = true }, label = { Text("Took money out") }) }
@@ -210,8 +211,8 @@ private fun TransferSheet(vm: MainViewModel, t: Sheet.Transfer, close: () -> Uni
 /* ---------- encrypted backups ---------- */
 @Composable
 private fun ExportSheet(vm: MainViewModel, close: () -> Unit) {
-    var pw by remember { mutableStateOf("") }; var pw2 by remember { mutableStateOf("") }; var ack by remember { mutableStateOf(false) }
-    var err by remember { mutableStateOf<String?>(null) }; var busy by remember { mutableStateOf(false) }
+    var pw by rememberSaveable { mutableStateOf("") }; var pw2 by rememberSaveable { mutableStateOf("") }; var ack by rememberSaveable { mutableStateOf(false) }
+    var err by rememberSaveable { mutableStateOf<String?>(null) }; var busy by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
         if (uri == null) { busy = false; return@rememberLauncherForActivityResult }
@@ -239,9 +240,9 @@ private fun PasswordField(v: String, onChange: (String) -> Unit, label: String) 
 
 @Composable
 private fun ImportSheet(vm: MainViewModel, close: () -> Unit) {
-    var text by remember { mutableStateOf<String?>(null) }; var pw by remember { mutableStateOf("") }
-    var err by remember { mutableStateOf<String?>(null) }; var busy by remember { mutableStateOf(false) }
-    var opened by remember { mutableStateOf<MainViewModel.Opened?>(null) }; var confirmReplace by remember { mutableStateOf(false) }
+    var text by rememberSaveable { mutableStateOf<String?>(null) }; var pw by rememberSaveable { mutableStateOf("") }
+    var err by rememberSaveable { mutableStateOf<String?>(null) }; var busy by rememberSaveable { mutableStateOf(false) }
+    var opened by remember { mutableStateOf<MainViewModel.Opened?>(null) }; var confirmReplace by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) scope.launch { try { text = vm.readText(uri); err = null } catch (e: Exception) { err = "Couldn't read that file." } } }

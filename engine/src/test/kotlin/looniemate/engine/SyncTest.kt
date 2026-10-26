@@ -119,6 +119,13 @@ class SyncTest {
         assertNull(a.data["bills/phone"]); assertNull(b.data["bills/phone"])
     }
 
+    /** A phone whose budget file couldn't be read starts empty; sync brings everything back rather than deleting it everywhere. */
+    @Test fun anEmptiedPhoneGetsItsBudgetBackInsteadOfWipingTheFile() {
+        val (a, b) = two()
+        a.data = LinkedHashMap(); sync(a); sync(b)
+        for (p in listOf(a, b)) { assertEquals(1450.0, p.data["bills/rent"].n("amount")); assertEquals("Test", p.data["settings/main"].s("householdName")) }
+    }
+
     @Test fun nothingChangedMeansNothingToWrite() {
         val (a, _) = two()
         val r = Sync.reconcile(a.data, file, a.base); assertFalse(r.changedLocal); assertFalse(r.changedRemote)

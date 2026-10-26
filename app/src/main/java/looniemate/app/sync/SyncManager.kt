@@ -58,11 +58,19 @@ class SyncManager(private val ctx: Context, private val repo: Repository, privat
     } catch (_: Exception) { null } ?: "the sync file"
 
     private fun readText(uri: Uri): String = ctx.contentResolver.openInputStream(uri)!!.use { it.readBytes().toString(Charsets.UTF_8) }
+    /**
+     * Writes the file, then reads it back to check it still opens (S5): "wt" truncates, but some cloud providers only
+     * accept "w", and a provider that doesn't truncate with "w" would leave old bytes on the end of a shorter file.
+     * A copy that's merely not updated yet still opens, so a slow cloud app doesn't count as a failure.
+     */
     private fun writeText(uri: Uri, text: String) {
         val bytes = text.toByteArray(Charsets.UTF_8)
-        /* "wt" truncates; some cloud providers only accept "w" (which replaces the whole file for them) */
-        val out = try { ctx.contentResolver.openOutputStream(uri, "wt") } catch (_: Exception) { null } ?: ctx.contentResolver.openOutputStream(uri, "w")!!
-        out.use { it.write(bytes) }
+        for (mode in listOf("wt", "w")) {
+            val out = try { ctx.contentResolver.openOutputStream(uri, mode) } catch (_: Exception) { null } ?: continue
+            out.use { it.write(bytes) }
+            if (runCatching { Backup.envelope(readText(uri)) }.isSuccess) return
+        }
+        throw java.io.IOException("the sync file didn't save in one piece")
     }
 
     /**

@@ -84,35 +84,58 @@ enum class Tab(val label: String, val icon: ImageVector) {
     Spending("Spending", Icons.Rounded.ShoppingCart), Savings("Savings", Icons.Rounded.Savings), More("Settings", Icons.Rounded.Settings)
 }
 
-/** Which sheet is open, if any. */
+/**
+ * Which page (form) is open, if any. Data classes and data objects, so the same page compares equal after Android
+ * closes LoonieMate in the background and it's rebuilt from saved state ([SheetSaver]); that keeps each page's own saved
+ * fields matched up with it.
+ */
 sealed class Sheet {
-    class Log(val oneTime: Boolean = false, val category: String = "") : Sheet()
-    class Food(val ym: String) : Sheet()
-    class Bill(val id: String?, val group: String) : Sheet()
-    class Adjust(val ym: String, val id: String, val defer: Boolean) : Sheet()
-    class Transfer(val kind: String, val amount: Double?) : Sheet()
-    class Account(val id: String?) : Sheet()
-    object Checkin : Sheet()
-    class Fund(val key: String?) : Sheet()
-    class UseFund(val key: String) : Sheet()
-    class Ccb(val ym: String) : Sheet()
-    class Income(val id: String?, val assist: String? = null) : Sheet()
-    class Credit(val id: String?, val type: String? = null) : Sheet()
-    class MonthIncome(val ym: String) : Sheet()
-    object Update : Sheet()
-    class CatchUp(val first: Boolean) : Sheet()
+    data class Log(val oneTime: Boolean = false, val category: String = "") : Sheet()
+    data class Food(val ym: String) : Sheet()
+    data class Bill(val id: String?, val group: String) : Sheet()
+    data class Adjust(val ym: String, val id: String, val defer: Boolean) : Sheet()
+    data class Transfer(val kind: String, val amount: Double?) : Sheet()
+    data class Account(val id: String?) : Sheet()
+    data object Checkin : Sheet()
+    data class Fund(val key: String?) : Sheet()
+    data class UseFund(val key: String) : Sheet()
+    data class Ccb(val ym: String) : Sheet()
+    data class Income(val id: String?, val assist: String? = null) : Sheet()
+    data class Credit(val id: String?, val type: String? = null) : Sheet()
+    data class MonthIncome(val ym: String) : Sheet()
+    data object Update : Sheet()
+    data class CatchUp(val first: Boolean) : Sheet()
     /** Make LoonieMate easier to use? [next] opens afterwards (first-time setup goes on to the getting-on-track steps). */
-    class Access(val next: Sheet? = null) : Sheet()
+    data class Access(val next: Sheet? = null) : Sheet()
     /** Personal Expenses: this month and the plan (docs/plans/personal-expenses.md). */
-    object Self : Sheet()
-    object Export : Sheet()
-    object Import : Sheet()
+    data object Self : Sheet()
+    data object Export : Sheet()
+    data object Import : Sheet()
 }
+
+/** Saves which page is open as plain values (polish-and-audit S1). */
+private fun sheetToList(s: Sheet): ArrayList<Any?> = when (s) {
+    is Sheet.Log -> arrayListOf("Log", s.oneTime, s.category); is Sheet.Food -> arrayListOf("Food", s.ym); is Sheet.Bill -> arrayListOf("Bill", s.id, s.group)
+    is Sheet.Adjust -> arrayListOf("Adjust", s.ym, s.id, s.defer); is Sheet.Transfer -> arrayListOf("Transfer", s.kind, s.amount); is Sheet.Account -> arrayListOf("Account", s.id)
+    Sheet.Checkin -> arrayListOf("Checkin"); is Sheet.Fund -> arrayListOf("Fund", s.key); is Sheet.UseFund -> arrayListOf("UseFund", s.key); is Sheet.Ccb -> arrayListOf("Ccb", s.ym)
+    is Sheet.Income -> arrayListOf("Income", s.id, s.assist); is Sheet.Credit -> arrayListOf("Credit", s.id, s.type); is Sheet.MonthIncome -> arrayListOf("MonthIncome", s.ym)
+    Sheet.Update -> arrayListOf("Update"); is Sheet.CatchUp -> arrayListOf("CatchUp", s.first); is Sheet.Access -> arrayListOf("Access", s.next?.let { sheetToList(it) })
+    Sheet.Self -> arrayListOf("Self"); Sheet.Export -> arrayListOf("Export"); Sheet.Import -> arrayListOf("Import")
+}
+private fun listToSheet(l: List<Any?>): Sheet? = try { when (l[0]) {
+    "Log" -> Sheet.Log(l[1] as Boolean, l[2] as String); "Food" -> Sheet.Food(l[1] as String); "Bill" -> Sheet.Bill(l[1] as String?, l[2] as String)
+    "Adjust" -> Sheet.Adjust(l[1] as String, l[2] as String, l[3] as Boolean); "Transfer" -> Sheet.Transfer(l[1] as String, l[2] as Double?); "Account" -> Sheet.Account(l[1] as String?)
+    "Checkin" -> Sheet.Checkin; "Fund" -> Sheet.Fund(l[1] as String?); "UseFund" -> Sheet.UseFund(l[1] as String); "Ccb" -> Sheet.Ccb(l[1] as String)
+    "Income" -> Sheet.Income(l[1] as String?, l[2] as String?); "Credit" -> Sheet.Credit(l[1] as String?, l[2] as String?); "MonthIncome" -> Sheet.MonthIncome(l[1] as String)
+    "Update" -> Sheet.Update; "CatchUp" -> Sheet.CatchUp(l[1] as Boolean); "Access" -> Sheet.Access((l[1] as List<*>?)?.let { listToSheet(it) })
+    "Self" -> Sheet.Self; "Export" -> Sheet.Export; "Import" -> Sheet.Import; else -> null
+} } catch (_: Exception) { null }
+private val SheetSaver = androidx.compose.runtime.saveable.Saver<Sheet?, ArrayList<Any?>>(save = { it?.let(::sheetToList) }, restore = { listToSheet(it) })
 
 @Composable
 fun LoonieMateApp(vm: MainViewModel) {
     var tab by rememberSaveable { mutableStateOf(Tab.Today) }
-    var sheet by remember { mutableStateOf<Sheet?>(null) }
+    var sheet by rememberSaveable(stateSaver = SheetSaver) { mutableStateOf<Sheet?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val today by vm.today.collectAsStateWithLifecycle()
     val ymSel by vm.ym.collectAsStateWithLifecycle()

@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.LocalCafe
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
@@ -97,6 +98,7 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
             }
         }
         item { UpdateBanner(upd, vm, go) }
+        item { StorageProblemCard(vm, open) }
         items(model.reminders.size) { i -> ReminderCard(model.reminders[i], vm, open, i) }
         if (model.isNew) { item { WelcomeCard(open) }; return@LazyColumn }
         /* asked once there's a budget to remind about, not on first launch */
@@ -321,6 +323,34 @@ private fun LateRemindersCard(vm: MainViewModel) {
             Button(onClick = { try { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:" + ctx.packageName))) } catch (_: Exception) {} }) { Text("Open settings") }
             TextButton(onClick = { vm.dismissLate() }) { Text("Got it") }
         }
+    }
+}
+
+/**
+ * Something wrong with keeping the budget on this phone (docs/plans/polish-and-audit.md S2, S3): a change that couldn't be
+ * saved (usually a full phone), or a saved budget that couldn't be read, so the app started empty. Stays until sorted.
+ */
+@Composable
+private fun StorageProblemCard(vm: MainViewModel, open: (Sheet) -> Unit) {
+    val problem by vm.repo.problem.collectAsStateWithLifecycle()
+    when (problem) {
+        "save" -> SectionCard("Your last change wasn't saved", Icons.Rounded.Warning, "bad", index = 0) {
+            Text("LoonieMate couldn't save on this phone. This usually means the phone is full. Free up some space and LoonieMate will save again with your next change. " +
+                "Until then, make a backup so nothing is lost if the app closes.", style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(10.dp))
+            Button(onClick = { open(Sheet.Export) }, modifier = Modifier.testTag("problem-backup")) { Text("Make a backup") }
+        }
+        "damaged" -> SectionCard("Your saved budget couldn't be opened", Icons.Rounded.Warning, "bad", index = 0) {
+            Text("The budget file on this phone was damaged, so LoonieMate started empty. A copy of the damaged file was kept. " +
+                (if (vm.sync.on) "Your budget is coming back from the sync file. " else "") +
+                "If you have a backup, import it to get your budget back.", style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = { open(Sheet.Import) }, modifier = Modifier.testTag("problem-import")) { Text("Import a backup") }
+                TextButton(onClick = { vm.repo.dismissProblem() }) { Text("Start fresh") }
+            }
+        }
+        else -> {}
     }
 }
 

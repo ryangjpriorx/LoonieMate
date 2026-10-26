@@ -2,6 +2,7 @@
 
 package looniemate.app.ui.sheets
 
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -50,7 +51,7 @@ import looniemate.engine.*
  */
 @Composable
 fun CatchUpSheet(vm: MainViewModel, first: Boolean, close: () -> Unit) {
-    var step by remember { mutableIntStateOf(vm.catchUpResume()) }
+    var step by rememberSaveable { mutableIntStateOf(vm.catchUpResume()) }
     androidx.compose.runtime.LaunchedEffect(Unit) { vm.startCatchUp(first) }
     /* each step saves as it goes, so moving on means nothing typed is at risk; back goes a step back first */
     val page = LocalPage.current
@@ -78,7 +79,7 @@ private fun Hint3(t: String) = Text(t, style = MaterialTheme.typography.bodySmal
 @Composable
 private fun BalancesStep(vm: MainViewModel, next: () -> Unit) {
     val A = Core.accountsOf(vm.settings())
-    val typed = remember { mutableStateMapOf<String, String>() }; var err by remember { mutableStateOf<String?>(null) }
+    val typed = rememberSaveable(saver = stateMapSaver<String>()) { mutableStateMapOf<String, String>() }; var err by rememberSaveable { mutableStateOf<String?>(null) }
     val blanks = rememberBlankCheck()
     Text("Open your banking apps and type in what each account holds right now. Count cash on hand too. Leave an account blank if it's empty. This is your starting point; nothing before today needs to be filled in.",
         style = MaterialTheme.typography.bodyMedium)
@@ -139,9 +140,9 @@ private fun BehindStep(vm: MainViewModel, next: () -> Unit) {
 
     Text("Something else you're behind on?", fontWeight = FontWeight.SemiBold)
     Hint3("Rent that came up short last month, a phone bill in arrears, money owed to someone. Add each one and say how you'd like to handle it.")
-    var name by remember { mutableStateOf("") }; var amount by remember { mutableStateOf("") }; var how by remember { mutableStateOf("date") }
-    var date by remember { mutableStateOf(Core.mainPaydays(s, ym).firstOrNull { it > today } ?: nextMonthPay) }
-    var payment by remember { mutableStateOf("") }; var day by remember { mutableStateOf("1") }; var err by remember { mutableStateOf<String?>(null) }
+    var name by rememberSaveable { mutableStateOf("") }; var amount by rememberSaveable { mutableStateOf("") }; var how by rememberSaveable { mutableStateOf("date") }
+    var date by rememberSaveable { mutableStateOf(Core.mainPaydays(s, ym).firstOrNull { it > today } ?: nextMonthPay) }
+    var payment by rememberSaveable { mutableStateOf("") }; var day by rememberSaveable { mutableStateOf("1") }; var err by rememberSaveable { mutableStateOf<String?>(null) }
     TextFieldRow(name, { name = it.take(40); err = null }, "Who or what", placeholder = "Landlord")
     MoneyField(amount, { amount = it; err = null }, "How much is owed")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -174,7 +175,7 @@ private fun BehindStep(vm: MainViewModel, next: () -> Unit) {
 @Composable
 private fun FoodStep(vm: MainViewModel, next: () -> Unit) {
     val today = vm.today.value; val half = if (today.substring(8, 10).toInt() <= 15) "the 1st" else "the 16th"
-    var amount by remember { mutableStateOf("") }; var err by remember { mutableStateOf<String?>(null) }
+    var amount by rememberSaveable { mutableStateOf("") }; var err by rememberSaveable { mutableStateOf<String?>(null) }
     Text("About how much has gone on groceries and takeout since $half? A rough number is fine. It's logged so this half's food money starts in the right place.",
         style = MaterialTheme.typography.bodyMedium)
     MoneyField(amount, { amount = it; err = null }, "Food since $half")

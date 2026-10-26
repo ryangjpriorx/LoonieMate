@@ -2,6 +2,7 @@
 
 package looniemate.app.ui.sheets
 
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -68,31 +69,31 @@ fun BillSheet(vm: MainViewModel, id: String?, group0: String, close: () -> Unit)
             "method" to (if (group0 == "adults") "Pre-authorized debit (PAD)" else "Debit card"))
     }
     val g = b.or("group", "adults")
-    var name by remember { mutableStateOf(b.s("name")) }
-    var amount by remember { mutableStateOf(if (b["amount"] != null) money2(b.n("amount")) else "") }
-    var freq by remember { mutableStateOf(b.or("freq", "monthly")) }
-    var day by remember { mutableStateOf(if (b.t("day")) b.n("day").toInt().toString() else "1") }
-    var anchor by remember { mutableStateOf(b.s("anchor").ifEmpty { today }) }
-    var cat by remember { mutableStateOf(b.or("category", "other")) }
-    var acct by remember { mutableStateOf(Core.acctId(s, b.s("account"))) }
-    var method by remember { mutableStateOf(b.s("method")) }
-    var fund by remember { mutableStateOf(b.s("fund")) }
-    var nonEss by remember { mutableStateOf(b["essential"].let { it is J.B && !it.v }) }
-    var deferrable by remember { mutableStateOf(b.t("deferrable")) }
-    var start by remember { mutableStateOf(b.s("start")) }; var end by remember { mutableStateOf(b.s("end")) }
-    var paused by remember { mutableStateOf(b["active"].let { it is J.B && !it.v }) }
+    var name by rememberSaveable { mutableStateOf(b.s("name")) }
+    var amount by rememberSaveable { mutableStateOf(if (b["amount"] != null) money2(b.n("amount")) else "") }
+    var freq by rememberSaveable { mutableStateOf(b.or("freq", "monthly")) }
+    var day by rememberSaveable { mutableStateOf(if (b.t("day")) b.n("day").toInt().toString() else "1") }
+    var anchor by rememberSaveable { mutableStateOf(b.s("anchor").ifEmpty { today }) }
+    var cat by rememberSaveable { mutableStateOf(b.or("category", "other")) }
+    var acct by rememberSaveable { mutableStateOf(Core.acctId(s, b.s("account"))) }
+    var method by rememberSaveable { mutableStateOf(b.s("method")) }
+    var fund by rememberSaveable { mutableStateOf(b.s("fund")) }
+    var nonEss by rememberSaveable { mutableStateOf(b["essential"].let { it is J.B && !it.v }) }
+    var deferrable by rememberSaveable { mutableStateOf(b.t("deferrable")) }
+    var start by rememberSaveable { mutableStateOf(b.s("start")) }; var end by rememberSaveable { mutableStateOf(b.s("end")) }
+    var paused by rememberSaveable { mutableStateOf(b["active"].let { it is J.B && !it.v }) }
     val d0 = b["debt"]; val dp = Core.debtParts(d0)
-    var debtOpen by remember { mutableStateOf(dp != null && dp.P > 0) }
-    var dmode by remember { mutableStateOf(if (dp == null || dp.orig) "original" else "balance") }
-    var principal by remember { mutableStateOf(if (d0.n("principal") > 0) money2(d0.n("principal")) else "") }
-    var dstart by remember { mutableStateOf(d0.s("start")) }
-    var missed by remember { mutableStateOf(if (d0.n("missed") > 0) d0.n("missed").toInt().toString() else "") }
-    var owed by remember { mutableStateOf(if (d0.n("owed") > 0) money2(d0.n("owed")) else "") }
-    var asOf by remember { mutableStateOf(d0.s("asOf").ifEmpty { today }) }
-    var rate by remember { mutableStateOf(if (d0.n("rate") > 0) Json.numStr(d0.n("rate")) else "") }
+    var debtOpen by rememberSaveable { mutableStateOf(dp != null && dp.P > 0) }
+    var dmode by rememberSaveable { mutableStateOf(if (dp == null || dp.orig) "original" else "balance") }
+    var principal by rememberSaveable { mutableStateOf(if (d0.n("principal") > 0) money2(d0.n("principal")) else "") }
+    var dstart by rememberSaveable { mutableStateOf(d0.s("start")) }
+    var missed by rememberSaveable { mutableStateOf(if (d0.n("missed") > 0) d0.n("missed").toInt().toString() else "") }
+    var owed by rememberSaveable { mutableStateOf(if (d0.n("owed") > 0) money2(d0.n("owed")) else "") }
+    var asOf by rememberSaveable { mutableStateOf(d0.s("asOf").ifEmpty { today }) }
+    var rate by rememberSaveable { mutableStateOf(if (d0.n("rate") > 0) Json.numStr(d0.n("rate")) else "") }
     val extras = remember { mutableStateListOf<Extra>().apply { d0?.get("extra").let { it as? J.A }?.list?.forEach { add(Extra(it.s("date"), if (it.n("amount") > 0) money2(it.n("amount")) else "")) } } }
-    var moreOpen by remember { mutableStateOf(b.t("start") || b.t("end") || paused) }
-    var err by remember { mutableStateOf<String?>(null) }; var confirmDelete by remember { mutableStateOf(false) }
+    var moreOpen by rememberSaveable { mutableStateOf(b.t("start") || b.t("end") || paused) }
+    var err by rememberSaveable { mutableStateOf<String?>(null) }; var confirmDelete by rememberSaveable { mutableStateOf(false) }
 
     fun debtForm() = Views.DebtForm(dmode, principal, dstart, missed, owed, asOf, rate, extras.map { it.date to it.amount })
 

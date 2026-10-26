@@ -223,7 +223,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (message.isNotEmpty()) messages.trySend(Undo(message, before))
         looniemate.app.notify.ReminderAlarm.refreshShown(getApplication())
     }
-    fun undo(u: Undo) { u.paths.forEach { (p, v) -> repo.restore(p, v) }; looniemate.app.notify.ReminderAlarm.refreshShown(getApplication()) }
+    fun undo(u: Undo) { repo.restoreAll(u.paths); looniemate.app.notify.ReminderAlarm.refreshShown(getApplication()) }
     fun say(msg: String) { messages.trySend(Undo(msg, emptyMap())) }
 
     private fun patchMonth(ym: String, patch: Obj) = repo.update("months/$ym", patch)
@@ -549,7 +549,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val incoming = (o.payload["data"] as Obj).map
         return if (combine) { val r = Backup.merge(repo.docs.value, incoming); repo.replaceAll(r.data); prefs.lastBackup = java.time.Instant.now().toString()
             "Combined. ${r.added} new, ${r.updated} updated" + (if (r.removed > 0) ", ${r.removed} removed" else "") + "." }
-        else { repo.replaceAll(LinkedHashMap(incoming)); prefs.lastBackup = o.exportedAt.ifEmpty { java.time.Instant.now().toString() }; "Backup imported." }
+        else { repo.replaceAll(LinkedHashMap(incoming), recordRemoved = true); prefs.lastBackup = o.exportedAt.ifEmpty { java.time.Instant.now().toString() }; "Backup imported." }
     }
 
     fun hasData(): Boolean = repo.docs.value.keys.any { it != "meta/tombstones" }

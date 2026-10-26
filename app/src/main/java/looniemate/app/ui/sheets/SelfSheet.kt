@@ -2,6 +2,7 @@
 
 package looniemate.app.ui.sheets
 
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -92,8 +93,8 @@ fun SelfIntro() {
 @Composable
 fun SelfPlanEditor(vm: MainViewModel, saveLabel: String, onSaved: () -> Unit) {
     val page = LocalPage.current
-    val rows = remember { mutableStateListOf<SelfRow>().apply { addAll(vm.selfRows().ifEmpty { listOf(SelfRow()) }) } }
-    var err by remember { mutableStateOf<String?>(null) }
+    val rows = rememberSaveable(saver = selfRowsSaver) { mutableStateListOf<SelfRow>().apply { addAll(vm.selfRows().ifEmpty { listOf(SelfRow()) }) } }
+    var err by rememberSaveable { mutableStateOf<String?>(null) }
     SelfIntro()
     rows.forEachIndexed { i, r ->
         Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
@@ -115,3 +116,8 @@ fun SelfPlanEditor(vm: MainViewModel, saveLabel: String, onSaved: () -> Unit) {
     Button(onClick = { val (p, e) = vm.readSelf(rows); if (p == null) err = e else { vm.saveSelf(p); page?.saved(); onSaved() } },
         Modifier.fillMaxWidth().testTag("self-save")) { Text(saveLabel) }
 }
+
+/** The plan's lines saved with the page (S1). */
+private val selfRowsSaver = androidx.compose.runtime.saveable.Saver<androidx.compose.runtime.snapshots.SnapshotStateList<SelfRow>, ArrayList<String>>(
+    save = { l -> ArrayList(l.flatMap { listOf(it.name, it.amount, it.per) }) },
+    restore = { a -> mutableStateListOf<SelfRow>().apply { a.chunked(3).forEach { add(SelfRow(it[0], it[1], it[2])) } } })

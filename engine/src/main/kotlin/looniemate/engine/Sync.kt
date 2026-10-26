@@ -55,8 +55,14 @@ object Sync {
         /* The file can be stale: a cloud app's cached copy, or the other phone writing from an older copy. An item missing
            from the file without a tombstone wasn't deleted (deletions always leave one), and a file copy older than what
            both phones last agreed on (the base) is out of date: either way this phone's copy is kept, and the file is
-           rewritten with it. */
-        if (!absent(b) && (absent(r) || r!!.n("_u") < b!!.n("_u"))) return l
+           rewritten with it. Real deletions are settled afterwards by the tombstones in reconcile. */
+        if (!absent(b)) {
+            if (absent(r) && !absent(l)) return l
+            /* the same the other way: missing here without a tombstone (this phone's budget file couldn't be read and
+               started empty) brings it back from the file instead of deleting it everywhere */
+            if (absent(l) && !absent(r)) return r
+            if (!absent(r) && !absent(l) && r!!.n("_u") < b!!.n("_u")) return l
+        }
         if (same(l, b)) return r
         if (same(r, b)) return l
         /* changed on both phones */

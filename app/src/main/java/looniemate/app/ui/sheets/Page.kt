@@ -2,6 +2,7 @@
 
 package looniemate.app.ui.sheets
 
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -52,6 +53,11 @@ class PageState {
     fun mark() { edited = true }
     /** What was typed so far is saved (a multi-step flow moved on), so leaving now loses nothing. */
     fun saved() { edited = false }
+
+    companion object {
+        /** Keeps "something was typed" if Android closes LoonieMate in the background (the title is set again on return). */
+        val Saver = androidx.compose.runtime.saveable.Saver<PageState, Boolean>(save = { it.edited }, restore = { PageState().apply { edited = it } })
+    }
 }
 
 val LocalPage = staticCompositionLocalOf<PageState?> { null }
@@ -63,8 +69,8 @@ val LocalPage = staticCompositionLocalOf<PageState?> { null }
  */
 @Composable
 fun Page(onClose: () -> Unit, content: @Composable () -> Unit) {
-    val page = remember { PageState() }
-    var asking by remember { mutableStateOf(false) }
+    val page = rememberSaveable(saver = PageState.Saver) { PageState() }
+    var asking by rememberSaveable { mutableStateOf(false) }
     val tryClose: () -> Unit = { if (page.edited) asking = true else onClose() }
     BackHandler(onBack = tryClose)
     CompositionLocalProvider(LocalPage provides page) {
@@ -106,3 +112,14 @@ fun SheetTitle(t: String) { val page = LocalPage.current
 /** Wraps a field's change so the page knows something was typed. */
 @Composable
 fun <T> marking(onChange: (T) -> Unit): (T) -> Unit { val page = LocalPage.current; return { v -> page?.mark(); onChange(v) } }
+
+/* ---------- saved state, so a form survives Android closing LoonieMate in the background (polish-and-audit S1) ---------- */
+
+/** Saves a map of typed values (text or true/false) with the page. */
+fun <V : Any> stateMapSaver() = androidx.compose.runtime.saveable.Saver<androidx.compose.runtime.snapshots.SnapshotStateMap<String, V>, ArrayList<Any>>(
+    save = { m -> ArrayList<Any>().apply { m.forEach { (k, v) -> add(k); add(v) } } },
+    restore = { l -> androidx.compose.runtime.mutableStateMapOf<String, V>().apply { l.chunked(2).forEach { @Suppress("UNCHECKED_CAST") put(it[0] as String, it[1] as V) } } })
+
+/** Saves a list of text values with the page. */
+fun stringListSaver() = androidx.compose.runtime.saveable.Saver<androidx.compose.runtime.snapshots.SnapshotStateList<String>, ArrayList<String>>(
+    save = { ArrayList(it) }, restore = { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll(it) } })

@@ -145,6 +145,17 @@ class ScreensTest {
     @Test fun light() = tour("light", false)
     @Test fun dark() = tour("dark", true)
 
+    /** Android closes LoonieMate while a form is half filled (say, while checking a banking app): it comes back as it was (S1). */
+    @Test fun aFormSurvivesBeingRebuilt() {
+        seed(dark = false, effects = false)
+        rule.onNodeWithTag("fab").performClick(); settle()
+        rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[0].performTextInput("12.50"); settle()
+        rule.activityRule.scenario.recreate(); settle()
+        assertTrue("the page is still open", rule.onAllNodesWithTag("page").fetchSemanticsNodes().isNotEmpty())
+        assertTrue("what was typed is still there", rule.onAllNodesWithText("12.50").fetchSemanticsNodes().isNotEmpty())
+        back(); assertTrue("it still asks before leaving", rule.onAllNodesWithTag("leave-stay").fetchSemanticsNodes().isNotEmpty())
+    }
+
     /** At Android's largest text size every tab still draws (docs/plans/accessibility.md, stage 1). */
     @Test fun largestText() {
         seed(dark = false, effects = false)

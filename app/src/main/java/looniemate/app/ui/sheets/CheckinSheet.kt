@@ -41,9 +41,9 @@ import looniemate.engine.*
 fun CheckinSheet(vm: MainViewModel, close: () -> Unit) {
     val s = vm.settings(); val A = Core.accountsOf(s)
     val prev = Docs.checkins(vm.repo.docs.value).firstOrNull()
-    val typed = remember { mutableStateMapOf<String, String>() }
+    val typed = rememberSaveable(saver = stateMapSaver<String>()) { mutableStateMapOf<String, String>() }
     var result by remember { mutableStateOf<MainViewModel.CheckResult?>(null) }
-    var err by remember { mutableStateOf<String?>(null) }
+    var err by rememberSaveable { mutableStateOf<String?>(null) }
     val blanks = rememberBlankCheck()
 
     SheetTitle("Check my balances")
@@ -63,7 +63,7 @@ fun CheckinSheet(vm: MainViewModel, close: () -> Unit) {
 
 @Composable
 private fun Result(r: MainViewModel.CheckResult, vm: MainViewModel, close: () -> Unit) {
-    var how by remember { mutableStateOf(false) }
+    var how by rememberSaveable { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         val ex = r.ex; val gap = r.gap
         when {
