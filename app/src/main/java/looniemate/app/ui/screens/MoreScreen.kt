@@ -260,8 +260,9 @@ private fun QuickButtonsCard(vm: MainViewModel) {
         if (quick.isEmpty()) { Spacer(Modifier.height(8.dp)); EmptyNote("No saved quick buttons yet.") }
         quick.forEachIndexed { i, q -> val label = looniemate.engine.Views.Quick(q.s("category"), q.n("amount"), q.s("note"), true).label
             Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                val cat = looniemate.engine.Labels.SPENDL[q.s("category")] ?: ""
                 Column(Modifier.weight(1f)) { Text(label, fontWeight = FontWeight.SemiBold)
-                    Text(looniemate.engine.Labels.SPENDL[q.s("category")] ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    if (cat != label) Text(cat, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 Text(Fmt.money(q.n("amount")))
                 IconButton(onClick = { vm.removeQuick(i) }, modifier = Modifier.testTag("quick-del-$i")) { Icon(Icons.Rounded.Delete, "Remove the $label button") }
             }
