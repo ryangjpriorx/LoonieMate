@@ -47,7 +47,7 @@ import looniemate.engine.*
 class TodayModel(
     val today: String, val title: String, val isNew: Boolean, val status: Views.Status, val reminders: List<Views.Reminder>,
     val todo: List<Obj>, val incoming: List<Obj>, val food: Obj, val foodTone: String, val quick: List<Views.Quick>,
-    val debts: List<Views.Debt>, val next: List<Obj>, val lastCheck: Obj?, val hasAccounts: Boolean,
+    val debts: List<Views.Debt>, val next: List<Obj>, val lastCheck: Obj?, val hasAccounts: Boolean, val readyToStart: Boolean = false,
 )
 
 class MonthModel(
@@ -135,21 +135,38 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun buildToday(d: Map<String, J>, t: String, lastBackup: String?): TodayModel {
         val st = store(d, t); val s = st.settings; val ym = ymOf(t); val c = Core.monthCalc(ym, st, t)
         val up = Core.upcoming(st, t, 7) { Labels.expLabel(it) }
-        val status = Views.status(c, up, "now", t, s)
+        val status = if (Core.startingMonth(st, ym)) startingStatus(d, st, t) else Views.status(c, up, "now", t, s)
         val todo = up.filter { (it.s("kind") == "bill" && !it.t("paid") && it.s("date") <= t) || (it.s("kind") == "move" && !it.t("done") && it.s("date") <= t) }
         val incoming = up.filter { it.s("kind") == "in" && it.s("date") == t }
         val next = up.filter { it.s("date") > t && (it.s("kind") != "bill" || !it.t("paid")) }.take(6)
         val fp = Core.foodPeriod(c, t)
         val tone = if (fp.n("spent") > fp.n("allow")) "bad" else if (fp.n("spent") > fp.n("expected") + 10) "warn" else "good"
         return TodayModel(t, titleFor(s), isNew(s, st.bills), status, Views.reminders(st, t, lastBackup), todo, incoming, fp, tone,
-            Views.quickButtons(s, Docs.allExpenses(d), t), Views.debts(st, t), next, Docs.checkins(d).firstOrNull(), Core.accountsOf(s).isNotEmpty())
+            Views.quickButtons(s, Docs.allExpenses(d), t), Views.debts(st, t), next, Docs.checkins(d).firstOrNull(), Core.accountsOf(s).isNotEmpty(),
+            !prefs.onboarded && Core.accountsOf(s).isNotEmpty() && Core.incomesOf(s).isNotEmpty() && st.bills.isNotEmpty())
+    }
+
+    /**
+     * The status in a starting month: no savings target, just getting to the next payday. Uses Where you stand when
+     * the last balance check is recent enough to start from (docs/plans/getting-on-track.md).
+     */
+    private fun startingStatus(d: Map<String, J>, st: Store, t: String): Views.Status {
+        val pts = mutableListOf("No savings target this month. The goal is getting through to the next payday.")
+        val ck = Docs.checkins(d).firstOrNull(); var tone = "plan"
+        if (ck != null && looniemate.engine.diffDays(ck.s("date"), t) <= 2) {
+            val bal = (ck["bal"] as? Obj)?.map?.mapValues { looniemate.engine.num(it.value) } ?: emptyMap()
+            val r = Core.runway(st, t, bal); val sh = r["short"] as? Obj
+            if (sh != null) { tone = "bad"; pts.add("Short ${Fmt.money(sh.n("amount"))} on ${Fmt.dShort(sh.s("date"))}" + (if (sh.t("nextIn")) ", until money comes in on ${Fmt.dShort(sh.s("nextIn"))}." else ".") + " Settings → Get back on track has ways to cover it.") }
+            else pts.add("No short days until ${Fmt.dShort(r.s("to"))}. The lowest point is ${Fmt.money(r.n("low"))}.")
+        } else pts.add("Do a balance check to see how the rest of the month looks.")
+        return Views.Status(tone, "Starting month", pts)
     }
 
     private fun buildMonth(d: Map<String, J>, t: String, y: String?): MonthModel {
         val st = store(d, t); val s = st.settings; val ym = y ?: defaultYm(t, s); val c = Core.monthCalc(ym, st, t)
         val phase = Views.phaseOf(ym, t, s); val days = s.n("upcomingDays").toInt().takeIf { it > 0 } ?: 10
         val upAll = Core.upcoming(st, t, days) { Labels.expLabel(it) }
-        val status = Views.status(c, upAll, phase, t, s)
+        val status = if (ym == ymOf(t) && Core.startingMonth(st, ym)) startingStatus(d, st, t) else Views.status(c, upAll, phase, t, s)
         val up = upAll.filter { !(it.s("kind") == "bill" && it.t("paid") && it.s("date") < t) }
         val lines = c["billLines"].arr().filterIsInstance<Obj>()
         val own = lines.filter { !it.t("deferredFrom") && it.n("planned") > 0 }
@@ -383,6 +400,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun catchUpPush(ym: String, id: String, date: String, amount: Double) = catchUpSplit(ym, id, date, amount)
 
     /** First-time setup starts tracking from the 1st, so bills left unticked this month count as things to catch up on. */
+    /** "Not now" on the Today card: the steps stay in Settings → Get back on track. */
+    fun skipOnboarding() { prefs.onboarded = true; refreshTodayTick.value++ }
+    val refreshTodayTick = MutableStateFlow(0)
+
     fun startCatchUp(first: Boolean) { if (first) { val ym = ymOf(today.value); if (settings().s("trackFrom") > "$ym-01") saveSettings(J.obj("trackFrom" to "$ym-01")) } }
 
     /** The window the steps look back over: the same one Today's overdue list and Where you stand use (21 days, since tracking began). */

@@ -51,9 +51,9 @@ Tracking starts today (`settings.trackFrom`), so nothing earlier shows as overdu
     understood by the web version's status card too.
 - [x] **Stage 2**: how catch-up items are saved (one-time expense, debt bill, or "not sure yet"), using data the web
   version already reads; mark them so both versions can show them as catch-up items.
-- [ ] **Stage 3**: Android screens for steps 2 to 5 (balances, this month so far, behind on, food so far).
-- [ ] **Stage 4**: Android "Where you stand" (step 6) with the fixes.
-- [ ] **Stage 5**: onboarding wiring: runs after first-time setup, sets `trackFrom` to today and marks the starting
+- [x] **Stage 3**: Android screens for steps 2 to 5 (balances, this month so far, behind on, food so far).
+- [x] **Stage 4**: Android "Where you stand" (step 6) with the fixes.
+- [x] **Stage 5**: onboarding wiring: runs after first-time setup, sets `trackFrom` to today and marks the starting
   month; the starting-month status card.
 - [ ] **Stage 6**: Settings: "Need a fresh start?" card with **Get back on track** (low in Settings), and
   **Redo first-time setup** at the very bottom. Then release.
@@ -66,6 +66,12 @@ Tracking starts today (`settings.trackFrom`), so nothing earlier shows as overdu
   in both engines: days from today to the month's end (or next month's first main payday if later) with items
   (in / overdue / bill / oneoff / food), running balance, `low`, `lowDate`, `short {date, amount, nextIn}`.
   Parity household `ontario-starting` covers both.
+- Stages 3 to 6 (done): `ui/sheets/CatchUpSheet.kt` (five steps; `first` marks first-time setup). `MainViewModel`:
+  `startCatchUp` (first-time: tracking from the 1st), `catchUpFrom` (the shared look-back window), `catchUpSplit` /
+  `catchUpPush` (marks the bill deferrable, then defers), `finishCatchUp` (starting month, `Prefs.onboarded`),
+  `skipOnboarding`, `startingStatus` (the starting-month status on Today and Month). Today's `StartHereCard` shows once
+  accounts, income and bills exist. Settings: "Need a fresh start?" card (Get back on track) and "Redo first-time
+  setup" at the very bottom.
 - Stage 2 (done): `engine/.../CatchUp.kt` (`oneTime`, `plan` with the payoff date as `end`, `unsure`, `undecided`);
   `settings.catchUp` entries count as owed today in `runway`. App: `MainViewModel.catchUpOnDate`, `catchUpPlan`,
   `catchUpUnsure`, `catchUpResolve`. Test: `CatchUpTest`.

@@ -67,6 +67,8 @@ class ReadmeShotsTest {
             vm.repo.replaceAll(docs)
             vm.prefs.setLook(Prefs.Look(if (dark) "dark" else "light", false, "iris", false))
             vm.prefs.lastBackup = Instant.now().toString()
+            /* the README shows the budget itself, not the one-time setup cards */
+            vm.prefs.onboarded = true; vm.prefs.notifAsked = true; vm.prefs.notifSnoozeUntil = Long.MAX_VALUE
         }
         settle()
         for ((tab, name) in listOf("Today" to "today", "Month" to "month", "Bills" to "bills", "More" to "settings")) {

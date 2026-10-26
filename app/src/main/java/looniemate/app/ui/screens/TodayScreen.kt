@@ -101,6 +101,7 @@ fun TodayScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go
         /* asked once there's a budget to remind about, not on first launch */
         item { NotificationsCard(vm) }
         item { LateRemindersCard(vm) }
+        if (model.readyToStart) item { StartHereCard(vm, open) }
 
         item {
             val n = model.todo.size
@@ -316,6 +317,22 @@ private fun LateRemindersCard(vm: MainViewModel) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(onClick = { try { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:" + ctx.packageName))) } catch (_: Exception) {} }) { Text("Open settings") }
             TextButton(onClick = { vm.dismissLate() }) { Text("Got it") }
+        }
+    }
+}
+
+/** Once accounts, income and bills are set up: find where the family stands today (docs/plans/getting-on-track.md). */
+@Composable
+private fun StartHereCard(vm: MainViewModel, open: (Sheet) -> Unit) {
+    val tick by vm.refreshTodayTick.collectAsStateWithLifecycle()
+    if (vm.prefs.onboarded || tick < 0) return
+    SectionCard("Let's find where you stand today", Icons.Rounded.AutoAwesome, "teal", index = 1) {
+        Text("You're starting partway through the month, so some money is already spent and some bills are paid. Five quick steps set your starting point from today, and show how to get to the next payday.",
+            style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Button(onClick = { open(Sheet.CatchUp(first = true)) }, modifier = Modifier.testTag("start-here")) { Text("Start") }
+            TextButton(onClick = { vm.skipOnboarding() }) { Text("Not now") }
         }
     }
 }
