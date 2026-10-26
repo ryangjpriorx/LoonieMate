@@ -1492,78 +1492,30 @@ function getStatus(c,up,phase,today,s){
   return{tone,label:{good:'All good · On track',warn:'Heads up',bad:'Needs attention'}[tone],pts};
 }
 
+/* Month (docs/plans/overhaul.md): the plan, and how it's going. One sentence of status (Why? for the rest), a lock card once
+   the month is over, where the money goes as one bar and five lines, Make it fit when it's short, money in, and what's been spent. */
 function vOverview(){
   const T=st(),s=T.settings,today=todayStr(),ym=S.activeYm,c=C.monthCalc(ym,T,today),phase=phaseOf(ym,today);
-  const up=C.upcoming(T,today,num(s.upcomingDays)||10,expLabel);
-  const bal=C.savingsState(T),thr=C.targetsThrough(T,ym,today);
-  const status=getStatus(c,up,phase,today,s);
-  const owed=round2(Math.max(0,thr.emergency-bal.emergency));
-  const cur=ymOf(today);
-  let html=iosNotice();
-  // close-out prompt
-  if(isNew())return`<div class="view">${welcomeCard()}</div>`;
-  html+=ovSwitch();
-  html+=reminders(today).map(r=>`<div class="banner ${r.tone||''}"><div>${r.html}</div>${r.btn||''}</div>`).join('');
-  const toClose=[];if(isYm(s.startYm))for(let m=s.startYm;m<cur;m=ymAdd(m,1)){if(!(S.months[m]&&S.months[m].closed))toClose.push(m);if(toClose.length>3)break}
-  if(toClose.length)html+=`<div class="banner"><div><b>${monthOnly(toClose[0])} is finished.</b> <span class="muted">Lock it so its numbers stay exactly as they were.</span></div><button class="btn" data-act="goto" data-ym="${toClose[0]}" data-tab="income">Review and lock</button></div>`;
-  if(hasExamples())html+=`<div class="banner"><div><span class="pill ex">Example amounts</span> <span class="muted">Some bills are examples. Replace them with your real numbers.</span></div><button class="btn sm" data-act="tab" data-tab="fixed">Edit bills</button></div>`;
-
-
-  const sk=skipCard(c,phase);
-  html+=`<section class="status ${status.tone}" aria-live="polite"><span class="badge"><span class="dot"></span>${esc(status.label)}</span><ul>${status.pts.map(p=>`<li>${esc(p)}</li>`).join('')}</ul></section>`+sk;
-
-  // KPI tiles
-  let k1;
-  if(c.net<0&&phase!=='past'){
-    k1=`<div class="kpi short"><span class="label">Shortfall this month</span><span class="big">${fmt(-c.net)}</span><span class="small">${c.billLines.some(l=>!l.essential&&!l.skipped)?'Skip some non-essentials above, then':'Cover the rest'} from Emergency Savings. Child Reserve is last resort only.</span></div>`;
-  }else if(phase==='now'){
-    const lastReg=c.regularDays[c.regularDays.length-1];
-    k1=`<div class="kpi hero"><span class="label">Safe to move to Emergency Savings</span><span class="big">${fmt(owed)}</span>
-      <span class="small muted">${owed>0?`This month's ${c.bonus?`surplus and 3rd paycheque ${fmt(c.target)}`:`surplus ${fmt(c.target)}`}${owed-c.target>0.5?` + ${fmt(owed-c.target)} from earlier months`:''}.${lastReg&&lastReg>today?` Move it after ${dShort(lastReg)}.`:''}`:'Nothing waiting to move right now.'}</span>
-      <div><button class="btn sm" data-act="transfer" data-kind="emergency" data-amt="${owed}">I moved money</button></div></div>`;
-  }else if(phase==='future'){
-    k1=`<div class="kpi hero"><span class="label">Planned for Emergency Savings</span><span class="big">${fmt(c.target)}</span><span class="small muted">${c.bonus?(c.liveSurplus<0?`3rd paycheque ${fmt(c.bonus)} after covering a ${fmt(-c.liveSurplus)} shortfall`:`Surplus ${fmt(c.liveSurplus)} + 3rd paycheque ${fmt(c.bonus)}`):`Surplus ${fmt(Math.max(0,c.liveSurplus))}`}</span></div>`;
-  }else{
-    k1=`<div class="kpi hero"><span class="label">Emergency Savings target</span><span class="big">${fmt(c.target)}</span><span class="small muted">Moved in ${monthOnly(ym)}: ${fmt(c.moved.emergency)}</span></div>`;
-  }
-  let k2;
-  if(ymOf(today)===ym){const fp=C.foodPeriod(c,today,s);const pct=Math.min(100,fp.allow?fp.spent/fp.allow*100:0),pace=Math.min(100,fp.allow?fp.expected/fp.allow*100:0);
-    const cls=fp.spent>fp.allow?'bad':fp.spent>fp.expected+10?'warn':'';
-    k2=`<div class="kpi food"><span class="label">Food left · ${fp.half===1?'1st–15th':'16th–end'}</span><span class="big">${fmt(fp.left)}</span>
-      <div class="meter ${cls}" role="img" aria-label="${fmt(fp.spent)} of ${fmt(fp.allow)} spent"><span style="width:${pct}%"></span><i class="pace" style="left:${pace}%"></i></div>
-      <span class="small muted">${fmt(fp.perDay)}/day for ${fp.daysLeft} day${fp.daysLeft>1?'s':''} · plan ${fmt(fp.target)}/day</span></div>`;
-  }else{
-    k2=`<div class="kpi food"><span class="label">Food allowance</span><span class="big">${fmt(c.food)}</span><span class="small muted">${fmt(c.foodHalf)} for the 1st–15th and ${fmt(c.foodHalf)} for the 16th–end, based on what's left after bills</span></div>`;
-  }
-  const dueBills=up.filter(e=>e.kind==='bill'&&!e.paid);
-  const nOver=dueBills.filter(e=>e.overdue).length;
-  const k3=`<div class="kpi due"><span class="label">Bills due · next ${num(s.upcomingDays)||10} days</span><span class="big">${fmt(C.sum(dueBills.map(e=>e.amount)))}</span><span class="small muted">${dueBills.length} bill${dueBills.length===1?'':'s'}${nOver?` · <b style="color:var(--bad)">${nOver} past due</b>`:''}</span></div>`;
-  const k4=`<div class="kpi protect"><span class="label">Child Reserve · protected</span><span class="big">${fmt(bal.child)}</span><span class="small muted">Canada Child Benefit savings. Last resort only.${thr.childSoFar>bal.child+0.5?` Should be ${fmt(thr.childSoFar)}.`:''}</span></div>`;
-
-  const tasks=[];
-  // coming up
-  let lastD='';const rows=up.filter(e=>!(e.kind==='bill'&&e.paid&&e.date<today)).map(e=>{
-    let h='';if(e.date!==lastD){lastD=e.date;h+=`<div class="dayhead ${e.date===today?'today':''}">${e.overdue?'Past due · ':''}${relDay(e.date,today)}</div>`}
-    if(e.kind==='in')return h+`<div class="row"><span class="gdot ${e.protect?'protect':'in'}"></span><div><div class="nm">${esc(e.name)}</div><div class="meta">${esc(e.note||'')}</div></div><div class="amt"><span class="num plus">+${fmt(e.amount)}</span></div></div>`;
-    if(e.kind==='move'){const sav=e.sav||'';
-      return h+`<div class="row ${e.overdue?'overdue':''}"><span class="gdot move" aria-hidden="true">→</span><div><div class="nm">${moveTitle(e)}</div><div class="meta">From ${esc(e.from)}${e.fromAcct?' ('+esc(e.fromAcct)+')':''} · ${esc(e.why)}</div></div>
-      <div class="amt"><button class="paidbtn ${e.done?'on':''}" data-act="move-done" data-ym="${e.ym}" data-key="${esc(e.key)}" data-sav="${sav}" data-amt="${e.amount}" aria-pressed="${e.done}" aria-label="${e.done?'Done':'Mark done'}: move ${esc(fmt(e.amount))} to ${esc(e.to||'')}">${e.done?'✓ Done':'Mark done'}</button></div></div>`}
-    if(e.kind==='oneoff')return h+`<div class="row"><span class="gdot ${esc(e.group)}"></span><div><div class="nm">${esc(e.name)}</div><div class="meta">One-time · ${esc(OGROUPS[e.group]||'')}${e.account?' · '+esc(e.account):''}</div></div><div class="amt"><span class="num">${fmt(e.amount)}</span></div></div>`;
-    return h+`<div class="row ${e.overdue?'overdue':''}"><span class="gdot ${esc(e.group)}"></span><div><div class="nm">${esc(e.name)} ${e.example?'<span class="pill ex">Example</span>':''}${e.deferredFrom?` <span class="pill warn">Deferred from ${monthShort(e.deferredFrom)}</span>`:''}</div><div class="meta">${esc(GROUPS[e.group]?GROUPS[e.group].l:'')}${e.account?' · '+esc(acctName(e.account)):''}${e.method?' · '+esc(shortMethod(e.method)):''}</div></div>
-      <div class="amt"><span class="num">${fmt(e.amount)}</span><button class="paidbtn ${e.paid?'on':''}" data-act="paid" data-ym="${e.ym}" data-key="${esc(e.key)}" aria-pressed="${e.paid}" aria-label="${e.paid?'Paid':'Mark paid'}: ${esc(e.name)}, ${esc(fmt(e.amount))}">${e.paid?'✓ Paid':'Mark paid'}</button></div></div>`;
-  }).join('');
-
-  html+=`<div class="grid-ov"><div class="col">
-    <div class="kpis">${k1}${k2}${k3}${k4}</div>
-    <section class="card"><div class="card-h"><div class="ttl">${ico('cal')}<h2>Coming up</h2></div><span class="small muted">Money in, money moves and bills to ${dShort(addDays(today,num(s.upcomingDays)||10))}</span></div>
-      ${tasks.join('')}<div class="list">${rows||'<div class="empty">Nothing due in the next few days.</div>'}</div></section>
-    ${catCard(c)}
-  </div><div class="col">
-    ${planCard(c,phase)}
-    ${debtCard(T,today)}
-    <button class="banner" data-act="tab" data-tab="savings" style="text-align:left;cursor:pointer;width:100%"><div><b>Savings:</b> <span class="muted">Emergency ${fmt(bal.emergency)} · Child Reserve ${fmt(bal.child)}</span></div><span class="btn sm">Open Savings</span></button>
-  </div></div>`;
-  return`<div class="view">${html}</div>`;
+  if(isNew())return`<div class="view">${iosNotice()}${welcomeCard()}</div>`;
+  const up=C.upcoming(T,today,num(s.upcomingDays)||10,expLabel),status=getStatus(c,up,phase,today,s);
+  const inn=num(c.spendable),bills=num(c.billsTotal),food=num(c.food),self=num(c.self),left=num(c.plannedSurplus);
+  const parts=[['Bills',bills,'var(--sky)'],['Food',food,'var(--good)'],['Personal Expenses',self,'var(--baby)'],left>=0?['Left for savings',left,'var(--accent)']:['Short',-left,'var(--bad)']].filter(x=>x[1]>0.004);
+  const total=Math.max(inn,bills+food+self,1),off=num(c.otherSpent)+num(c.foodOver)+num(c.selfOver);
+  return`<div class="view">${iosNotice()}
+   <section class="status ${status.tone}" aria-live="polite"><span class="badge"><span class="dot"></span>${esc(status.label)}</span>
+     ${status.pts.length?`<p style="margin:8px 0 0">${esc(status.pts[0])}</p>`:''}
+     ${status.pts.length>1?`<details style="margin-top:6px"><summary class="small">Why?</summary><ul>${status.pts.slice(1).map(p=>`<li>${esc(p)}</li>`).join('')}</ul></details>`:''}</section>
+   ${phase==='past'&&!c.closed?`<section class="card"><div class="card-h"><div class="ttl">${ico('lock')}<h2>${monthName(ym)} is finished</h2></div></div><p class="small muted" style="margin-bottom:10px">Lock it so its numbers stay exactly as they were, even if a bill or an income changes later.</p><button class="btn" data-act="goto" data-ym="${ym}" data-tab="income">Review and lock</button></section>`:''}
+   <section class="card"><div class="card-h"><div class="ttl">${ico('pie','teal')}<h2>Where the money goes</h2></div>${c.closed?'<span class="pill">Locked</span>':(c.bonusDays||[]).length?'<span class="pill good">Extra payday</span>':''}</div>
+     <div role="img" aria-label="${esc(parts.map(x=>x[0]+' '+fmt(x[1])).join(', '))}" style="display:flex;height:14px;border-radius:8px;overflow:hidden;background:var(--surface-2)">${parts.map(x=>`<span style="flex:${x[1]/total};background:${x[2]}"></span>`).join('')}</div>
+     <div style="margin-top:10px"><div class="line"><span>Money in</span><span class="num">${fmt(inn)}</span></div>
+     ${parts.map(x=>`<div class="line"><span><span class="gdot" style="display:inline-block;background:${x[2]};margin-right:8px"></span>${x[0]}</span><span class="num" style="${x[0]==='Short'?'color:var(--bad);font-weight:700':x[0]==='Left for savings'?'font-weight:700':''}">${x[0]==='Short'?'−':''}${fmt(x[1])}</span></div>`).join('')}</div>
+     ${off>0.004&&phase!=='future'?`<p class="small muted" style="margin-top:6px">Other spending so far: ${fmt(off)}, so about ${fmt(Math.max(0,num(c.liveSurplus)))} is left for savings.</p>`:''}</section>
+   ${skipCard(c,phase)}
+   ${planCard(c,phase)}
+   ${catCard(c)}
+   ${hasExamples()?`<div class="banner"><div><span class="pill ex">Example amounts</span> <span class="muted">Some bills are examples.</span></div><button class="btn sm" data-act="tab" data-tab="fixed">Edit bills</button></div>`:''}
+  </div>`;
 }
 const neg=n=>num(n)>0?'−'+fmt(n):fmt(0);
 function skipCard(c,phase){
