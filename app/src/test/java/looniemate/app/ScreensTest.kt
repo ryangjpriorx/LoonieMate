@@ -27,7 +27,6 @@ import java.io.File
 class ScreensTest {
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
     private val out = File(System.getProperty("screens") ?: "build/screens").apply { mkdirs() }
-    private val app get() = rule.activity.application as LoonieApp
     private val problems = mutableListOf<String>()
 
     private fun settle() { repeat(12) { Thread.sleep(60); rule.waitForIdle() } }
@@ -41,9 +40,6 @@ class ScreensTest {
 
     private fun shot(name: String, sheet: Boolean = false) {
         settle()
-        val vm = androidx.lifecycle.ViewModelProvider(rule.activity)[MainViewModel::class.java]
-        File(out, "debug.txt").appendText("$name app=${System.identityHashCode(app)} vmApp=${System.identityHashCode(vm.getApplication<LoonieApp>())} " +
-            "testPrefs=${System.identityHashCode(app.prefs)} ${app.prefs.look.value} vmPrefs=${System.identityHashCode(vm.prefs)} ${vm.prefs.look.value} activity=${System.identityHashCode(rule.activity)}\n")
         try {
             /* this test's own window, or the sheet window opened on top of it (earlier tests' windows can linger) */
             val decor = rule.activity.window.decorView; val all = windows(); val mine = all.indexOf(decor)
@@ -57,9 +53,12 @@ class ScreensTest {
     private fun seed(dark: Boolean, effects: Boolean) {
         val fx = Json.parse(File(System.getProperty("fixtures")!!).readText())
         val docs = (fx["scenarios"].arr()[0]["docs"] as J.O).map
+        /* go through the screen's own view model: in this simulated phone the view model can outlive
+           a test's application object, so the app's repo and prefs may not be the ones on screen */
+        val vm = androidx.lifecycle.ViewModelProvider(rule.activity)[MainViewModel::class.java]
         rule.runOnUiThread {
-            app.repo.replaceAll(LinkedHashMap(docs))
-            app.prefs.setLook(Prefs.Look(if (dark) "dark" else "light", false, "iris", effects))
+            vm.repo.replaceAll(LinkedHashMap(docs))
+            vm.prefs.setLook(Prefs.Look(if (dark) "dark" else "light", false, "iris", effects))
         }
         settle()
     }
