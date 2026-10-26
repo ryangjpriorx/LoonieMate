@@ -9,7 +9,12 @@ Work is done in small stages; each one is committed, built and tested on GitHub 
 - [x] **Stage 0**: this plan.
 - [x] **Stage 1**: update check when the app comes to the front (at most hourly), not just on a fresh start.
 - [x] **Stage 2**: notification setup: channels (Reminders, Updates), asking for permission at a sensible moment, a "notifications are off" card on Today.
-- [ ] **Stage 3**: background update check (WorkManager, about twice a day, needs internet) and the update notification: once per version, **Download** button opens an update screen with **Start update**; "Ready to install" notification if the download finishes in the background.
+- [x] **Stage 3a**: background update check (WorkManager, every 12 hours, needs internet) and the
+  "LoonieMate X is available" notification (once per version) with a **Download** button. For now Download opens the
+  app on Settings, where the existing Updates card has the download and install buttons.
+- [ ] **Stage 3b**: a dedicated update screen (version, what's new, size, **Start update**, or **Install** if already
+  downloaded) opened by the notification instead of Settings; the download keeps going if the person leaves the app,
+  then posts "Ready to install" with an **Install** button; ask Android to skip its own confirmation where allowed.
 - [ ] **Stage 4**: reminder rules in the shared engine (what to send, when) with tests.
 - [ ] **Stage 5**: reminder scheduling (alarms that survive restarts and app updates) and the bundled notification with **Paid / Moved it / Got it / Remind me later** and Undo.
 - [ ] **Stage 6**: Reminders settings card (times, how often, weekend times, heads-up days, test notification).
@@ -21,9 +26,10 @@ Work is done in small stages; each one is committed, built and tested on GitHub 
 - Done so far: `Updater.checkIfDue()` runs from `MainActivity.onResume` with a 1-hour gap; `notify/Notifs.kt` has the
   two channels, the permission check and the settings link; Today shows `NotificationsCard` (ask, or "notifications are
   off"); `Prefs` has `notifAsked` and `notifSnoozeUntil`; `MainViewModel.notifOk` is refreshed on resume.
-- Stage 3 needs WorkManager added to `gradle/libs.versions.toml` and `app/build.gradle.kts` (not there yet).
-  The update screen can be a new sheet opened from the notification through an intent extra on `MainActivity`
-  (it's `singleTask`, so handle `onNewIntent` too). The existing download, signature check and install code is in
+- Stage 3a added WorkManager (`androidx-work` in `gradle/libs.versions.toml`) and `notify/UpdateCheck.kt`
+  (`UpdateCheckWorker`, scheduled in `LoonieApp`, notification id 2, `Prefs.notifiedVersion`). The notification opens
+  `MainActivity` with extra `open=update` (handled in `onCreate` and `onNewIntent`), which sets `vm.openUpdate`;
+  `LoonieMateApp` then switches to Settings. For 3b, open the new update sheet there instead. The existing download, signature check and install code is in
   `update/Updater.kt`; the in-app update UI is `UpdatePanel` in `ui/screens/MoreScreen.kt`.
 - Nothing here is released yet. The next release goes out after Stage 8 (or sooner if you ask).
 
