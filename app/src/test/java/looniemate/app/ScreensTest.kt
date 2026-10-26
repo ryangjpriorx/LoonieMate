@@ -123,7 +123,9 @@ class ScreensTest {
         seed(dark = false, effects = false)
         val vm = androidx.lifecycle.ViewModelProvider(rule.activity)[MainViewModel::class.java]
         rule.runOnUiThread { vm.prefs.setAccess(Prefs.Access(textSize = 2, bold = true, font = true)) }
-        try { settle(); for (t in listOf("Today", "Savings", "More")) { tab(t); shot("readable-$t") } }
+        try { settle(); for (t in listOf("Today", "Savings", "More")) { tab(t); shot("readable-$t") }
+            rule.runOnUiThread { vm.prefs.setAccess(Prefs.Access(contrast = true, colorBlind = true)) }; settle()
+            for (t in listOf("Today", "Month")) { tab(t); shot("contrast-cb-$t") } }
         finally { rule.runOnUiThread { vm.prefs.setAccess(Prefs.Access()) } }
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }

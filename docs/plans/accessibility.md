@@ -79,7 +79,7 @@ Work in small stages; each is committed, built and tested on GitHub before the n
   `LocalFx` (e.g. `LocalAccess`), the card below Appearance with all switches; Less motion moved in and following the
   phone's animation setting live.
 - [x] **Stage 3**: Bigger text, Bold text and the Easier-to-read font.
-- [ ] **Stage 4**: Stronger contrast and Colour-blind friendly colours for every theme, light and dark, with the
+- [x] **Stage 4**: Stronger contrast and Colour-blind friendly colours for every theme, light and dark, with the
   contrast test extended to 7:1 for Stronger contrast.
 - [ ] **Stage 5**: More time and Bigger buttons.
 - [ ] **Stage 6**: reading the phone's settings, the setup screen as the first step of first-time setup, and the
@@ -90,6 +90,11 @@ Work in small stages; each is committed, built and tested on GitHub before the n
 
 ## Notes for picking up
 
+- Stage 4 (done): `themeColors(base, dark, contrast, cb)` in `Theme.kt` builds the scheme and `Extra` for any
+  combination: `ensure()` moves a colour toward black (light) or white (dark) until it reaches 4.5:1 (7:1 with
+  Stronger contrast) on every surface, tint and card top. Stronger contrast also sets near-black/white text, darker
+  outlines, and outlines every `SectionCard`. Colour-blind hues: `LightCbExtra` / `DarkCbExtra` (blue good, orange bad,
+  amber heads-up). Works with Material You too. `ContrastTest` covers all 6 themes × light/dark × contrast × colour-blind.
 - Stage 3 (done): `res/font/atkinson_{regular,medium,semibold,bold,extrabold}.ttf` (subset with fontTools to Latin,
   Latin-1, Œœ Ÿ, punctuation, €, arrows, −, •, ✓; from github.com/googlefonts/atkinson-hyperlegible-next),
   licence in `assets/licenses/AtkinsonHyperlegibleNext-OFL.txt`. `Theme.kt`: `Atkinson`, `TEXT_SCALES`

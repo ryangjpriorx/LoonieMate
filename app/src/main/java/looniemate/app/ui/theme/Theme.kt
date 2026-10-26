@@ -16,6 +16,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -44,6 +45,48 @@ internal val DarkExtra = Extra(
     Color(0xFF5FD08F), Color(0xFF14301F), Color(0xFFF0B95A), Color(0xFF352812), Color(0xFFFF8A70), Color(0xFF3A1A14),
     Color(0xFF86B4E8), Color(0xFF1B2A3D), Color(0xFFF09AC0), Color(0xFF3A1E2C), Color(0xFF5CCFC2), Color(0xFF12312E),
     Color(0xFFD8C08A), Color(0xFF2E2817), Color(0xFF7CC4F0), Color(0xFF14293A))
+
+/* Colour-blind friendly starting hues: blue for good, orange for problems, amber kept for heads-up, and bill-group colours
+   that stay apart for red-green and blue-yellow colour blindness. themeColors() then darkens or lightens them for contrast. */
+private val LightCbExtra = Extra(
+    Color(0xFF0B5FA5), Color(0xFFE0EDF8), Color(0xFF8C5900), Color(0xFFFBEFD6), Color(0xFFB34700), Color(0xFFFDE9DC),
+    Color(0xFF3D4F80), Color(0xFFE4E8F4), Color(0xFF9E3F7B), Color(0xFFF6E2EE), Color(0xFF00785A), Color(0xFFDCF2EA),
+    Color(0xFF6B5A2E), Color(0xFFF1EBDC), Color(0xFF1A6999), Color(0xFFDDEFFA))
+private val DarkCbExtra = Extra(
+    Color(0xFF6CB8F0), Color(0xFF132A3D), Color(0xFFF0B95A), Color(0xFF352812), Color(0xFFFF9A40), Color(0xFF3A2414),
+    Color(0xFFA9B8E8), Color(0xFF1E2438), Color(0xFFE39AC6), Color(0xFF3A1E30), Color(0xFF4FD1A8), Color(0xFF113128),
+    Color(0xFFD8C08A), Color(0xFF2E2817), Color(0xFF7CC4F0), Color(0xFF14293A))
+
+private fun ratio(a: Color, b: Color): Float { val x = a.luminance() + 0.05f; val y = b.luminance() + 0.05f; return maxOf(x, y) / minOf(x, y) }
+/** Moves [fg] toward black (light mode) or white (dark mode) until it reaches [target] contrast on every background. */
+internal fun ensure(fg: Color, bgs: List<Color>, target: Float, dark: Boolean): Color {
+    var c = fg; var i = 0
+    while (bgs.any { ratio(c, it) < target + 0.05f } && i < 60) { c = androidx.compose.ui.graphics.lerp(c, if (dark) Color.White else Color.Black, 0.05f); i++ }
+    return c
+}
+
+/**
+ * The colours for a theme with the accessibility colour switches applied: Stronger contrast (7:1 text, darker muted text
+ * and outlines) and Colour-blind friendly colours. Checked by ContrastTest for every combination.
+ */
+internal fun themeColors(base: ColorScheme, dark: Boolean, contrast: Boolean, cb: Boolean): Pair<ColorScheme, Extra> {
+    val target = if (contrast) 7f else 4.5f
+    val s = if (!contrast) base else base.copy(
+        onSurface = if (dark) Color.White else Color(0xFF0B0C10), onBackground = if (dark) Color.White else Color(0xFF0B0C10),
+        outline = if (dark) Color(0xFF8A96A8) else Color(0xFF59647A), outlineVariant = if (dark) Color(0xFF5A6578) else Color(0xFF8792A6))
+    val surfaces = listOf(s.surface, s.surfaceContainerLowest, s.surfaceContainerLow, s.surfaceContainer, s.surfaceContainerHigh, s.surfaceContainerHighest)
+    fun e(c: Color, extra: List<Color> = emptyList()) = ensure(c, surfaces + extra, target, dark)
+    var sc = s.copy(onSurfaceVariant = e(s.onSurfaceVariant), primary = e(s.primary, listOf(s.primaryContainer)), secondary = e(s.secondary, listOf(s.secondaryContainer)),
+        onPrimaryContainer = e(s.onPrimaryContainer, listOf(s.primaryContainer)), onSecondaryContainer = e(s.onSecondaryContainer, listOf(s.secondaryContainer)))
+    /* button text on the accent: move the accent itself, so the button keeps its look */
+    if (ratio(sc.onPrimary, sc.primary) < target) sc = sc.copy(primary = ensure(sc.primary, listOf(sc.onPrimary), target, dark))
+    val x0 = if (cb) (if (dark) DarkCbExtra else LightCbExtra) else (if (dark) DarkExtra else LightExtra)
+    fun t(fg: Color, tint: Color) = e(fg, listOf(tint, androidx.compose.ui.graphics.lerp(sc.surfaceContainerLow, tint, 0.55f)))
+    val x = Extra(t(x0.good, x0.goodBg), x0.goodBg, t(x0.warn, x0.warnBg), x0.warnBg, t(x0.bad, x0.badBg), x0.badBg,
+        t(x0.adults, x0.adultsBg), x0.adultsBg, t(x0.baby, x0.babyBg), x0.babyBg, t(x0.pets, x0.petsBg), x0.petsBg,
+        t(x0.house, x0.houseBg), x0.houseBg, t(x0.sky, x0.skyBg), x0.skyBg)
+    return sc to x
+}
 
 val LocalExtra = staticCompositionLocalOf { LightExtra }
 /** Whether the extra visuals (animation and motion) are on. */
@@ -129,10 +172,11 @@ val Numbers = TextStyle(fontFeatureSettings = "tnum")
 fun LoonieTheme(themeMode: String, dynamicColor: Boolean, palette: String, effects: Boolean, access: looniemate.app.data.Prefs.Access = looniemate.app.data.Prefs.Access(), content: @Composable () -> Unit) {
     val dark = when (themeMode) { "light" -> false; "dark" -> true; else -> isSystemInDarkTheme() }
     val ctx = LocalContext.current
-    val scheme = if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx) } else paletteScheme(palette, dark)
+    val base = if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx) } else paletteScheme(palette, dark)
+    val (scheme, extra) = androidx.compose.runtime.remember(base, dark, access.contrast, access.colorBlind) { themeColors(base, dark, access.contrast, access.colorBlind) }
     val d = androidx.compose.ui.platform.LocalDensity.current
     val density = androidx.compose.ui.unit.Density(d.density, d.fontScale * TEXT_SCALES[access.textSize.coerceIn(0, 3)])
-    CompositionLocalProvider(LocalExtra provides if (dark) DarkExtra else LightExtra, LocalFx provides effects, LocalAccess provides access,
+    CompositionLocalProvider(LocalExtra provides extra, LocalFx provides effects, LocalAccess provides access,
         androidx.compose.ui.platform.LocalDensity provides density) {
         MaterialTheme(colorScheme = scheme, typography = accessType(appTypography(), access.font, access.bold), shapes = AppShapes, content = content)
     }

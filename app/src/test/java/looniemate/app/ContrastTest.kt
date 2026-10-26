@@ -3,15 +3,15 @@ package looniemate.app
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
-import looniemate.app.ui.theme.DarkExtra
-import looniemate.app.ui.theme.LightExtra
+import looniemate.app.ui.theme.themeColors
 import looniemate.app.ui.theme.PALETTES
 import looniemate.app.ui.theme.paletteScheme
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Text has to be readable: at least 4.5:1 against everything it can sit on, in every colour theme, light and dark.
+ * Text has to be readable: at least 4.5:1 (7:1 with Stronger contrast) against everything it can sit on, in every colour
+ * theme, light and dark, with and without Colour-blind friendly colours.
  * (WCAG AA for normal text.) Fails the build if a colour change drops below. docs/plans/accessibility.md, stage 1.
  */
 class ContrastTest {
@@ -19,9 +19,10 @@ class ContrastTest {
 
     @Test fun everyThemeHasReadableText() {
         val problems = mutableListOf<String>()
-        fun check(what: String, fg: Color, bg: Color) { val r = ratio(fg, bg); if (r < 4.5) problems.add("$what: %.2f".format(r)) }
-        for (p in PALETTES) for (dark in listOf(false, true)) {
-            val s = paletteScheme(p.key, dark); val x = if (dark) DarkExtra else LightExtra; val mode = "${p.key} ${if (dark) "dark" else "light"}"
+        for (p in PALETTES) for (dark in listOf(false, true)) for (contrast in listOf(false, true)) for (cb in listOf(false, true)) {
+            val (s, x) = themeColors(paletteScheme(p.key, dark), dark, contrast, cb); val min = if (contrast) 7.0 else 4.5
+            val mode = "${p.key} ${if (dark) "dark" else "light"}${if (contrast) " +contrast" else ""}${if (cb) " +colour-blind" else ""}"
+            fun check(what: String, fg: Color, bg: Color) { val r = ratio(fg, bg); if (r < min) problems.add("$what: %.2f (needs $min)".format(r)) }
             val surfaces = mapOf("surface" to s.surface, "low" to s.surfaceContainerLow, "container" to s.surfaceContainer, "high" to s.surfaceContainerHigh, "highest" to s.surfaceContainerHighest)
             for ((n, bg) in surfaces) {
                 check("$mode text on $n", s.onSurface, bg); check("$mode muted text on $n", s.onSurfaceVariant, bg)

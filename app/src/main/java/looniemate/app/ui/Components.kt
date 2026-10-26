@@ -133,7 +133,10 @@ fun SectionCard(
     trailingContent: (@Composable RowScope.() -> Unit)? = null, index: Int = 0, content: @Composable ColumnScope.() -> Unit,
 ) {
     val (_, bg) = toneColors(tone); val surface = MaterialTheme.colorScheme.surfaceContainerLow; val big = bigText()
-    Card(modifier.fillMaxWidth().enter(index), shape = MaterialTheme.shapes.large, colors = CardDefaults.cardColors(containerColor = surface)) {
+    /* Stronger contrast outlines every card */
+    val outlined = looniemate.app.ui.theme.LocalAccess.current.contrast
+    Card(modifier.fillMaxWidth().enter(index), shape = MaterialTheme.shapes.large, colors = CardDefaults.cardColors(containerColor = surface),
+        border = if (outlined) androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline) else null) {
         Column(Modifier.background(Brush.verticalGradient(0f to lerp(surface, bg, 0.55f), 0.35f to surface)).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconBadge(icon, tone)
