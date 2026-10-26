@@ -71,6 +71,12 @@ object ReminderAlarm {
         am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ms, pending(ctx, n))
     }
 
+    /** Reset LoonieMate: no more reminder alarms and no reminders on screen. */
+    fun cancelAll(ctx: Context) {
+        ctx.getSystemService(AlarmManager::class.java)?.cancel(pending(ctx, null))
+        NotificationManagerCompat.from(ctx).cancelAll()
+    }
+
     /** The alarm went off: post the reminder for that waking day and slot, then set the next alarm. */
     fun fire(ctx: Context, intent: Intent) {
         val day = intent.getStringExtra(EXTRA_DAY); val slot = intent.getIntExtra(EXTRA_SLOT, 0); val slots = intent.getIntExtra(EXTRA_SLOTS, 1)

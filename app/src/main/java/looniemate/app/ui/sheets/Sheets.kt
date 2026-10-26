@@ -98,6 +98,7 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
                     val st by vm.updater.state.collectAsStateWithLifecycle(); looniemate.app.ui.screens.UpdatePanel(st, vm, inSheet = true) }
                 is Sheet.Self -> SelfSheet(vm, close, open)
                 is Sheet.Export -> ExportSheet(vm, close)
+                is Sheet.Reset -> ResetSheet(vm, close, open)
                 is Sheet.Import -> ImportSheet(vm, close)
             }
     } }

@@ -113,6 +113,16 @@ class Repository(dir: File) {
         if (problem.value == "damaged") { problem.value = null; damagedCopy = null }
     }
 
+    /**
+     * Reset LoonieMate: the budget is emptied and its file deleted, along with any kept damaged copies. Waits for saves
+     * already queued, so none of them writes the old budget back afterwards.
+     */
+    fun eraseAll() {
+        synchronized(lock) { _docs.value = LinkedHashMap() }
+        try { writer.submit { file.delete(); file.baseFile.parentFile?.listFiles()?.filter { it.name.startsWith("budget-damaged-") }?.forEach { it.delete() } }.get() } catch (_: Exception) {}
+        problem.value = null; damagedCopy = null
+    }
+
     /** The person read the "couldn't read your budget" note and chose to carry on with what's here. */
     fun dismissProblem() { problem.value = null }
 

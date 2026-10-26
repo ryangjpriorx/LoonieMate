@@ -2086,8 +2086,9 @@ function vSettings(){
    ${hasExamples()?`<section class="card"><div class="card-h"><div class="ttl">${ico('sparkle')}<h2>Example data</h2></div></div>
      <p class="muted">${hasExamples()?'The example bills are there so you can see how it works. Clear them when you are ready to enter your own.':'No example data left.'}</p>
      ${hasExamples()&&!S.readOnly?`<div style="margin-top:10px"><button class="btn danger" data-act="clear-examples">Clear example data</button></div>`:''}</section>`:''}
-   <section class="card"><div class="card-h"><div class="ttl">${ico('trash','red')}<h2>Start over</h2></div></div><p class="muted">Erase the whole budget from this device. Export a backup first if you might want it back.</p>
-     <div style="margin-top:10px"><button class="btn danger" data-act="wipe">Erase everything on this device</button></div></section></div>`;
+   <section class="card"><div class="card-h"><div class="ttl">${ico('trash','red')}<h2>Reset LoonieMate</h2></div></div><p class="muted">Erase everything LoonieMate keeps in this browser (the budget and every setting) and start from scratch. It can't be undone, so export a backup first if you might want it back.</p>
+     <div class="field" style="max-width:260px;margin-top:10px"><label for="reset-type">Type RESET to confirm</label><input id="reset-type" type="text" autocomplete="off" autocapitalize="characters" maxlength="10"></div>
+     <div style="margin-top:10px"><button class="btn danger" data-act="wipe" id="reset-go" disabled>Erase everything and start over</button></div></section></div>`;
 }
 
 /* ---------- sheets ---------- */
@@ -2097,6 +2098,8 @@ function closeSheet(){overlay.hidden=true;sheet.innerHTML='';S.sheet=null;render
 /* closing on purpose: the × or Esc. Asks first if something was typed (docs/plans/pages-and-blanks.md) */
 function tryCloseSheet(){if(sheet.dataset.edited&&!confirm("Leave without saving?\n\nWhat you typed here won't be kept."))return;closeSheet()}
 sheet.addEventListener('input',()=>{sheet.dataset.edited='1'});
+/* Reset LoonieMate: the button wakes up only once RESET is typed */
+document.addEventListener('input',e=>{if(e.target&&e.target.id==='reset-type'){const b=document.getElementById('reset-go');if(b)b.disabled=e.target.value.trim()!=='RESET'}});
 const opts=(arr,sel)=>arr.map(a=>{const[k,l]=Array.isArray(a)?a:[a,a];return`<option value="${esc(k)}" ${k===sel?'selected':''}>${esc(l)}</option>`}).join('');
 function logSheet(oneTime){
   const t=todayStr(),y=addDays(t,-1);
@@ -2359,7 +2362,8 @@ document.addEventListener('click',async ev=>{
   if(a==='export'){exportSheet();return}
   if(a==='import'){importSheet();return}
   if(a==='goset'){S.tab=d.tab||'settings';try{localStorage.setItem('rs-tab',S.tab)}catch(e){}render();setTimeout(()=>{const t=[...main.querySelectorAll('section.card h2')].find(x=>x.textContent.trim().startsWith(d.to));if(t)t.closest('section').scrollIntoView({behavior:FX.on?'smooth':'auto',block:'start'})},50);return}
-  if(a==='wipe'){if(!confirmTap(btn,'Tap again to erase everything'))return;try{backend.replaceAll({})}catch(e){}setMeta({lastBackup:null});S.lastKey=null;toast('Erased. This device has a fresh, empty budget.');return}
+  /* Reset LoonieMate: only after typing RESET; everything this site keeps in the browser goes, then it starts fresh */
+  if(a==='wipe'){const t=document.getElementById('reset-type');if(!t||t.value.trim()!=='RESET')return;try{backend.replaceAll({})}catch(e){}try{localStorage.clear()}catch(e){}location.reload();return}
   if(a==='legacy-load'){const ok=await copyLegacy(true);if(ok)toast('Your earlier budget is now on this device.');return}
   if(a==='do-merge'){const d=S.pendingImport;if(!d)return;const r=mergeData(backend.all(),d.data);
     try{backend.replaceAll(r.data)}catch(e){showErr('im-err','This device is out of storage space for the budget.');return}

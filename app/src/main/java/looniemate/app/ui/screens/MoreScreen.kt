@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -167,6 +168,15 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
                 Text("For testing", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = { vm.prefs.onboarded = false; vm.prefs.a11yAsked = false; open(Sheet.Access(next = Sheet.CatchUp(first = true))) }, modifier = Modifier.testTag("redo-setup")) {
                     Text("Redo first-time setup", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+        }
+        /* the very bottom: erase everything and start from scratch (asks to type RESET) */
+        item {
+            SectionCard("Reset LoonieMate", Icons.Rounded.DeleteForever, "bad", index = 5) {
+                Text("Erase everything on this phone and start from scratch, as if LoonieMate was just installed. You'll be asked to type RESET first.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = { open(Sheet.Reset) }, modifier = Modifier.testTag("reset-open")) { Text("Reset LoonieMate", color = toneColors("bad").first) }
             }
         }
     }

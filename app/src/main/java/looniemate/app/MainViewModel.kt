@@ -407,6 +407,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** First-time setup starts tracking from the 1st, so bills left unticked this month count as things to catch up on. */
     /** "Not now" on the Today card: the steps stay in Settings → Get back on track. */
+    /**
+     * Settings → Reset LoonieMate (after typing RESET): erases the budget and every setting on this phone and starts from
+     * scratch, like a new install. Sync stops on this phone (the sync file itself is left alone); reminders are cancelled.
+     */
+    fun resetEverything() {
+        val app = getApplication<LoonieApp>()
+        sync.stop()
+        looniemate.app.notify.ReminderAlarm.cancelAll(app)
+        try { java.io.File(app.cacheDir, "updates").deleteRecursively() } catch (_: Exception) {}
+        repo.eraseAll(); prefs.clearAll()
+        catchUpAt = null; ym.value = null; refreshTodayTick.value++; resets.value++
+    }
+    /** counts resets, so the app goes back to Today afterwards */
+    val resets = kotlinx.coroutines.flow.MutableStateFlow(0)
+
     fun skipOnboarding() { prefs.onboarded = true; refreshTodayTick.value++ }
     val refreshTodayTick = MutableStateFlow(0)
 

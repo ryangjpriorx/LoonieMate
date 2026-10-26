@@ -5,6 +5,9 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
@@ -148,6 +151,21 @@ class ScreensTest {
 
     @Test fun light() = tour("light", false)
     @Test fun dark() = tour("dark", true)
+
+    /** Settings → Reset LoonieMate only works after typing RESET, then everything is gone and first-time setup starts again. */
+    @Test fun resetNeedsTheWordAndStartsOver() {
+        seed(dark = false, effects = false)
+        val vm = androidx.lifecycle.ViewModelProvider(rule.activity)[MainViewModel::class.java]
+        tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("reset-open")); settle()
+        rule.onNodeWithTag("reset-open").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle()
+        rule.onNodeWithTag("reset-type").performTextInput("reset"); settle()
+        rule.onNodeWithTag("reset-go").assertIsNotEnabled()
+        rule.onNodeWithTag("reset-type").performTextClearance(); rule.onNodeWithTag("reset-type").performTextInput("RESET"); settle(); shot("reset", sheet = true)
+        rule.onNodeWithTag("reset-go").assertIsEnabled().performScrollTo().performClick(); settle()
+        assertTrue("the budget is empty", vm.repo.docs.value.isEmpty())
+        assertTrue("first-time setup starts again", rule.onAllNodesWithTag("a11y-continue").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
 
     /** Android closes LoonieMate while a form is half filled (say, while checking a banking app): it comes back as it was (S1). */
     @Test fun aFormSurvivesBeingRebuilt() {

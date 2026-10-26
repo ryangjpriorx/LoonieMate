@@ -52,6 +52,11 @@ class Prefs(context: Context) {
     var a11yAsked: Boolean
         get() = sp.getBoolean("a11yAsked", false)
         set(v) { sp.edit().putBoolean("a11yAsked", v).apply() }
+    /** Reset LoonieMate: every phone-only setting back to how a new install starts (the screens follow at once). */
+    fun clearAll() {
+        sp.edit().clear().commit()
+        _look.value = readLook(appContext); _access.value = Access(); _lastBackup.value = null
+    }
     /** the phone's own "Remove animations" is on: motion stays off whatever Less motion says (checked on each resume) */
     val phoneNoMotion = MutableStateFlow(false)
 
