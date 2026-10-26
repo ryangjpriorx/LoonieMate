@@ -10,6 +10,10 @@ object Labels {
     class Group(val label: String, val desc: String)
     val GROUPS = linkedMapOf("adults" to Group("Adults", "Rent, utilities, phones, loans and subscriptions"),
         "baby" to Group("Kids", "Diapers, wipes, school, childcare and other costs for the kids"), "pets" to Group("Pets", "Food, litter, vet and prevention"))
+    /** Provinces and territories, the same list and order as the web version's PROVINCES. */
+    val PROVINCES = listOf("ON" to "Ontario", "AB" to "Alberta", "BC" to "British Columbia", "MB" to "Manitoba", "NB" to "New Brunswick",
+        "NL" to "Newfoundland and Labrador", "NS" to "Nova Scotia", "PE" to "Prince Edward Island", "QC" to "Quebec", "SK" to "Saskatchewan",
+        "NT" to "Northwest Territories", "NU" to "Nunavut", "YT" to "Yukon")
     val OGROUPS = linkedMapOf("adults" to "Adults", "baby" to "Kids", "pets" to "Pets", "household" to "Household")
     val BILLCATS = mapOf(
         "adults" to listOf("housing" to "Rent & housing", "utilities" to "Utilities", "phone" to "Phone & internet", "insurance" to "Insurance", "loan" to "Loan payment",

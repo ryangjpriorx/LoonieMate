@@ -50,15 +50,16 @@ jobs:
           set -o pipefail
           ./gradlew :app:testDebugUnitTest --stacktrace 2>&1 | tee -a "$RUNNER_TEMP/build.log"
 
-      - name: Publish the screenshots to the 'screens' branch
-        if: always() && github.event_name == 'push'
+      - name: Publish the screenshots to the 'screens' branch (or 'screens-<branch>' for a run on another branch)
+        if: always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         run: |
+          BR=screens; [ "${GITHUB_REF_NAME}" = "main" ] || BR="screens-${GITHUB_REF_NAME}"
           [ -d app/build/screens ] && [ -n "$(ls app/build/screens)" ] || exit 0
           cd app/build/screens
-          git init -q -b screens
+          git init -q -b "$BR"
           git add -A
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -q -m "Screens for ${GITHUB_SHA::7}"
-          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" screens
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" "$BR"
 
       - name: Show what went wrong
         if: failure()

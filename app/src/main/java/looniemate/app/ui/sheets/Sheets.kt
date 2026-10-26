@@ -99,6 +99,7 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
                 is Sheet.Self -> SelfSheet(vm, close, open)
                 is Sheet.Export -> ExportSheet(vm, close)
                 is Sheet.Reset -> ResetSheet(vm, close, open)
+                is Sheet.Household -> HouseholdSheet(vm, close)
                 is Sheet.Import -> ImportSheet(vm, close)
             }
     } }

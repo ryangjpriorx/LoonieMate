@@ -24,6 +24,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Backup
@@ -34,7 +37,6 @@ import androidx.compose.material.icons.rounded.Accessibility
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Restaurant
-import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
@@ -67,9 +69,11 @@ import looniemate.app.MainViewModel
 import looniemate.app.update.Updater
 import looniemate.app.ui.ClickRow
 import looniemate.app.ui.EmptyNote
+import looniemate.app.ui.LineRow
 import looniemate.app.ui.IconBadge
 import looniemate.app.ui.SectionCard
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.ui.platform.testTag
 import looniemate.engine.Accounts
 import looniemate.engine.Core
@@ -89,9 +93,11 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
     val today by vm.today.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { HouseholdCard(vm, open) }
         item { AccountsCard(vm, open) }
         item { IncomeCard(vm, open) }
         item { FoodCard(vm, open) }
+        item { QuickButtonsCard(vm) }
         item { RemindersCard(vm) }
         item {
             SectionCard("Appearance", Icons.Rounded.Palette, trailing = "Only this phone", index = 0) {
@@ -139,12 +145,6 @@ fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
         item { SyncCard(vm) }
         item {
             SectionCard("Updates", Icons.Rounded.SystemUpdate, "sky", trailing = "Version " + BuildConfig.VERSION_NAME, index = 2) { UpdatePanel(upd, vm) }
-        }
-        item {
-            SectionCard("Coming to the app next", Icons.Rounded.Schedule, "amber", index = 3) {
-                Text("A home screen widget is next.",
-                    style = MaterialTheme.typography.bodyMedium)
-            }
         }
         item {
             SectionCard("Need a fresh start?", Icons.Rounded.Refresh, "teal", index = 4) {
@@ -229,6 +229,44 @@ fun UpdatePanel(st: Updater.State, vm: MainViewModel, inSheet: Boolean = false) 
     Spacer(Modifier.height(10.dp))
     var auto by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(vm.prefs.autoUpdate) }
     SwitchRow("Check for updates automatically", "Only checks; nothing installs without you.", auto) { auto = it; vm.prefs.autoUpdate = it }
+}
+
+/** Household name and people, province, and plan dates in one line each, with a way into the page where they're changed. */
+@Composable
+private fun HouseholdCard(vm: MainViewModel, open: (Sheet) -> Unit) {
+    val docs by vm.repo.docs.collectAsStateWithLifecycle()
+    val today by vm.today.collectAsStateWithLifecycle()
+    val s = Docs.settings(docs["settings/main"], today)
+    val ppl = s.strList("people")
+    SectionCard("Household and province", Icons.Rounded.Home, "teal", index = 0) {
+        LineRow("Household", s.s("householdName").ifBlank { "Not named" })
+        LineRow("People", if (ppl.isEmpty()) "None added" else ppl.joinToString(", "))
+        LineRow("Province", looniemate.engine.Labels.PROVINCES.find { it.first == s.or("province", "ON") }?.second ?: "Ontario")
+        if (isYm(s["startYm"])) LineRow("Plan starts", Fmt.monthName(s.s("startYm")))
+        Spacer(Modifier.height(10.dp))
+        FilledTonalButton(onClick = { open(Sheet.Household) }, modifier = Modifier.testTag("household-open")) { Text("Change") }
+    }
+}
+
+/** The one-tap spending buttons on Today: the saved ones, each with a way to remove it (the web version's Quick buttons card). */
+@Composable
+private fun QuickButtonsCard(vm: MainViewModel) {
+    val docs by vm.repo.docs.collectAsStateWithLifecycle()
+    val today by vm.today.collectAsStateWithLifecycle()
+    val quick = Docs.settings(docs["settings/main"], today)["quick"].arr().filter { it.t("category") && it.n("amount") > 0 }
+    SectionCard("Quick buttons", Icons.Rounded.Bolt, "amber", index = 0) {
+        Text("One-tap spending buttons on Today. Add one by ticking \"Add a quick button\" when you log spending; things you log often are suggested too.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (quick.isEmpty()) { Spacer(Modifier.height(8.dp)); EmptyNote("No saved quick buttons yet.") }
+        quick.forEachIndexed { i, q -> val label = looniemate.engine.Views.Quick(q.s("category"), q.n("amount"), q.s("note"), true).label
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) { Text(label, fontWeight = FontWeight.SemiBold)
+                    Text(looniemate.engine.Labels.SPENDL[q.s("category")] ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Text(Fmt.money(q.n("amount")))
+                IconButton(onClick = { vm.removeQuick(i) }, modifier = Modifier.testTag("quick-del-$i")) { Icon(Icons.Rounded.Delete, "Remove the $label button") }
+            }
+        }
+    }
 }
 
 /** Every account the family uses, and what each one is for. Money moves, new bills and food money are routed by these. */

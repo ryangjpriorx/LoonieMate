@@ -504,6 +504,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun saveFood(pct: Int, min: Double) = change("Food budget saved", listOf("settings/main")) { saveSettings(J.obj("foodPct" to pct, "foodMin" to min)) }
 
+/* ---------- household, province and plan dates (the web version's Household, Plan dates and Province cards) ---------- */
+
+    /**
+     * Saves the household page. [people] is typed as names separated by commas (as on the web). Returns an error message,
+     * or null when it worked.
+     */
+    fun saveHousehold(name: String, people: String, province: String, showAllProv: Boolean, startYm: String, trackFrom: String, babyDue: String): String? {
+        if (Labels.PROVINCES.none { it.first == province }) return "Pick your province or territory."
+        if (!isYm(startYm)) return "Pick the first month of the plan."
+        if (!isDate(trackFrom)) return "Pick the date to start tracking bills from."
+        if (babyDue.isNotBlank() && !isDate(babyDue)) return "Pick the baby's due date, or leave it blank."
+        val ppl = people.split(',').map { it.trim().take(20) }.filter { it.isNotEmpty() }.distinct().take(10)
+        change("Household saved", listOf("settings/main")) {
+            saveSettings(J.obj("householdName" to name.trim().take(40), "people" to ppl, "province" to province, "showAllProv" to showAllProv,
+                "startYm" to startYm, "trackFrom" to trackFrom, "babyDue" to babyDue.trim())) }
+        return null
+    }
+
+    /** Removes one of the saved quick buttons (Settings → Quick buttons). */
+    fun removeQuick(index: Int) { val list = settings()["quick"].arr().map { it.copy() }.toMutableList(); if (index !in list.indices) return
+        val q = list.removeAt(index)
+        change("Removed the ${Views.Quick(q.s("category"), q.n("amount"), q.s("note"), true).label} button", listOf("settings/main")) { saveSettings(J.obj("quick" to list)) } }
+
 /* ---------- Personal Expenses (docs/plans/personal-expenses.md): a list of things bought for yourself ---------- */
 
     /** One item as typed: what it is (optional), how much each time, how many times, and per day / week / month / payday. */

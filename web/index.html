@@ -1189,7 +1189,7 @@ try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}ca
 const STORE_KEY='family-budget-v1';
 function Local(){
   let data={};
-  try{data=JSON.parse(localStorage.getItem(STORE_KEY)||'null')||JSON.parse(localStorage.getItem('rs-budget-local')||'{}')||{}}catch(e){data={}}
+  try{data=JSON.parse(localStorage.getItem(STORE_KEY)||'null')||{}}catch(e){data={}}
   const subs=new Set(),clone=o=>o==null?null:JSON.parse(JSON.stringify(o)),parent=p=>p.split('/').slice(0,-1).join('/');
   const save=()=>{try{localStorage.setItem(STORE_KEY,JSON.stringify(data));return true}catch(e){throw{code:'quota_exceeded'}}};
   const emit=()=>subs.forEach(s=>s());
@@ -1568,8 +1568,7 @@ function welcomeCard(){
    <p class="muted" style="max-width:60ch">This tool plans every paycheck, tells you when to move money between accounts, protects child benefits, and helps when a month comes up short. It works with no account and no sign-up. Everything stays on this device.</p>
    <ol style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">${steps.map(([t,d,sec,tb],i)=>`<li class="pay" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="display:flex;gap:12px;align-items:flex-start;min-width:0"><span class="stepn">${i+1}</span><div><b>${t}</b><div class="small muted">${d}</div></div></div>
      <button class="btn sm" data-act="${sec?'goset':'tab'}" data-to="${esc(sec)}" data-tab="${tb||(sec?'settings':'fixed')}">Start</button></li>`).join('')}</ol>
-   <div class="banner" style="margin-top:16px"><div><b>Already using this on another phone?</b> <span class="muted">Import your encrypted backup to bring everything over.</span></div><button class="btn primary" data-act="import">Import a backup</button></div>
-   ${S.legacyOffer?`<div class="banner" style="margin-top:10px"><div><b>Your earlier online budget is still saved.</b> <span class="muted">Copy it onto this device.</span></div><button class="btn" data-act="legacy-load">Copy it here</button></div>`:''}</section>`;
+   <div class="banner" style="margin-top:16px"><div><b>Already using this on another phone?</b> <span class="muted">Import your encrypted backup to bring everything over.</span></div><button class="btn primary" data-act="import">Import a backup</button></div></section>`;
 }
 /* quick buttons: saved favourites plus suggestions from what gets logged often */
 function allExpenses(){const all=backend&&backend.all?backend.all():{},out=[];for(const k in all){const m=k.match(/^months\/(\d{4}-\d{2})\/expenses\/([^/]+)$/);if(m&&all[k]&&isDate(all[k].date))out.push(Object.assign({id:m[2],ym:m[1]},all[k]))}return out}
@@ -2364,7 +2363,6 @@ document.addEventListener('click',async ev=>{
   if(a==='goset'){S.tab=d.tab||'settings';try{localStorage.setItem('rs-tab',S.tab)}catch(e){}render();setTimeout(()=>{const t=[...main.querySelectorAll('section.card h2')].find(x=>x.textContent.trim().startsWith(d.to));if(t)t.closest('section').scrollIntoView({behavior:FX.on?'smooth':'auto',block:'start'})},50);return}
   /* Reset LoonieMate: only after typing RESET; everything this site keeps in the browser goes, then it starts fresh */
   if(a==='wipe'){const t=document.getElementById('reset-type');if(!t||t.value.trim()!=='RESET')return;try{backend.replaceAll({})}catch(e){}try{localStorage.clear()}catch(e){}location.reload();return}
-  if(a==='legacy-load'){const ok=await copyLegacy(true);if(ok)toast('Your earlier budget is now on this device.');return}
   if(a==='do-merge'){const d=S.pendingImport;if(!d)return;const r=mergeData(backend.all(),d.data);
     try{backend.replaceAll(r.data)}catch(e){showErr('im-err','This device is out of storage space for the budget.');return}
     S.pendingImport=null;S.lastKey=null;setMeta({lastBackup:new Date().toISOString()});closeSheet();
@@ -2655,25 +2653,6 @@ main.addEventListener('change',async e=>{
 });
 
 /* ---------- start ---------- */
-async function copyLegacy(force){
-  try{
-    if(!(window.claude&&window.claude.use))return false;
-    const user=await window.claude.use('user');if(!user||!(await user.isOwner()))return false;
-    const db=await window.claude.use('db');if(!db)return false;
-    const flag=await db.doc('meta/migration').get();
-    if(flag.exists&&!force){S.legacyOffer=true;schedule();return false}
-    const out={};const put=(p,s)=>{if(s&&s.exists)out[p]=JSON.parse(JSON.stringify(s.data()))};
-    put('settings/main',await db.doc('settings/main').get());
-    (await db.collection('bills').get()).docs.forEach(d=>put('bills/'+d.id,d));
-    const ms=await db.collection('months').get();ms.docs.forEach(d=>put('months/'+d.id,d));
-    const yms=new Set(ms.docs.map(d=>d.id));const cur=ymOf(todayStr());for(let ym=ymAdd(cur,-14);ym<=ymAdd(cur,14);ym=ymAdd(ym,1))yms.add(ym);
-    for(const ym of yms){const q=await db.collection('months/'+ym+'/expenses').get();q.docs.forEach(d=>put('months/'+ym+'/expenses/'+d.id,d))}
-    if(!Object.keys(out).length)return false;
-    backend.replaceAll(out);S.legacyOffer=false;S.lastKey=null;
-    try{await db.doc('meta/migration').set({movedOn:todayStr()})}catch(e){}
-    return true;
-  }catch(e){console.warn('migration',e);return false}
-}
 async function init(){
   backend=Local();S.mode='local';
   S.activeYm=defaultYm();
@@ -2682,13 +2661,10 @@ async function init(){
   backend.subColl('months',o=>{S.months=o;S.loaded.months=true;schedule()});
   backend.subColl('checkins',o=>{S.checkins=o;schedule()});
   ensureExpenseSubs();
-  /* first time on this device: bring over the earlier online budget, if this is its owner */
-  if(backend.isEmpty()){const moved=await copyLegacy(false);if(moved){S.firstMove=true;setTimeout(()=>toast('Your budget is now saved on this device. Make a backup next.'),400)}}
   /* remember when the plan started so dates don't drift */
   setTimeout(()=>{const raw=S.settings||{};if(!backend.isEmpty()&&(!isYm(raw.startYm)||!isDate(raw.trackFrom))){const s=settings();saveSettings({startYm:s.startYm,trackFrom:s.trackFrom})}},300);
   let day=todayStr();setInterval(()=>{if(todayStr()!==day){day=todayStr();if(!S.navTouched)S.activeYm=defaultYm();ensureExpenseSubs();schedule()}},60000);
 }
-init();
 init();
 })();
 </script>

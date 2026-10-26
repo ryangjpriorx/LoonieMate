@@ -109,6 +109,8 @@ sealed class Sheet {
     data class Access(val next: Sheet? = null) : Sheet()
     /** Personal Expenses: this month and the plan (docs/plans/personal-expenses.md). */
     data object Self : Sheet()
+    /** Household name and people, province, and plan dates (Settings). */
+    data object Household : Sheet()
     data object Export : Sheet()
     /** Settings → Reset LoonieMate: type RESET to erase everything on this phone. */
     data object Reset : Sheet()
@@ -122,7 +124,7 @@ private fun sheetToList(s: Sheet): ArrayList<Any?> = when (s) {
     Sheet.Checkin -> arrayListOf("Checkin"); is Sheet.Fund -> arrayListOf("Fund", s.key); is Sheet.UseFund -> arrayListOf("UseFund", s.key); is Sheet.Ccb -> arrayListOf("Ccb", s.ym)
     is Sheet.Income -> arrayListOf("Income", s.id, s.assist); is Sheet.Credit -> arrayListOf("Credit", s.id, s.type); is Sheet.MonthIncome -> arrayListOf("MonthIncome", s.ym)
     Sheet.Update -> arrayListOf("Update"); is Sheet.CatchUp -> arrayListOf("CatchUp", s.first); is Sheet.Access -> arrayListOf("Access", s.next?.let { sheetToList(it) })
-    Sheet.Self -> arrayListOf("Self"); Sheet.Export -> arrayListOf("Export"); Sheet.Import -> arrayListOf("Import"); Sheet.Reset -> arrayListOf("Reset")
+    Sheet.Self -> arrayListOf("Self"); Sheet.Export -> arrayListOf("Export"); Sheet.Import -> arrayListOf("Import"); Sheet.Reset -> arrayListOf("Reset"); Sheet.Household -> arrayListOf("Household")
 }
 private fun listToSheet(l: List<Any?>): Sheet? = try { when (l[0]) {
     "Log" -> Sheet.Log(l[1] as Boolean, l[2] as String); "Food" -> Sheet.Food(l[1] as String); "Bill" -> Sheet.Bill(l[1] as String?, l[2] as String)
@@ -130,7 +132,7 @@ private fun listToSheet(l: List<Any?>): Sheet? = try { when (l[0]) {
     "Checkin" -> Sheet.Checkin; "Fund" -> Sheet.Fund(l[1] as String?); "UseFund" -> Sheet.UseFund(l[1] as String); "Ccb" -> Sheet.Ccb(l[1] as String)
     "Income" -> Sheet.Income(l[1] as String?, l[2] as String?); "Credit" -> Sheet.Credit(l[1] as String?, l[2] as String?); "MonthIncome" -> Sheet.MonthIncome(l[1] as String)
     "Update" -> Sheet.Update; "CatchUp" -> Sheet.CatchUp(l[1] as Boolean); "Access" -> Sheet.Access((l[1] as List<*>?)?.let { listToSheet(it) })
-    "Self" -> Sheet.Self; "Export" -> Sheet.Export; "Import" -> Sheet.Import; "Reset" -> Sheet.Reset; else -> null
+    "Self" -> Sheet.Self; "Export" -> Sheet.Export; "Import" -> Sheet.Import; "Reset" -> Sheet.Reset; "Household" -> Sheet.Household; else -> null
 } } catch (_: Exception) { null }
 private val SheetSaver = androidx.compose.runtime.saveable.Saver<Sheet?, ArrayList<Any?>>(save = { it?.let(::sheetToList) }, restore = { listToSheet(it) })
 

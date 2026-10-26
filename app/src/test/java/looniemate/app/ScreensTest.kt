@@ -17,6 +17,8 @@ import looniemate.app.data.Prefs
 import looniemate.engine.J
 import looniemate.engine.Json
 import looniemate.engine.arr
+import looniemate.engine.s
+import looniemate.engine.strList
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -151,6 +153,29 @@ class ScreensTest {
 
     @Test fun light() = tour("light", false)
     @Test fun dark() = tour("dark", true)
+
+    /** Settings → Household and province: province, people and the plan dates can be changed; quick buttons can be removed (W1–W4). */
+    @Test fun householdProvinceAndQuickButtons() {
+        seed(dark = false, effects = false)
+        val vm = androidx.lifecycle.ViewModelProvider(rule.activity)[MainViewModel::class.java]
+        tab("More"); rule.onNodeWithTag("household-open").performScrollTo().performClick(); settle(); shot("sheet-household", sheet = true)
+        rule.onNodeWithTag("hh-people").performTextClearance(); rule.onNodeWithTag("hh-people").performTextInput("Sam, Alex, Sam")
+        rule.onNodeWithText("Ontario").performClick(); settle(); rule.onNodeWithText("Quebec").performClick(); settle()
+        rule.onNodeWithTag("hh-save").performScrollTo().performClick(); settle()
+        val s = vm.settings()
+        org.junit.Assert.assertEquals("QC", s.s("province"))
+        org.junit.Assert.assertEquals(listOf("Sam", "Alex"), s.strList("people"))
+        /* the people show up as "Who paid" in Log spending */
+        tab("Today"); rule.onNodeWithTag("fab").performClick(); settle()
+        assertTrue("Who paid lists the people", rule.onAllNodesWithText("Alex").fetchSemanticsNodes().isNotEmpty())
+        closePage()
+        /* the test household has one saved quick button; it can be removed */
+        tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("quick-del-0")); settle()
+        shot("More-quick")
+        rule.onNodeWithTag("quick-del-0").performClick(); settle()
+        assertTrue("the quick button is gone", vm.settings()["quick"].arr().isEmpty())
+        assertTrue(problems.joinToString("\n"), problems.isEmpty())
+    }
 
     /** Settings → Reset LoonieMate only works after typing RESET, then everything is gone and first-time setup starts again. */
     @Test fun resetNeedsTheWordAndStartsOver() {
