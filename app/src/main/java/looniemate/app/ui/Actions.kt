@@ -75,6 +75,7 @@ fun ActionMenu(expanded: Boolean, onDismiss: () -> Unit, actions: List<RowAction
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 /** A round tick: an empty circle, or filled with a check. A 48 dp target (56 with Bigger buttons). */
 @Composable
 fun TickCircle(checked: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {

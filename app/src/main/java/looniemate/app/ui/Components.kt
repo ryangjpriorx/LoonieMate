@@ -27,6 +27,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -302,10 +304,10 @@ fun MonthSwitcher(vm: looniemate.app.MainViewModel) {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.IconButton(onClick = { vm.ym.value = ymAdd(ym, -1).takeIf { it != home } }, modifier = Modifier.testTag("month-prev")) {
-                Icon(androidx.compose.material.icons.Icons.Rounded.ChevronLeft, "Previous month") }
+                Icon(androidx.compose.material.icons.Icons.Rounded.KeyboardArrowLeft, "Previous month") }
             Text(Fmt.monthName(ym), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
             androidx.compose.material3.IconButton(onClick = { vm.ym.value = ymAdd(ym, 1).takeIf { it != home } }, modifier = Modifier.testTag("month-next")) {
-                Icon(androidx.compose.material.icons.Icons.Rounded.ChevronRight, "Next month") }
+                Icon(androidx.compose.material.icons.Icons.Rounded.KeyboardArrowRight, "Next month") }
         }
         if (ym != home) androidx.compose.material3.AssistChip(onClick = { vm.ym.value = null }, label = { Text("Back to ${Fmt.monthOnly(home)}") },
             modifier = Modifier.testTag("month-home"))
