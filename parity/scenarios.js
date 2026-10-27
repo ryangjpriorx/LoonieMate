@@ -156,6 +156,34 @@ const odspEi = {
   'bills/rent': { name: 'Rent', category: 'housing', amount: 1300, day: 1, account: 'm' },
 };
 
+/* 9. Cash: take it out the day before, one trip a day, food money in cash, the ATM's daily limit (go back each day),
+   an online bank with no tellers, a bill rounded up to avoid coins and one that could be */
+const cashDays = {
+  'settings/main': household({ startYm: '2026-11', trackFrom: '2026-11-01',
+    accounts: [{ id: 'm', name: 'Main Chequing', type: 'chequing', purposes: ['main', 'rent', 'online'], atmLimit: 610, atmOver: 'days', tellers: false },
+               { id: 'c', name: 'Cash', type: 'cash', purposes: ['everyday'] }],
+    incomes: [{ id: 'p', name: 'Pay', kind: 'pay', amount: 1700, sched: { type: 'biweekly', anchor: '2026-11-06' }, account: 'm', role: 'main' },
+              { id: 'p2', name: 'Pay 2', kind: 'pay', amount: 900, sched: { type: 'monthly', day: 25 }, account: 'm', role: 'main' }] }),
+  'bills/rent': { name: 'Rent', category: 'housing', amount: 1453, day: 1, account: 'm', method: 'Cash' },
+  'bills/sit': { name: 'Babysitter', amount: 38, freq: 'weekly', anchor: '2026-11-07', account: 'm', method: 'Cash' },
+  'bills/lawn': { name: 'Lawn', amount: 22, day: 15, account: 'c', method: 'Cash', cashRound: true },
+  'bills/ph': { name: 'Phone', amount: 55.5, day: 12, account: 'm', method: 'Debit card' },
+  'months/2026-11': { paid: { 'ph@2026-11-12': true } },
+};
+
+/* 10. Cash with a daily limit that uses a second account's card, and more than both can give */
+const cashSplit = {
+  'settings/main': household({ startYm: '2026-11', trackFrom: '2026-11-01',
+    accounts: [{ id: 'm', name: 'Main', type: 'chequing', purposes: ['main', 'everyday'], atmLimit: 500, atmOver: 'split', atmAlso: 'cu' },
+               { id: 'cu', name: 'Credit Union', type: 'chequing', purposes: [], atmLimit: 300, atmNotes: 10 },
+               { id: 'x', name: 'Other', type: 'chequing', purposes: [], atmLimit: 200 }],
+    incomes: [{ id: 'p', name: 'Pay', kind: 'pay', amount: 2400, sched: { type: 'semimonthly' }, account: 'm', role: 'main' }] }),
+  'bills/rent': { name: 'Rent', category: 'housing', amount: 905, day: 1, account: 'm', method: 'Cash' },
+  'bills/big': { name: 'Car repair plan', amount: 1200, day: 20, account: 'm', method: 'Cash' },
+  'bills/tiny': { name: 'Paper route tip', amount: 37, day: 20, account: 'x', method: 'Cash' },
+  'months/2026-10': { closed: false },
+};
+
 module.exports = [
   { name: 'ontario', docs: on, todays: ['2026-10-25', '2026-11-16', '2026-12-31', '2027-03-15'] },
   { name: 'legacy-locked', docs: legacy, todays: ['2026-10-05', '2026-11-30'] },
@@ -165,4 +193,6 @@ module.exports = [
   { name: 'ontario-starting', docs: onStart, todays: ['2026-11-16', '2026-12-31'] },
   { name: 'ontario-works', docs: ow, todays: ['2026-11-20', '2026-12-31', '2027-01-16'] },
   { name: 'odsp-ei', docs: odspEi, todays: ['2026-11-05', '2027-01-02', '2027-02-10'] },
+  { name: 'cash-days', docs: cashDays, todays: ['2026-10-29', '2026-11-12', '2026-11-30'] },
+  { name: 'cash-split', docs: cashSplit, todays: ['2026-10-31', '2026-11-19', '2026-12-02'] },
 ];

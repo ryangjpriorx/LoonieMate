@@ -178,6 +178,39 @@ object Views {
         return if (diffDays(d, today) <= 6 && (!isDate(src["end"]) || d <= addDays(src.s("end"), 14)) && (!isDate(src["start"]) || d >= src.s("start"))) d else null
     }
 
+    private val TODO_ORDER = mapOf("in" to 0, "report" to 1, "bill" to 2, "cash" to 3, "move" to 4, "check" to 5, "lock" to 6)
+
+    /**
+     * To do: every real-world action due today or overdue, plus what was due today and is already done (it folds away),
+     * and money landing today; [lastCheck] is the date of the latest balance check (docs/plans/overhaul.md).
+     */
+    fun todo(st: Store, today: String, lastCheck: String?): List<Obj> {
+        val s = st.settings; val out = mutableListOf<Obj>(); val ym = ymOf(today); val dom = today.substring(8, 10).toInt()
+        fun copy(e: Obj, vararg extra: Pair<String, Any?>): Obj = Obj().also { o -> e.map.forEach { (k, v) -> o[k] = v }; extra.forEach { (k, v) -> o[k] = J.of(v) } }
+        for (e in Core.upcoming(st, today, 0)) { val k = e.s("kind"); val d = e.s("date")
+            if (k == "bill" && ((!e.t("paid") && d <= today) || (e.t("paid") && d == today))) out.add(copy(e, "done" to e.t("paid")))
+            else if (k == "move" && ((!e.t("done") && d <= today) || (e.t("done") && d == today))) out.add(copy(e, "kind" to (if (e.t("cash")) "cash" else "move"), "done" to e.t("done")))
+            else if (k == "in" && d == today) out.add(copy(e, "done" to false, "overdue" to false)) }
+        for (src in Core.incomesOf(s)) { val (on, day) = reportCfg(src); if (!on) continue
+            if (src.s("kind") == "ei") { val rd = eiReportDay(src, today) ?: continue; val key = src.s("id") + "@" + rd
+                if (rd < s.s("trackFrom") || truthy(st.months[ymOf(rd)]?.get("reported")?.get(key))) continue
+                out.add(J.obj("kind" to "report", "key" to key, "ym" to ymOf(rd), "date" to rd, "name" to src.or("name", "EI"), "ei" to true, "income" to src.s("id"), "amount" to 0,
+                    "overdue" to (diffDays(rd, today) > 2), "done" to false)); continue }
+            val due = minOf(28, maxOf(1, day)); val dueDate = "$ym-${pad(due)}"
+            if (truthy(st.months[ym]?.get("reported")?.get(src.s("id"))) || dom < due - 6 || dueDate < s.s("trackFrom")) continue
+            out.add(J.obj("kind" to "report", "key" to src.s("id"), "ym" to ym, "date" to dueDate, "name" to src.or("name", "Income"), "ei" to false, "income" to src.s("id"), "forYm" to ymAdd(ym, -1),
+                "amount" to 0, "overdue" to (dom > due), "done" to false)) }
+        if (Core.accountsOf(s).isNotEmpty() && (!isDate(lastCheck) || diffDays(lastCheck!!, today) >= 7))
+            out.add(J.obj("kind" to "check", "key" to "check", "ym" to ym, "date" to today, "name" to "Balance check", "amount" to 0, "overdue" to false, "done" to false, "last" to (if (isDate(lastCheck)) lastCheck else "")))
+        val pm = ymAdd(ym, -1); val m0 = st.months[pm]
+        if (isYm(s["startYm"]) && pm >= s.s("startYm") && !(isDate(s["trackFrom"]) && ymOf(s.s("trackFrom")) > pm) && !(m0 != null && m0.t("closed")))
+            out.add(J.obj("kind" to "lock", "key" to "lock:$pm", "ym" to pm, "date" to "$ym-01", "name" to "Lock last month", "amount" to 0, "overdue" to false, "done" to false))
+        return out.withIndex().sortedWith(Comparator { a, b -> val x = a.value; val y = b.value
+            if (x.t("done") != y.t("done")) return@Comparator if (x.t("done")) 1 else -1
+            if (x.s("date") != y.s("date")) return@Comparator x.s("date").compareTo(y.s("date"))
+            val ox = TODO_ORDER[x.s("kind")] ?: 9; val oy = TODO_ORDER[y.s("kind")] ?: 9; if (ox != oy) ox - oy else a.index - b.index }).map { it.value }
+    }
+
     /** Banners at the top: backup, tax season, and reporting income for social assistance. */
     fun reminders(st: Store, today: String, lastBackupDate: String?): List<Reminder> {
         val out = mutableListOf<Reminder>(); val s = st.settings

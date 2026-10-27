@@ -271,7 +271,7 @@ Each stage from 2 on does the Android app first, then the web version, unless it
 
 - [x] **Stage 0**: this plan.
 - [x] **Stage 1**: getting-on-track-fixes.md, both stages (engine, then the Android steps). Released in 0.14.0.
-- [ ] **Stage 2**: engine, web first then Kotlin, parity tested: Take out cash (dates, one trip a day, food in cash,
+- [x] **Stage 2**: engine, web first then Kotlin, parity tested: Take out cash (dates, one trip a day, food in cash,
   ATM limits with days or a second account, rounding to the ATM's bills, tellers, round-up to avoid coins), and
   `Views.todo(st, today)`: one list of every To do item with its kind, so both versions build To do the same way.
 - [ ] **Stage 3**: shared pieces: the row (tap, long-press or ⋯ menu, TalkBack actions, tick), the action menu, the
@@ -302,6 +302,19 @@ Each stage from 2 on does the Android app first, then the web version, unless it
 
 ## Notes for picking up
 
+- Stage 2 (done): cash in `Core.moneyMoves` (both engines). Each cash bill (method Cash, or paid from a "Cash on hand"
+  account) becomes a need dated the day before it's due, or the day the money that pays it lands if that's later
+  (`landsIn`); food money becomes one when the everyday account is cash. Needs are grouped into one trip a day per
+  account, rounded to the ATM's bills (`atmNotes`, $20 default; cash to the nearest 5¢), split by `atmLimit`: earlier
+  days back to that money's arrival (`atmOver` "days", the default), or the `atmAlso` account's card the same day with a
+  move into it first ("split"). Trip moves carry `cash: true`, `exact`, `extra`, `coins`, `short`, `overLimit`
+  (limit hit and not asked yet), `roundOffer` (bill ids for "round up to avoid coins"), `items`, `forDate`, `tellers`;
+  key `<account>-<cash account or "cash">@<date>`. `amt` rounds a Cash bill with `cashRound: true` up to $5;
+  `Core.cashRoundOffer`. Payday funding no longer moves money "to" a cash account. `Views.todo(st, today, lastCheck)`
+  (web `Core.todo`, with `reportCfg` / `eiReportDay` moved into the web engine): bills and moves due today or overdue,
+  ones due today already done (`done: true`, last), money landing today (`kind: "in"`), income reports, the weekly
+  balance check, locking last month; sorted done-last, then date, then kind. Parity households `cash-days`,
+  `cash-split`; `todo` and `todoChecked` in every household.
 - Today's To do is built in `MainViewModel.buildToday` from `Core.upcoming`; reminder cards come from `Views.reminders`
   and EI report days from `Views.eiReportDay`. Stage 2 moves the list into `Views.todo` (both engines).
 - Cash today: `Core.moneyMoves` (Engine.kt, "cash bills: withdraw from the account that pays them"; web index.html

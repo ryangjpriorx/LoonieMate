@@ -35,7 +35,11 @@ data class Skip(val amount: Double?)
 
 object Core {
     /** An amount from saved data, never below $0: the forms refuse negatives, and imported or synced data can't sneak one in (web amt). */
-    fun amt(x: J?): Double = maxOf(0.0, x.n("amount"))
+    fun amt(x: J?): Double { val a = maxOf(0.0, x.n("amount"))
+        return if (x != null && x["cashRound"] is J.B && (x["cashRound"] as J.B).v && x.s("method") == "Cash") Math.ceil(round2(a) / 5 - 1e-9) * 5 else a }
+    /** A cash bill a dollar or two under the next \$5 can be rounded up to avoid coins (asked once; bill.cashRound). */
+    fun cashRoundOffer(b: J?): Boolean { if (b == null || b.s("method") != "Cash" || (b["cashRound"] != null && b["cashRound"] != J.Null)) return false
+        val a = round2(maxOf(0.0, b.n("amount"))); val r = Math.ceil(a / 5 - 1e-9) * 5; return r - a > 0.004 && r - a <= 2.004 }
     val FOOD = setOf("groceries", "takeout")
     /** Personal Expenses (docs/plans/personal-expenses.md): spending logged under this category counts against the planned amount. */
     const val SELF = "self"
@@ -590,6 +594,14 @@ object Core {
         val main = acctFor(s, "main")?.s("id") ?: ""; val everyday = acctFor(s, "everyday")?.s("id") ?: ""
         val cashAcct = A.find { it.s("type") == "cash" }?.s("id") ?: ""
         fun acctOf(ref: String): String = acctId(s, ref).ifEmpty { main }
+        fun isCash(id: String?): Boolean = acctById(s, id)?.s("type") == "cash"
+        val calcs = HashMap<String, Obj>(); fun calc(ym: String): Obj = calcs.getOrPut(ym) { monthCalc(ym, st, from) }
+        /* money landing in an account: its incomes and spendable benefits */
+        fun landsIn(id: String, ym: String): List<String> { val c = calc(ym); val o = mutableListOf<String>()
+            for (inc in c["incomes"].arr()) if (acctOf(inc.s("account")) == id) o += inc.strList("dates")
+            for (cr in c["credits"].arr()) if (acctOf(cr.s("account")) == id) o += cr.strList("dates"); return o }
+        class Need(val date: String, val src: String, val amount: Double, val name: String, val earliest: String, val bill: String?)
+        val cashNeeds = mutableListOf<Need>()
         fun add(date: String?, fromId: String, toId: String, amount0: Double, why: String, kind: String = "") {
             val amount = round2(amount0); if (date == null || !(amount > 0.004 && date >= from && date <= to)) return
             val fk = if (kind.isNotEmpty()) kind.replaceFirst("-out", "") else ""; val out = kind.isNotEmpty() && kind.endsWith("-out"); val toFund = kind.isNotEmpty() && !out
@@ -605,12 +617,15 @@ object Core {
             return if (p.contains("online")) "Online bills and subscriptions due before next payday" else if (a.s("type") == "cash") "Cash bills before next payday" else "Bills paid from " + (a.or("name", "this account")) + " before next payday" }
         var ym = ymAdd(ymOf(from), -1)
         while (ym <= ymAdd(ymOf(to), 1)) {
-            val c = monthCalc(ym, st, from); val first = "$ym-01"; val last = dayIn(ym, 31)
+            val c = calc(ym); val first = "$ym-01"; val last = dayIn(ym, 31)
             val all = billEvents(st, first, last); val ev = all.filter { !it.t("fund") }
             /* bills that pay into a savings fund become moves into that fund */
             all.filter { it.t("fund") }.forEach { x -> add(x.s("date"), x.s("acct").ifEmpty { main }, "", x.n("amount"), x.s("name"), x.s("fund")) }
-            /* cash bills: withdraw from the account that pays them */
-            if (cashAcct.isNotEmpty()) ev.filter { it.s("method") == "Cash" && it.t("acct") && it.s("acct") != cashAcct }.forEach { x -> add(x.s("date"), x.s("acct"), cashAcct, x.n("amount"), "Withdraw cash for " + x.s("name")) }
+            /* cash bills: take the cash out the day before, never before the money that pays for them has landed */
+            ev.filter { it.s("method") == "Cash" || isCash(it.s("acct")) }.forEach { x -> val src = if (x.t("acct") && !isCash(x.s("acct"))) x.s("acct") else main
+                val pays = (landsIn(src, ymAdd(x.s("ym"), -1)) + landsIn(src, x.s("ym"))).filter { it <= x.s("date") }.sorted(); val p = pays.lastOrNull()
+                var take = addDays(x.s("date"), -1); if (p != null && p > take) take = p
+                cashNeeds.add(Need(take, src, x.n("amount"), x.s("name"), if (p != null && p <= take) p else addDays(take, -6), x.s("id"))) }
             /* any account that receives income (other than the main account) pays its own bills first */
             class In(val date: String, val amount: Double, val name: String)
             val ins = LinkedHashMap<String, MutableList<In>>()
@@ -629,7 +644,7 @@ object Core {
                 val nxt = (paysAround(ymAdd(ymOf(P), 1)) + mainPaydays(s, ymAdd(ymOf(P), 2))).find { it > P }
                 val win = billEvents(st, P, if (nxt != null) addDays(nxt, -1) else addDays(P, 13)).filter { !it.t("fund") }
                 val accts = win.map { it.s("acct") }.filter { it.isNotEmpty() && it != main && it !in incomeAccts }.distinct()
-                accts.forEach { id -> add(P, main, id, sumOf2(win.filter { it.s("acct") == id }.map { it.n("amount") }), why(id)) }
+                accts.filter { !isCash(it) }.forEach { id -> add(P, main, id, sumOf2(win.filter { it.s("acct") == id }.map { it.n("amount") }), why(id)) }
             }
             /* extra paydays go to savings after any shortfall is covered */
             if (ym >= start && !startingMonth(st, ym)) { var room = maxOf(0.0, c.n("net"))
@@ -637,7 +652,8 @@ object Core {
                     add(d, main, "", toSave, if (toSave < amt - 0.004) "Extra ${inc.s("name")} this month, after covering a shortfall" else "Extra ${inc.s("name")} this month", "emergency") } }
             /* food money for each half of the month, sent on the payday before it starts */
             if (ym >= start && c.n("foodHalf") > 0 && everyday.isNotEmpty()) listOf(first, "$ym-16").forEachIndexed { i, H ->
-                add(lastPayOnOrBefore(H) ?: H, main, everyday, c.n("foodHalf"), "Food for ${if (i > 0) "the 16th–end" else "the 1st–15th"} of ${Fmt.monthOnly(ym)}") }
+                val d = lastPayOnOrBefore(H) ?: H; val w = "Food for ${if (i > 0) "the 16th–end" else "the 1st–15th"} of ${Fmt.monthOnly(ym)}"
+                if (isCash(everyday)) cashNeeds.add(Need(d, main, c.n("foodHalf"), w, d, null)) else add(d, main, everyday, c.n("foodHalf"), w) }
             /* savings */
             if (ym >= start && !startingMonth(st, ym)) { val bonusSaved = maxOf(0.0, minOf(c.n("bonus"), c.n("net"))); val movedReg = maxOf(0.0, c["moved"].n("emergency") - bonusSaved)
                 add(last, main, "", maxOf(0.0, c.n("liveSurplus") - movedReg), "What's left this month", "emergency")
@@ -648,10 +664,48 @@ object Core {
                 add(c.s("ccbDate"), pa, "", c.n("ccbToEm"), "Your share of the child benefits for Emergency Savings", "emergency") }
             ym = ymAdd(ym, 1)
         }
+        /* Take out cash: one trip a day per account, in the bills the ATM gives out, within its daily limit (docs/plans/overhaul.md) */
+        val cashTo = cashAcct.ifEmpty { "cash" }; val used = HashMap<String, HashMap<String, Double>>()
+        fun usedAt(id: String, d: String) = used[id]?.get(d) ?: 0.0
+        fun use(id: String, d: String, v: Double) { used.getOrPut(id) { HashMap() }[d] = round2(usedAt(id, d) + v) }
+        class Atm(val a: Obj, val notes: Double, val lim: Double, val tellers: Boolean)
+        fun atmOf(id: String): Atm { val a = acctById(s, id) ?: Obj(); val nn = num(a["atmNotes"]); val n = if (nn == 5.0 || nn == 10.0 || nn == 20.0) nn else 20.0; val l = num(a["atmLimit"])
+            return Atm(a, n, if (l > 0) maxOf(n, Math.floor(l / n) * n) else 0.0, !a["tellers"].isFalse()) }
+        fun pushCash(date: String, src: String, amount0: Double, why: String, meta: Obj?, forDate: String) {
+            val amount = round2(amount0); if (!((amount > 0.004 || (meta?.n("short") ?: 0.0) > 0) && date >= from && date <= to)) return
+            val o = J.obj("date" to date, "code" to "$src-$cashTo", "from" to nm(src), "to" to (if (cashAcct.isNotEmpty()) nm(cashAcct) else "Cash"), "fromAcct" to "", "toAcct" to "", "amount" to amount, "why" to why, "sav" to "",
+                "cash" to true, "exact" to 0, "extra" to 0, "short" to 0, "overLimit" to false, "roundOffer" to J.A(), "items" to J.A(), "forDate" to forDate, "tellers" to atmOf(src).tellers)
+            meta?.map?.forEach { (k, v) -> o[k] = v }; raw.add(o) }
+        class Trip(val date: String, val src: String, val items: MutableList<Need>, var earliest: String)
+        class Part(val date: String, val src: String, val amount: Double, val via: Boolean = false)
+        val trips = LinkedHashMap<String, Trip>()
+        for (n in cashNeeds) { val t = trips.getOrPut(n.src + "@" + n.date) { Trip(n.date, n.src, mutableListOf(), n.earliest) }; t.items.add(n); if (n.earliest > t.earliest) t.earliest = n.earliest }
+        for (t in trips.values.sortedWith(compareBy<Trip>({ it.date }, { it.src }))) {
+            val A0 = atmOf(t.src); val exact = round2(Math.round(sumOf2(t.items.map { it.amount }) * 20) / 20.0); val atm = Math.ceil(exact / A0.notes - 1e-9) * A0.notes
+            val names = t.items.map { it.name }; val parts = mutableListOf<Part>(); var rest = atm
+            if (A0.lim == 0.0) { parts.add(Part(t.date, t.src, rest)); rest = 0.0 }
+            else { val take = maxOf(0.0, minOf(rest, A0.lim - usedAt(t.src, t.date))); if (take > 0) { parts.add(Part(t.date, t.src, take)); rest -= take }
+                val also = A0.a.s("atmAlso"); val B = if (A0.a.s("atmOver") == "split" && also.isNotEmpty() && also != t.src && acctById(s, also) != null) atmOf(also) else null
+                if (rest > 0 && B != null) { val id2 = B.a.s("id"); val cap = if (B.lim > 0) B.lim - usedAt(id2, t.date) else rest; val t2 = maxOf(0.0, Math.floor(minOf(rest, cap) / B.notes) * B.notes)
+                    if (t2 > 0) { add(t.date, t.src, id2, t2, "So the " + B.a.s("name") + " card can give out the rest of the cash"); parts.add(Part(t.date, id2, t2, true)); rest -= t2 } }
+                else if (rest > 0) { var d = addDays(t.date, -1)
+                    while (rest > 0 && d >= t.earliest) { val tk = maxOf(0.0, minOf(rest, A0.lim - usedAt(t.src, d))); if (tk > 0) { parts.add(0, Part(d, t.src, tk)); rest -= tk }; d = addDays(d, -1) } } }
+            for (p in parts) use(p.src, p.date, p.amount)
+            val offer = t.items.mapNotNull { it.bill }.filter { cashRoundOffer(st.bills[it]) }.distinct()
+            /* the trip's own day carries what it's for; with nothing left to take that day, the last part does */
+            val meta = parts.find { it.date == t.date && !it.via } ?: parts.lastOrNull() ?: Part(t.date, t.src, 0.0); if (parts.isEmpty()) parts.add(meta)
+            for (p in parts) pushCash(p.date, p.src, p.amount, if (p === meta || p.via) names.joinToString(", ") else "Part of the cash for " + names.joinToString(", ") + " on " + Fmt.dShort(t.date),
+                if (p === meta) J.obj("exact" to exact, "extra" to round2(atm - exact), "short" to rest, "overLimit" to (A0.lim > 0 && atm > A0.lim && !A0.a.t("atmOver")), "roundOffer" to offer,
+                    "items" to t.items.map { J.obj("name" to it.name, "amount" to round2(it.amount)) }) else null, t.date)
+        }
         val map = LinkedHashMap<String, Obj>()
         for (r in raw) { val k = r.s("code") + "@" + r.s("date"); val m = map[k]
-            if (m != null) { m["amount"] = js(round2(m.n("amount") + r.n("amount"))); m["why"] = js(m.s("why") + " · " + r.s("why")) }
+            if (m != null) { m["amount"] = js(round2(m.n("amount") + r.n("amount"))); m["why"] = js(m.s("why") + " · " + r.s("why"))
+                if (m.t("cash") && r.t("cash")) { m["exact"] = js(round2(m.n("exact") + r.n("exact"))); m["extra"] = js(round2(m.n("extra") + r.n("extra"))); m["short"] = js(round2(m.n("short") + r.n("short")))
+                    m["overLimit"] = js(m.t("overLimit") || r.t("overLimit")); val ro = m.strList("roundOffer").toMutableList(); r.strList("roundOffer").forEach { if (it !in ro) ro.add(it) }; m["roundOffer"] = js(ro)
+                    m["items"] = J.A((m["items"].arr() + r["items"].arr()).toMutableList()) } }
             else map[k] = J.obj("key" to k, "ym" to ymOf(r.s("date"))).also { o -> r.map.forEach { (kk, v) -> o[kk] = v } } }
+        for (m in map.values) if (m.t("cash")) m["coins"] = js(round2((Math.round(m.n("exact") * 100) % 500) / 100.0))
         return map.values.map { m -> val mm = st.months[m.s("ym")]; m["done"] = js(mm != null && truthy(mm["moves"]?.get(m.s("key")))); m }
     }
 
