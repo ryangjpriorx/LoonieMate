@@ -78,7 +78,7 @@ fun Page(onClose: () -> Unit, back: Boolean = false, content: @Composable () -> 
             modifier = Modifier.fillMaxSize().testTag("page"),
             topBar = {
                 TopAppBar(
-                    title = { Text(page.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() }) },
+                    title = { Text(page.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() }.testTag("page-title")) },
                     navigationIcon = { IconButton(onClick = tryClose, modifier = Modifier.testTag("page-close")) { if (back) Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") else Icon(Icons.Rounded.Close, "Close") } },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
                 )

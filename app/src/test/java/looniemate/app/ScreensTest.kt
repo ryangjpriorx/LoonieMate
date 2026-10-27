@@ -90,13 +90,17 @@ class ScreensTest {
         rule.onNodeWithTag("set-$key").performClick(); settle() }
     /** Closes every open page. */
     private fun closeAll() { repeat(4) { closePage() } }
+    private fun title(): String = rule.onAllNodesWithTag("page-title").fetchSemanticsNodes().firstOrNull()
+        ?.config?.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.Text)?.joinToString("") { it.text } ?: ""
     private fun back() { rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }; settle() }
     /** Closes the open page with its ✕, answering "Leave" if it asks. */
     private fun closePage() {
         if (rule.onAllNodesWithTag("page-close").fetchSemanticsNodes().isEmpty()) return
+        val before = title()
         rule.onNodeWithTag("page-close").performClick(); settle()
         if (rule.onAllNodesWithTag("leave-go").fetchSemanticsNodes().isNotEmpty()) { rule.onNodeWithTag("leave-go").performClick(); settle() }
-        if (rule.onAllNodesWithTag("page").fetchSemanticsNodes().isNotEmpty()) problems.add("a page didn't close")
+        /* pages stack (a Settings page under a form), so the one underneath may show now; the closed one must be gone */
+        if (rule.onAllNodesWithTag("page").fetchSemanticsNodes().isNotEmpty() && title() == before) problems.add("a page didn't close: $before")
     }
 
     private fun tour(theme: String, dark: Boolean) {

@@ -28,6 +28,9 @@ jobs:
       - name: Work out the web version's answers
         run: node parity/gen.js
 
+      - name: Check every web screen renders
+        run: node parity/webcheck.js
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin

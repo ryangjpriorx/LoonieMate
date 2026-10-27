@@ -344,7 +344,7 @@ details.item[open] .chev{transform:rotate(90deg)}
 .banner.good{border-style:solid;border-color:color-mix(in srgb,var(--good) 40%,var(--line));background:var(--good-bg)}
 .alldone{display:flex;gap:14px;align-items:center;padding:6px 0}
 .big-check{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-size:1.4rem;font-weight:800;color:var(--surface);background:linear-gradient(135deg,var(--good),var(--pets));flex:none}
-.fx .big-check{animation:pop .6s cubic-bezier(.2,1.6,.4,1)}
+.fx .big-check{animation:pop .3s cubic-bezier(.2,1.6,.4,1)}
 .todaygrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
 @media (max-width:700px){.todaygrid{grid-template-columns:minmax(0,1fr)}}
 .foodbig{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
@@ -390,26 +390,30 @@ details.item[open] .chev{transform:rotate(90deg)}
 
 /* ---------- effects (only when the Visual effects switch is on) ---------- */
 .fx .top{backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);background:color-mix(in srgb,var(--surface) 82%,transparent)}
-.fx .top::after{animation:hue 14s linear infinite}
-@keyframes hue{to{background-position:300% 0}}
-@media (max-width:700px){.fx .top{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--surface)}}
-.fx .overlay{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
-@media (hover:hover){.fx .card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(21,32,51,.06),0 14px 32px rgba(21,32,51,.1)}}
-.fx .view.enter>*{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
-.fx .view.enter>*:nth-child(2){animation-delay:.05s}.fx .view.enter>*:nth-child(3){animation-delay:.1s}.fx .view.enter>*:nth-child(4){animation-delay:.15s}.fx .view.enter>*:nth-child(n+5){animation-delay:.2s}
-.fx .view.enter .col>*{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
-.fx .view.enter .col>*:nth-child(2){animation-delay:.08s}.fx .view.enter .col>*:nth-child(3){animation-delay:.16s}.fx .view.enter .col>*:nth-child(4){animation-delay:.24s}
-@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.fx .view.enter .meter>span,.fx .view.enter .goalbar>span{animation:grow .9s cubic-bezier(.2,.7,.2,1) both;transform-origin:left center}
-@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-.fx .view.enter .chart .bar{animation:barup .8s cubic-bezier(.2,.7,.2,1) both;transform-box:fill-box;transform-origin:bottom}
-@keyframes barup{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-.fx .status .dot{animation:breathe 3s ease-in-out infinite}
-@keyframes breathe{0%,100%{box-shadow:0 0 0 4px var(--surface)}50%{box-shadow:0 0 0 7px color-mix(in srgb,var(--surface) 60%,transparent)}}
-.fx .kpi.hero{background-size:180% 180%;animation:sheen 12s ease-in-out infinite alternate}
-@keyframes sheen{from{background-position:0% 0%}to{background-position:100% 100%}}
-.fx .pop{animation:pop .45s cubic-bezier(.2,1.6,.4,1)}
-@keyframes pop{0%{transform:scale(.8)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+/* motion (docs/plans/overhaul.md): cards fade in once per tab per session, quickly; nothing moves forever */
+.fx .view.enter>*{animation:fadein .18s ease both}
+.fx .view.enter>*:nth-child(2){animation-delay:.02s}.fx .view.enter>*:nth-child(3){animation-delay:.04s}.fx .view.enter>*:nth-child(4){animation-delay:.06s}.fx .view.enter>*:nth-child(n+5){animation-delay:.08s}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.tick{width:44px;height:44px;border-radius:50%;border:0;background:transparent;display:grid;place-items:center;flex:none;cursor:pointer;margin:-6px 0}
+.tick span{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;color:transparent;font-weight:800;font-size:.9rem;transition:background-color .2s,border-color .2s}
+.tick.on span{background:var(--accent);border-color:var(--accent);color:#fff}
+.a-btn .tick{width:56px;height:56px}
+.rowmenu-btn{border:0;background:transparent;color:var(--muted);font-size:1.3rem;line-height:1;min-width:44px;min-height:44px;border-radius:12px;cursor:pointer}
+.rowmenu-btn:hover{background:var(--surface-2)}
+.rowmenu{position:absolute;z-index:80;min-width:210px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:6px;display:flex;flex-direction:column}
+.rowmenu button{border:0;background:transparent;text-align:left;padding:12px 14px;border-radius:10px;font:inherit;color:var(--ink);cursor:pointer;min-height:44px}
+.rowmenu button:hover,.rowmenu button:focus-visible{background:var(--surface-2)}.rowmenu button.danger{color:var(--bad)}
+.od{color:var(--bad);font-weight:700}.od::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bad);margin-right:5px;vertical-align:middle}
+.linkish{border:0;background:none;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.msw{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}.msw h2{margin:0;min-width:9ch;text-align:center}
+.setlist{display:flex;flex-direction:column;gap:18px}.setgroup h3{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:0 0 6px 4px}
+.setrow{display:flex;align-items:center;gap:12px;width:100%;border:0;background:transparent;text-align:left;padding:12px;border-radius:12px;font:inherit;color:inherit;cursor:pointer;min-height:56px}
+.setrow:hover{background:var(--surface-2)}.setrow .ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--surface-2);flex:none}
+.setrow .tx{flex:1;min-width:0}.setrow .tx b{display:block}.setrow .tx span{font-size:.85rem;color:var(--muted)}
+.pagehead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.pagehead h2{margin:0}
+
+.fx .pop{animation:pop .3s cubic-bezier(.2,1.6,.4,1)}
+@keyframes pop{0%{transform:scale(.85)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
 .fx .skel{animation:shimmer 1.2s linear infinite}
 @keyframes shimmer{to{background-position:-200% 0}}
 .fx .fab{transition:transform .2s ease}.fx .fab:hover{transform:translateY(-2px) scale(1.03)}
@@ -475,18 +479,7 @@ details.item>summary:hover{background:color-mix(in srgb,var(--tone-bg) 40%,trans
 .fx .chips label:active span{transform:scale(.95)}
 .fx .tab svg{transition:transform .25s cubic-bezier(.2,1.6,.4,1),color .2s}
 .fx .tab[aria-selected="true"] svg{transform:translateY(-1px) scale(1.08)}
-.fx .view.enter :is(.kpis,.todaygrid,.halves,.seg,.quick,.debts,.sumrow,.swatches)>*{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
-.fx .view.enter :is(.kpis,.todaygrid,.halves,.seg,.quick,.debts,.sumrow,.swatches)>*:nth-child(2){animation-delay:.06s}
-.fx .view.enter :is(.kpis,.todaygrid,.halves,.seg,.quick,.debts,.sumrow,.swatches)>*:nth-child(3){animation-delay:.12s}
-.fx .view.enter :is(.kpis,.todaygrid,.halves,.seg,.quick,.debts,.sumrow,.swatches)>*:nth-child(n+4){animation-delay:.18s}
-.fx .view.enter :is(.list,.flow,.cats)>*:nth-child(-n+12){animation:fadein .45s ease both;animation-delay:calc(.12s + var(--i,0) * .035s)}
-.fx .view.enter :is(.list,.flow,.cats)>*:nth-child(2){--i:1}.fx .view.enter :is(.list,.flow,.cats)>*:nth-child(3){--i:2}.fx .view.enter :is(.list,.flow,.cats)>*:nth-child(4){--i:3}
-.fx .view.enter :is(.list,.flow,.cats)>*:nth-child(5){--i:4}.fx .view.enter :is(.list,.flow,.cats)>*:nth-child(6){--i:5}.fx .view.enter :is(.list,.flow,.cats)>*:nth-child(7){--i:6}.fx .view.enter :is(.list,.flow,.cats)>*:nth-child(n+8){--i:7}
-@keyframes fadein{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
-.fx .view.enter .ring .rv{animation:ringdraw 1.1s cubic-bezier(.2,.7,.2,1) .15s both}
-@keyframes ringdraw{from{stroke-dashoffset:var(--L)}}
-.fx .view.enter .billrow{animation:fadein .4s ease both}
-.fx .view.enter :is(.meter,.goalbar)>span::before{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.45) 50%,transparent 70%);transform:translateX(-100%);animation:shine 1.1s ease .9s both;z-index:1}
+/* (staggered list and bar animations removed: they made every tab switch feel slow) */
 @keyframes shine{to{transform:translateX(100%)}}
 .fx details.item[open]>:not(summary){animation:rise .3s cubic-bezier(.2,.7,.2,1) both}
 .fx .ico{transition:transform .3s cubic-bezier(.2,1.6,.4,1)}
@@ -1176,7 +1169,7 @@ const acctOpts=sel=>accts().map(a=>`<option value="${esc(a.id)}" ${C.acctId(sett
 const METHODS=['Pre-authorized debit (PAD)','Interac e-Transfer','Debit card','Cash','Cheque'];
 const FREQS=[['monthly','Monthly'],['biweekly','Every 2 weeks'],['weekly','Weekly'],['quarterly','Every 3 months'],['yearly','Yearly']];
 const TONES={overview:'accent',spending:'amber',food:'green',fixed:'sky',savings:'rose',income:'teal',accounts:'gold',settings:'accent'};
-const TABS=[['overview','Overview','grid'],['spending','Spending','wallet'],['food','Food','food'],['fixed','Bills','receipt'],['savings','Savings','piggy'],['income','Income','in'],['accounts','Accounts','bank']];
+const TABS=[['today','Today','cal'],['month','Month','grid'],['fixed','Bills','receipt'],['spending','Spending','wallet'],['savings','Savings','piggy']];
 const ICONS={grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   cart:'<path d="M3 4h2l2.3 10.6a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 1.9-1.4L21 8H6.2"/><circle cx="9.5" cy="20" r="1.3"/><circle cx="17.5" cy="20" r="1.3"/>',
   receipt:'<path d="M6 2.5h12v19l-3-2-3 2-3-2-3 2z"/><path d="M9 7.5h6M9 11.5h6M9 15.5h4"/>',
@@ -1208,7 +1201,7 @@ const svg=(n,cls)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 const ico=(n,c)=>`<span class="ico ${c||''}">${svg(n)}</span>`;
 
 /* ---------- state ---------- */
-const S={open:{},settings:null,months:{},bills:{},expenses:{},loaded:{settings:false,bills:false,months:false},activeYm:null,navTouched:false,tab:'overview',group:'adults',readOnly:false,mode:'connecting',sheet:null};
+const S={open:{},settings:null,months:{},bills:{},expenses:{},loaded:{settings:false,bills:false,months:false},activeYm:null,navTouched:false,tab:'today',setPage:null,group:'adults',readOnly:false,mode:'connecting',sheet:null};
 let backend=null;
 function todayStr(){return C.ymd(new Date())}
 function settings(){const raw=S.settings||{};const s=Object.assign({},DEFAULTS,raw);if(!isYm(s.startYm))s.startYm=ymOf(todayStr());if(!isDate(s.trackFrom))s.trackFrom=todayStr();return s}
@@ -1276,7 +1269,8 @@ function countUp(root){
     const step=now=>{const p=Math.min(1,(now-t0)/dur),e=1-Math.pow(1-p,3);el.textContent=fmt(target*e);if(p<1)requestAnimationFrame(step);else el.textContent=txt};requestAnimationFrame(step)});
 }
 try{S.ovMode=localStorage.getItem('rs-ovmode')||'today'}catch(e){S.ovMode='today'}
-try{let t=localStorage.getItem('rs-tab');if(t==='oneoff')t='spending';if(t&&['overview','spending','food','fixed','savings','accounts','income','settings'].includes(t))S.tab=t}catch(e){}
+try{let t=localStorage.getItem('rs-tab');if(t==='oneoff')t='spending';if(t==='overview')t='today';if(t&&['today','month','spending','fixed','savings','settings'].includes(t))S.tab=t}catch(e){}
+S.seen={};
 
 /* ---------- storage backends ---------- */
 /* ask the browser not to clear this site's data when space runs low (S6) */
@@ -1391,21 +1385,26 @@ function render(){
   if(!S.activeYm)S.activeYm=defaultYm();
   {const n=(settings().householdName||'').trim();document.getElementById('hh-name').textContent=n?(/s$/i.test(n)?n+"' Budget":n+"'s Budget"):'LoonieMate';if(backend)syncLabel()}
   document.getElementById('mlabel').textContent=monthName(S.activeYm);
+  if(S.tab==='overview')S.tab=S.ovMode==='month'?'month':'today';if(['food','income','accounts'].includes(S.tab)){S.setPage=S.tab;S.tab='settings'}
   document.getElementById('tabs').innerHTML=TABS.map(([k,l,i])=>`<button class="tab t-${TONES[k]||'accent'}" role="tab" aria-selected="${S.tab===k}" data-act="tab" data-tab="${k}">${svg(i)}<span>${l}</span></button>`).join('');
   document.getElementById('gear').setAttribute('aria-current',S.tab==='settings'?'page':'false');
-  document.querySelector('.top').classList.toggle('nomonth',S.tab==='settings'||S.tab==='accounts'||(S.tab==='overview'&&S.ovMode!=='month'&&S.loaded.bills&&!isNew()));
-  document.getElementById('fab').hidden=S.tab==='settings'||S.readOnly||(S.loaded.bills&&isNew());
+  /* the month switcher lives inside Month and Spending now */
+  document.querySelector('.top').classList.add('nomonth');
+  {const fab=document.getElementById('fab'),bills=S.tab==='fixed';fab.hidden=!['today','spending','fixed'].includes(S.tab)||S.readOnly||(S.loaded.bills&&isNew());
+    fab.dataset.act=bills?'add-bill':'log';fab.innerHTML=`<b aria-hidden="true">+</b> ${bills?'Add a bill':'Log spending'}`}
   if(busyField()){pending=true;return}
   pending=false;
   if(!(S.loaded.bills&&S.loaded.months&&S.loaded.settings)){main.innerHTML='<div class="view" aria-label="Loading your budget"><div class="skel"></div><div class="skel"></div><div class="skel" style="height:220px"></div></div>';return}
-  const v={overview:vOverview,spending:vSpending,food:vFood,fixed:vFixed,savings:vSavings,accounts:vAccounts,oneoff:vOneoff,income:vIncome,settings:vSettings}[S.tab]||vOverview;
-  const key=S.tab+'|'+S.activeYm+'|'+(S.tab==='overview'?S.ovMode:''),entering=key!==S.lastKey;S.lastKey=key;
-  main.innerHTML=v();
+  const v={today:()=>{S.ovMode='today';return vOverview()},month:()=>{S.ovMode='month';return vOverview()},spending:vSpending,fixed:vFixed,savings:vSavings,oneoff:vOneoff,settings:vSettings}[S.tab]||(()=>{S.ovMode='today';return vOverview()});
+  const key=S.tab+'|'+S.activeYm+'|'+(S.setPage||''),entering=key!==S.lastKey;S.lastKey=key;
+  /* Bills and Savings are always about now; the chosen month is shared by Month and Spending */
+  const keepYm=S.activeYm;if(S.tab==='fixed'||S.tab==='savings'||(S.tab==='settings'&&S.setPage!=='food'))S.activeYm=defaultYm();
+  try{main.innerHTML=v()}finally{S.activeYm=keepYm}
   const view=main.querySelector('.view');
   if(view)view.dataset.tone=TONES[S.tab]||'accent';
   document.documentElement.dataset.tone=TONES[S.tab]||'accent';
   fitCharts();
-  if(view&&entering&&FX.on){view.classList.add('enter');countUp(view);clearTimeout(S.enterT);S.enterT=setTimeout(()=>view.classList.remove('enter'),2200)}
+  if(view&&entering&&FX.on&&!S.seen[S.tab+(S.setPage||'')]){S.seen[S.tab+(S.setPage||'')]=1;view.classList.add('enter');clearTimeout(S.enterT);S.enterT=setTimeout(()=>view.classList.remove('enter'),400)}
   if(S.pop){const el=main.querySelector(`[data-key="${CSS.escape(S.pop)}"],[data-id="${CSS.escape(S.pop)}"]`);if(el)el.classList.add('pop');S.pop=null}
 }
 
@@ -1536,7 +1535,10 @@ function skipCard(c,phase){
    ${c.skippedTotal||c.deferredTotal?`<div class="line total" style="margin-top:6px"><span>Freed up this month</span><span class="num">${fmt(c.skippedTotal+c.deferredTotal)}</span></div>`:''}
    ${short&&skips.every(l=>l.skipped)&&defs.every(l=>l.deferredTo)?'<p class="small" style="margin-top:6px">Nothing left to skip or defer. Cover the rest from Emergency Savings first, and the Child Reserve only as a last resort.</p>':''}</section>`;
 }
-function ovSwitch(){return`<div class="segctl" role="group" aria-label="Overview view"><button data-act="ovmode" data-mode="today" aria-pressed="${S.ovMode!=='month'}">${svg('cal')}Today</button><button data-act="ovmode" data-mode="month" aria-pressed="${S.ovMode==='month'}">${svg('grid')}This month</button></div>`}
+function ovSwitch(){return S.ovMode==='month'?monthSw():''}
+/* the month switcher, at the top of Month and Spending; "Back to <month>" whenever another month is open */
+function monthSw(){const home=defaultYm();return`<div class="msw"><button class="arrow" data-act="m-prev" aria-label="Previous month">‹</button><h2>${esc(monthName(S.activeYm))}</h2><button class="arrow" data-act="m-next" aria-label="Next month">›</button>
+  ${S.activeYm!==home?`<button class="btn sm ghost" data-act="m-now">Back to ${esc(monthOnly(home))}</button>`:''}</div>`}
 function reminders(today){const out=[];
   const m=meta(),d=m.lastBackup,days=d?diffDays(d.slice(0,10),today):null;
   if(!d||days>14)out.push({tone:'warn',html:`<b>${d?`Last backup was ${days} days ago.`:"You haven't made a backup yet."}</b> <span class="muted">Your budget lives only on this device.</span>`,btn:'<button class="btn primary sm" data-act="export">Back up now</button>'});
@@ -1580,16 +1582,48 @@ const STANDALONE=navigator.standalone===true||(window.matchMedia&&matchMedia('(d
 function iosNotice(){let off=false;try{off=localStorage.getItem('rs-ios-ok')==='1'}catch(e){}
   if(!IOS||STANDALONE||off)return'';
   return`<div class="banner" role="note"><div><b>On iPhone, add LoonieMate to your Home Screen.</b> <span class="muted">iPhone browsers (Safari and Chrome alike) clear a website's saved budget after a week without a visit. Opened from the Home Screen, it's kept. Tap the Share button, then <b>Add to Home Screen</b>, and make a backup in Settings now and then.</span></div><button class="btn" data-act="ios-ok">Got it</button></div>`}
+/* ---------- the shared row (docs/plans/overhaul.md): a round tick, the ⋯ menu (right-click opens it too) ---------- */
+function menuBtn(items,label){return items.length?`<button class="rowmenu-btn" data-act="rowmenu" aria-label="${esc(label||'More choices')}" aria-haspopup="menu" data-items="${esc(JSON.stringify(items))}">⋯</button>`:''}
+function showRowMenu(btn){closeRowMenu();let items=[];try{items=JSON.parse(btn.dataset.items||'[]')}catch(e){}
+  const m=document.createElement('div');m.className='rowmenu';m.id='rowmenu';m.setAttribute('role','menu');
+  m.innerHTML=items.map(it=>`<button role="menuitem" data-act="${esc(it.act)}" ${Object.entries(it.d||{}).map(([k,v])=>`data-${k}="${esc(String(v))}"`).join(' ')}${it.danger?' class="danger"':''}>${esc(it.l)}</button>`).join('');
+  document.body.appendChild(m);const r=btn.getBoundingClientRect();m.style.top=(window.scrollY+r.bottom+4)+'px';
+  m.style.left=Math.max(8,Math.min(window.scrollX+r.right-m.offsetWidth,window.scrollX+window.innerWidth-m.offsetWidth-8))+'px';const f=m.querySelector('button');if(f)f.focus()}
+function closeRowMenu(){const m=document.getElementById('rowmenu');if(m)m.remove()}
+document.addEventListener('contextmenu',ev=>{const host=ev.target.closest('[data-menu-host]');if(!host)return;const b=host.querySelector('.rowmenu-btn');if(!b)return;ev.preventDefault();showRowMenu(b)});
+document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&document.getElementById('rowmenu')){closeRowMenu();ev.stopPropagation()}},true);
+function tick(on,act,data,label){return`<button class="tick ${on?'on':''}" data-act="${act}" ${Object.entries(data).map(([k,v])=>`data-${k}="${esc(String(v))}"`).join(' ')} aria-pressed="${on}" aria-label="${esc(label)}"><span aria-hidden="true">✓</span></button>`}
+function billItems(e){const b=S.bills[e.id]||{},out=[{l:e.paid?'Not paid':'Paid',act:'paid',d:{ym:e.ym,key:e.key}}];
+  if(b.deferrable)out.push({l:'Pay part later…',act:'defer',d:{ym:e.ym,id:e.id}});if(b.essential===false)out.push({l:'Give up this month…',act:'skip',d:{ym:e.ym,id:e.id}});
+  if(S.bills[e.id]){out.push({l:'Change the bill',act:'edit-bill',d:{id:e.id}});out.push({l:'Pause it',act:'pause-bill',d:{id:e.id}})}return out}
+function moveItems(e){return[{l:e.done?'Not done':'Done',act:'move-done',d:{ym:e.ym,key:e.key,sav:e.sav||'',amt:e.amount}},
+  {l:e.cash?"What's this cash for?":'Why this move?',act:'why',d:{title:e.cash?'Take out cash':'Why this move?',why:whyText(e)}},{l:'Change the accounts it uses',act:'tab',d:{tab:'accounts'}}]}
+/* what a move or a cash trip is for, in a few plain sentences */
+function whyText(e){if(!e.cash)return(e.why||'Keeps each account ready for what it pays.')+(e.from?`\n\nFrom ${e.from} to ${e.to}.`:'');const out=[];
+  out.push((e.items&&e.items.length)?'For '+e.items.map(i=>i.name+' '+fmt(i.amount)).join(', ')+'.':e.why+'.');
+  if(e.extra>0.004)out.push(`The ATM gives out whole bills, so ${fmt(e.extra)} extra stays as cash on hand.`+(e.tellers?` Or get exactly ${fmt(e.exact)} from a teller.`:''));
+  if(e.coins>0.004&&!e.tellers)out.push(`Your bank has no tellers. Get ${fmt(e.coins)} in coins as change when you buy something, or ask a store to break a bill.`);
+  if(e.short>0.004)out.push(`The ATM can't give out ${fmt(e.short)} of it in time. `+(e.tellers?'Get the rest from a teller.':'Start a day earlier, or send an e-Transfer if they take one.'));
+  if(e.overLimit)out.push("This is more than the card's daily limit. Choose how to handle that on the account's page in Settings → Accounts.");return out.join('\n\n')}
+function infoSheet(title,text){openSheet(`<div class="sheet-h"><h2>${esc(title)}</h2><button class="x" data-act="close" aria-label="Close">×</button></div>${text.split('\n\n').map(p=>`<p style="margin-bottom:10px">${esc(p)}</p>`).join('')}<button class="btn primary" data-act="close">OK</button>`)}
+/* one To do / Coming up row: a tick for bills and moves, the name and one short line, the amount, the ⋯ menu */
+function evRow(e,opts){opts=opts||{};const compact=!!opts.compact;
+  if(e.kind==='move'){const t=e.cash?`Take out ${fmt(e.amount)} cash`:`Move ${fmt(e.amount)} to ${e.to}${e.toAcct?' ('+e.toAcct+')':''}`;
+    return`<div class="row evrow" data-menu-host>${compact?`<span class="gdot move" aria-hidden="true">${e.cash?'$':'→'}</span>`:tick(!!e.done,'move-done',{ym:e.ym,key:e.key,sav:e.sav||'',amt:e.amount},(e.done?'Mark not done: ':'Mark done: ')+t)}
+      <div><div class="nm">${esc(t)}</div><div class="meta">${e.overdue&&!compact?'<span class="od">Overdue</span> · ':''}${compact?dLabel(e.date)+' · ':''}From ${esc(e.from)}${!compact&&e.why?' · '+esc(e.why):''}</div></div>
+      <div class="amt">${compact?'':menuBtn(moveItems(e),'More choices: '+t)}</div></div>`}
+  if(e.kind==='in')return`<div class="row evrow"><span class="gdot in"></span><div><div class="nm">${esc(e.name)}</div><div class="meta">${compact?dLabel(e.date)+' · ':''}${esc(e.note||'')}</div></div><div class="amt"><span class="num good">+${fmt(e.amount)}</span></div></div>`;
+  if(e.kind==='oneoff')return`<div class="row evrow"><span class="gdot ${esc(e.group||'')}"></span><div><div class="nm">${esc(e.name)}</div><div class="meta">${compact?dLabel(e.date)+' · ':''}One-time</div></div><div class="amt"><span class="num">${fmt(e.amount)}</span></div></div>`;
+  return`<div class="row evrow" data-menu-host>${compact?`<span class="gdot ${esc(e.group)}"></span>`:tick(!!e.paid,'paid',{ym:e.ym,key:e.key},(e.paid?'Mark not paid: ':'Mark paid: ')+e.name+', '+fmt(e.amount))}
+    <div><button class="nm linkish" data-act="edit-bill" data-id="${esc(e.id)}">${esc(e.name)}</button><div class="meta">${e.overdue&&!compact?'<span class="od">Overdue</span> · was due '+dShort(e.date)+' · ':''}${compact?dLabel(e.date)+' · ':''}${esc(acctName(e.account)||'')}${e.method?' · '+esc(shortMethod(e.method)):''}</div></div>
+    <div class="amt"><span class="num">${fmt(e.amount)}</span>${menuBtn(billItems(e),'More choices: '+e.name)}</div></div>`}
 function vToday(){
   const T=st(),s=T.settings,today=todayStr(),ym=ymOf(today),c=C.monthCalc(ym,T,today);
   const up=C.upcoming(T,today,7,expLabel),status=getStatus(c,up,'now',today,s);
   const todo=up.filter(e=>(e.kind==='bill'&&!e.paid&&e.date<=today)||(e.kind==='move'&&!e.done&&e.date<=today));
   const incoming=up.filter(e=>e.kind==='in'&&e.date===today);
   const next=up.filter(e=>e.date>today&&(e.kind!=='bill'||!e.paid)).slice(0,6);
-  const row=e=>{if(e.kind==='move')return`<div class="row ${e.overdue?'overdue':''}"><span class="gdot move" aria-hidden="true">→</span><div><div class="nm">Move ${fmt(e.amount)} to ${esc(e.to)}${e.toAcct?` <span class="muted small">(${esc(e.toAcct)})</span>`:''}</div><div class="meta">From ${esc(e.from)}${e.fromAcct?' ('+esc(e.fromAcct)+')':''}${e.overdue?' · from '+dShort(e.date):''}</div></div>
-      <div class="amt"><button class="paidbtn" data-act="move-done" data-ym="${e.ym}" data-key="${esc(e.key)}" data-sav="${e.sav||''}" data-amt="${e.amount}">Mark done</button></div></div>`;
-    return`<div class="row ${e.overdue?'overdue':''}"><span class="gdot ${esc(e.group)}"></span><div><div class="nm">${esc(e.name)}</div><div class="meta">${e.overdue?'Was due '+dShort(e.date)+' · ':''}${esc(acctName(e.account)||'')}${e.method?' · '+esc(shortMethod(e.method)):''}</div></div>
-      <div class="amt"><span class="num">${fmt(e.amount)}</span><button class="paidbtn" data-act="paid" data-ym="${e.ym}" data-key="${esc(e.key)}" aria-label="Mark paid: ${esc(e.name)}, ${esc(fmt(e.amount))}">Mark paid</button></div></div>`};
+  const row=e=>evRow(e);
   const fp=C.foodPeriod(c,today,s),pct=Math.min(100,fp.allow?fp.spent/fp.allow*100:0),pace=Math.min(100,fp.allow?fp.expected/fp.allow*100:0),fcls=fp.spent>fp.allow?'bad':fp.spent>fp.expected+10?'warn':'';
   const rem=reminders(today);
   const lastCk=lastCheckin(),ckDays=lastCk?diffDays(lastCk.date,today):null;
@@ -1611,7 +1645,7 @@ function vToday(){
    </div>
    <section class="card"><div class="card-h"><div class="ttl">${ico('wallet','amber')}<h2>Log spending</h2></div><span class="small muted">One tap logs it for today</span></div>${quickRow()}</section>
    ${debtCard(T,today)}
-   ${next.length?`<section class="card"><div class="card-h"><div class="ttl">${ico('cal')}<h2>Next few days</h2></div></div><div class="list">${next.map(e=>`<div class="row"><span class="gdot ${e.kind==='in'?(e.protect?'protect':'in'):e.kind==='move'?'move':esc(e.group||'')}" ${e.kind==='move'?'aria-hidden="true"':''}>${e.kind==='move'?'→':''}</span><div><div class="nm">${e.kind==='move'?'Move '+fmt(e.amount)+' to '+esc(e.to):esc(e.name)}</div><div class="meta">${dLabel(e.date)}</div></div><div class="amt"><span class="num ${e.kind==='in'?'plus':''}">${e.kind==='move'?'':(e.kind==='in'?'+':'')+fmt(e.amount)}</span></div></div>`).join('')}</div></section>`:''}
+   ${next.length?`<section class="card"><div class="card-h"><div class="ttl">${ico('cal')}<h2>Next few days</h2></div></div><div class="list">${next.map(e=>evRow(e,{compact:true})).join('')}</div></section>`:''}
   </div>`;
 }
 /* what the day-to-day accounts should hold now, starting from the last check-in */
@@ -1954,7 +1988,7 @@ function vSpending(){
   const list=exps.map(e=>{let h='';if(e.date!==lastD){lastD=e.date;h=`<div class="dayhead">${relDay(e.date,today)}</div>`}
     return h+`<div class="row"><span class="gdot ${C.FOOD.has(e.category)&&!e.oneTime?'in':(e.oneTime?esc(e.group||'household'):'')}"></span><div><div class="nm">${esc(expLabel(e))} ${e.oneTime?'<span class="pill">One-time</span>':''}</div><div class="meta">${[e.oneTime?'':e.note,e.who].filter(Boolean).map(esc).join(' · ')}</div></div>
      <div class="amt"><span class="num">${fmt(e.amount)}</span>${c.closed||S.readOnly?'':`<button class="btn sm ghost danger" data-act="del-exp" data-ym="${ym}" data-id="${esc(e.id)}">Delete</button>`}</div></div>`}).join('');
-  return`<div class="view">
+  return`<div class="view">${monthSw()}
    ${ymOf(today)===ym?(()=>{const fp=C.foodPeriod(c,today,s);return`<button class="banner good" data-act="tab" data-tab="food" style="text-align:left;cursor:pointer;width:100%"><div><b>Food: ${fmt(fp.left)} left</b> <span class="muted">until ${dShort(fp.end)}, about ${fmt(fp.perDay)} a day.</span></div><span class="btn sm">Open Food</span></button>`})():''}
    ${catCard(c)}
    ${oneoffCards(c,ym,today)}
@@ -2140,19 +2174,59 @@ function vAccounts(){const s=settings(),dis=S.readOnly?'disabled':'',ck=lastChec
        ${a.type==='savings'?`<div class="field"><label for="acc-kind-${i}">Kind of savings account</label><select id="acc-kind-${i}" data-acc="${esc(a.id)}" data-accf="kind" ${dis}>${opts(SAV_KINDS,a.kind||'hisa')}</select><span class="hint">TFSAs, RDSPs and RESPs get extra help on the Savings tab.</span></div>`:''}
        <fieldset style="border:0;padding:0;margin:0" ${a.type==='savings'?'hidden':''}><legend class="flabel" style="margin-bottom:6px">What it's for</legend><div class="chips">
        ${PURPOSES.map(([k,l])=>`<label><input type="checkbox" data-acc="${esc(a.id)}" data-accp="${k}" ${(a.purposes||[]).includes(k)?'checked':''} ${dis}><span>${l}</span></label>`).join('')}</div></fieldset>
+       ${a.type==='chequing'?(()=>{const lim=num(a.atmLimit),others=accts().filter(o=>o.id!==a.id&&o.type==='chequing');return`<details ${lim||a.tellers===false||a.atmNotes?'open':''}><summary>What the bank and its ATM can do</summary><div class="form" style="margin-top:8px">
+         <p class="small muted">Used when the tool tells you to take out cash. All optional.</p>
+         <div class="fgrid"><div class="field"><label for="acc-lim-${i}">Daily ATM limit (optional)</label><div class="money"><input id="acc-lim-${i}" inputmode="decimal" value="${lim?lim.toFixed(2):''}" data-acc="${esc(a.id)}" data-accf="atmLimit" ${dis}></div><span class="hint">Check your banking app; it's often $500 or $1,000. Blank means no limit.</span></div>
+         <div class="field"><label for="acc-notes-${i}">Bills the ATM gives out</label><select id="acc-notes-${i}" data-acc="${esc(a.id)}" data-accf="atmNotes" ${dis}>${opts([['20','$20s'],['10','$10s and $20s'],['5','$5s and up']],String(num(a.atmNotes)||20))}</select></div>
+         <div class="field"><label for="acc-tell-${i}">Branches with tellers</label><select id="acc-tell-${i}" data-acc="${esc(a.id)}" data-accf="tellers" ${dis}>${opts([['yes','Yes'],['no',"No, it's an online bank"]],a.tellers===false?'no':'yes')}</select></div>
+         ${lim?`<div class="field"><label for="acc-over-${i}">When the cash is more than the daily limit</label><select id="acc-over-${i}" data-acc="${esc(a.id)}" data-accf="atmOver" ${dis}>${opts([['days','Go back each day']].concat(others.length?[['split','Use another account too']]:[]),a.atmOver||'days')}</select></div>
+           ${a.atmOver==='split'&&others.length?`<div class="field"><label for="acc-also-${i}">The other account's card</label><select id="acc-also-${i}" data-acc="${esc(a.id)}" data-accf="atmAlso" ${dis}>${opts(others.map(o=>[o.id,o.name]),a.atmAlso||others[0].id)}</select></div>`:''}`:''}</div></div></details>`})():''}
        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span class="small muted">${used?`Used by ${used} bill${used>1?'s':''}`:'Not used by any bills'}</span>${S.readOnly?'':`<button class="btn sm ghost danger" data-act="del-acct" data-acct="${esc(a.id)}">Remove account</button>`}</div></div></details>`}).join('')||'<div class="empty">No accounts yet. Add the accounts you use.</div>'}</div></section>
   </div>`}
+/* ---------- Settings: a short list of pages (docs/plans/overhaul.md) ---------- */
+const SETTITLES={household:'Household and province',accounts:'Accounts',income:'Income and benefits',food:'Food budget',quick:'Quick buttons',reminders:'Reminders',look:'Look',
+  access:'Accessibility',backup:'Backup',sync:'Sync between phones',updates:'Updates',ontrack:'Get back on track',about:'About LoonieMate',reset:'Reset LoonieMate'};
+const ANDROID_URL='https://github.com/ryangjpriorx/LoonieMate/releases/latest';
+function pageHead(title){return`<div class="view"><div class="pagehead"><button class="btn sm ghost" data-act="setback">‹ Settings</button><h2>${esc(title)}</h2></div></div>`}
+/* what's on Android but doesn't work well in a browser: a short, friendly note instead of nothing */
+function androidStub(pg){
+  const what={reminders:'Reminders to pay bills, move money and report income arrive as notifications on your phone, at the times you choose.',
+    sync:'Keep the same budget on two phones through one encrypted file in Google Drive or any cloud app. Here, use Backup to move it between devices.',
+    updates:'The Android app checks for new versions and updates itself. This page is always the newest version.',
+    ontrack:'Starting partway through a month, or after a missed paycheque? Getting on track finds where you stand today: what\'s in your accounts, what\'s paid, what you\'re behind on, and how to get to the next payday.',
+    about:''}[pg];
+  if(pg==='about')return`<section class="card"><p>A budget planner for families on a tight budget in Canada. No account, no ads, nothing sent anywhere: your budget stays in this browser unless you export it.</p>
+    <p style="margin-top:10px"><a href="https://github.com/ryangjpriorx/LoonieMate" target="_blank" rel="noopener">LoonieMate on GitHub</a></p></section>`;
+  return`<section class="card"><p>${esc(what||'')}</p>
+    ${IOS?`<p class="small muted" style="margin-top:10px">On iPhone, this web version is the way to use LoonieMate.</p>`
+      :`<p style="margin-top:10px"><b>LoonieMate works better on Android.</b> <span class="muted">This is part of the Android app.</span></p><p style="margin-top:10px"><a class="btn" href="${ANDROID_URL}" target="_blank" rel="noopener">Get the Android app</a></p>`}</section>`}
+function settingsList(){const s=settings(),A=C.accountsOf(s).length,inc=C.incomesOf(s).length,cr=C.creditsOf(s).length,q=(s.quick||[]).filter(x=>x&&x.category&&num(x.amount)>0).length;
+  const prov=(PROVINCES.find(p=>p[0]===(s.province||'ON'))||[])[1]||'Ontario',d=meta().lastBackup,days=d?diffDays(d.slice(0,10),todayStr()):null;
+  const n=(k,one,many)=>k===1?'1 '+one:k+' '+many;
+  const acc=[['','Large text','Larger text','Largest text'][A11Y.text|0],A11Y.bold&&'Bold',A11Y.font&&'Easier font',A11Y.contrast&&'Stronger contrast',A11Y.cb&&'Colour-blind colours',!FX.on&&'Less motion',A11Y.time&&'More time',A11Y.btn&&'Bigger buttons'].filter(Boolean);
+  const row=(k,t,sum,ic)=>`<button class="setrow" data-act="tab" data-tab="settings" data-page="${k}"><span class="ic">${ico(ic)}</span><span class="tx"><b>${esc(t)}</b><span>${esc(sum)}</span></span><span aria-hidden="true">›</span></button>`;
+  const grp=(t,rows)=>`<section class="card setgroup"><h3>${esc(t)}</h3>${rows.join('')}</section>`;
+  return`<div class="view"><div class="setlist">
+   ${grp('Your budget',[row('household','Household and province',[prov,(s.people||[]).join(', ')].filter(Boolean).join(' · '),'users'),
+     row('accounts','Accounts',A?n(A,'account','accounts'):'None yet','bank'),row('income','Income and benefits',inc+cr?n(inc,'income','incomes')+' · '+n(cr,'benefit','benefits'):'None yet','in'),
+     row('food','Food budget',`${Math.round(num(s.foodPct))}% · at least ${fmt(num(s.foodMin))} a month`,'food'),row('quick','Quick buttons',q?n(q,'button','buttons'):'None saved','bolt')])}
+   ${grp('This browser',[row('reminders','Reminders','On the Android app','clock'),row('look','Look',(APPEAR.mode==='light'?'Light':APPEAR.mode==='dark'?'Dark':'Matches the device')+' · '+((PALETTES[APPEAR.pal]||{}).name||''),'sparkle'),
+     row('access','Accessibility',acc.length?acc.join(', '):'Standard','sliders')])}
+   ${grp('Keeping it safe',[row('backup','Backup',days==null?'Not backed up yet':days===0?'Backed up today':days===1?'Backed up yesterday':`Backed up ${days} days ago`,'shield'),
+     row('sync','Sync between phones','On the Android app','flow'),row('updates','Updates','This page is always the newest version','star')])}
+   ${grp('Help',[row('ontrack','Get back on track','Start again from today after a missed paycheque or a surprise bill','target'),row('about','About LoonieMate','No account, no ads, nothing sent anywhere','gift')])}
+   <div style="text-align:center"><button class="btn ghost danger" data-act="tab" data-tab="settings" data-page="reset">Reset LoonieMate</button></div>
+  </div></div>`}
 function vSettings(){
   const s=settings(),dis=S.readOnly?'disabled':'';
-  const jumps=['Appearance','Backup','Household','Quick buttons','Plan dates','Province'];
   const f=(id,label,val,type,hint,extra)=>`<div class="field"><label for="${id}">${label}</label>${type==='money'?`<div class="money"><input id="${id}" inputmode="decimal" value="${esc(val)}" data-set="${id.slice(4)}" data-type="money" ${dis}></div>`:`<input id="${id}" type="${type}" value="${esc(val)}" data-set="${id.slice(4)}" data-type="${type}" ${extra||''} ${dis}>`}${hint?`<span class="hint">${hint}</span>`:''}</div>`;
-  return`<div class="view">
-   <section class="card"><div class="card-h"><div class="ttl">${ico('sparkle')}<h2>Appearance</h2></div><span class="small muted">Only changes this device</span></div>
+  const SEC={
+    look:()=>`<section class="card"><div class="card-h"><div class="ttl">${ico('sparkle')}<h2>Appearance</h2></div><span class="small muted">Only changes this device</span></div>
      <div class="form">
      <div><span class="flabel">Colour theme</span><div class="swatches" role="radiogroup" aria-label="Colour theme" style="margin-top:8px">${Object.entries(PALETTES).map(([k,p])=>`<label class="sw"><input type="radio" name="pal" value="${k}" ${APPEAR.pal===k?'checked':''}><span style="--a:${p.l[0]};--b:${p.l[1]}"></span><b>${p.name}</b></label>`).join('')}</div></div>
      <div><span class="flabel">Light or dark</span><div class="segctl" role="group" aria-label="Light or dark" style="margin-top:8px;display:flex">${[['auto','Match device'],['light','Light'],['dark','Dark']].map(([k,l])=>`<button data-act="mode" data-m="${k}" aria-pressed="${APPEAR.mode===k}">${l}</button>`).join('')}</div></div>
-     </div></section>
-   <section class="card" id="sec-access"><div class="card-h"><div class="ttl">${ico('sparkle')}<h2>Accessibility</h2></div><span class="small muted">Only this browser</span></div>
+     </div></section>`,
+    access:()=>`<section class="card" id="sec-access"><div class="card-h"><div class="ttl">${ico('sparkle')}<h2>Accessibility</h2></div><span class="small muted">Only this browser</span></div>
      <div class="form">
      <div><span class="flabel">Bigger text</span><div class="segctl" role="group" aria-label="Bigger text" style="margin-top:8px;display:flex">${['Normal','Large','Larger','Largest'].map((l,i)=>`<button data-act="a11y-text" data-i="${i}" aria-pressed="${(A11Y.text|0)===i}">${l}</button>`).join('')}</div><span class="hint">On top of your browser's own text size.</span></div>
      ${[['bold','Bold text','Heavier letters throughout.'],['font','Easier-to-read font','Atkinson Hyperlegible for every part of the page, numbers and headings too.'],
@@ -2161,36 +2235,41 @@ function vSettings(){
      <div class="switch"><div><b>Less motion</b><p class="small muted">No animations, moving colour or blur.${window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches?' Your device asks for reduced motion, so motion stays off.':''}</p></div>
      <input type="checkbox" id="fx-toggle" role="switch" aria-label="Less motion" ${FX.on?'':'checked'}></div>
      ${[['time','More time','Undo and other messages stay until you close them.'],['btn','Bigger buttons','Larger buttons with more space between them.']].map(([k,l,d])=>`<div class="switch"><div><b>${l}</b><p class="small muted">${d}</p></div><input type="checkbox" role="switch" data-a11y="${k}" aria-label="${l}" ${A11Y[k]?'checked':''}></div>`).join('')}
-     </div></section>
-   <section class="card"><div class="card-h"><div class="ttl">${ico('in')}<div><h2>Backup and moving to another phone</h2><p class="small muted">Your budget is saved only on this device. Nothing is sent anywhere and no account is needed.</p></div></div></div>
+     </div></section>`,
+    backup:()=>`<section class="card"><div class="card-h"><div class="ttl">${ico('in')}<div><h2>Backup and moving to another phone</h2><p class="small muted">Your budget is saved only on this device. Nothing is sent anywhere and no account is needed.</p></div></div></div>
      <p class="small" style="margin-bottom:10px">${meta().lastBackup?`Last backup: <b>${dLabel(meta().lastBackup.slice(0,10))}</b>`:'<b>No backup yet.</b> If this phone is lost, reset or its browser data is cleared, the budget is gone.'}</p>
      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-act="export">Export an encrypted backup</button><button class="btn" data-act="import">Import a backup</button></div>
      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center"><span class="small muted">Spreadsheet copies (not encrypted):</span><button class="btn sm" data-act="csv" data-kind="spending">Spending (CSV)</button><button class="btn sm" data-act="csv" data-kind="bills">Bills (CSV)</button></div>
-     <p class="small muted" style="margin-top:10px">To use the budget on another phone, export a backup here, send the file to that phone (email, text or cloud drive), open this page there and import it. Importing replaces whatever is on that phone.</p></section>
-   <nav class="jump" aria-label="Jump to a section">${jumps.map(j=>`<button data-act="jump" data-to="${esc(j)}">${esc(j)}</button>`).join('')}</nav>
-   <section class="card"><div class="card-h"><div class="ttl">${ico('users')}<h2>Household</h2></div></div><div class="fgrid">
+     <p class="small muted" style="margin-top:10px">To use the budget on another phone, export a backup here, send the file to that phone (email, text or cloud drive), open this page there and import it. Importing replaces whatever is on that phone.</p></section>`,
+    household:()=>`<section class="card"><div class="card-h"><div class="ttl">${ico('users')}<h2>Household</h2></div></div><div class="fgrid">
      <div class="field"><label for="set-householdName">Household name</label><input id="set-householdName" type="text" maxlength="40" value="${esc(s.householdName||'')}" data-set="householdName" data-type="text" placeholder="e.g. The Smiths, or Sam & Alex" ${dis}><span class="hint">Shown at the top of the page.</span></div>
      <div class="field"><label for="set-people">People who spend money</label><input id="set-people" type="text" maxlength="120" value="${esc((s.people||[]).join(', '))}" data-set="people" data-type="list" placeholder="e.g. Sam, Alex" ${dis}><span class="hint">Separate names with commas. Lets you tag who paid when logging spending.</span></div></div>
-     <label class="check" style="margin-top:12px"><input type="checkbox" data-set="taxReminder" data-type="bool" ${s.taxReminder!==false?'checked':''} ${dis}><span><b>Tax filing reminder</b><br><span class="small muted">From February to April 30, a reminder to file, since benefits depend on it.</span></span></label></section>
-   <section class="card"><div class="card-h"><div class="ttl">${ico('bolt')}<h2>Quick buttons</h2></div></div><p class="small muted" style="margin-bottom:10px">One-tap spending buttons on the Today screen. Add one by ticking "Add a quick button" when you log spending. Dashed buttons are suggestions based on what you log often.</p>
-     <div class="list">${(s.quick||[]).map((q,i)=>`<div class="row"><span class="gdot in"></span><div><div class="nm">${esc(q.note||SPENDL[q.category]||'')}</div><div class="meta">${esc(SPENDL[q.category]||'')}</div></div><div class="amt"><span class="num">${fmt(q.amount)}</span><button class="btn sm ghost danger" data-act="del-quick" data-i="${i}" ${dis}>Remove</button></div></div>`).join('')||'<div class="empty small">No saved quick buttons yet.</div>'}</div></section>
-   <section class="card"><div class="card-h"><div class="ttl">${ico('cal')}<h2>Plan dates</h2></div></div><div class="form"><div class="fgrid">
+     <label class="check" style="margin-top:12px"><input type="checkbox" data-set="taxReminder" data-type="bool" ${s.taxReminder!==false?'checked':''} ${dis}><span><b>Tax filing reminder</b><br><span class="small muted">From February to April 30, a reminder to file, since benefits depend on it.</span></span></label></section>`,
+    quick:()=>`<section class="card"><div class="card-h"><div class="ttl">${ico('bolt')}<h2>Quick buttons</h2></div></div><p class="small muted" style="margin-bottom:10px">One-tap spending buttons on the Today screen. Add one by ticking "Add a quick button" when you log spending. Dashed buttons are suggestions based on what you log often.</p>
+     <div class="list">${(s.quick||[]).map((q,i)=>`<div class="row"><span class="gdot in"></span><div><div class="nm">${esc(q.note||SPENDL[q.category]||'')}</div><div class="meta">${esc(SPENDL[q.category]||'')}</div></div><div class="amt"><span class="num">${fmt(q.amount)}</span><button class="btn sm ghost danger" data-act="del-quick" data-i="${i}" ${dis}>Remove</button></div></div>`).join('')||'<div class="empty small">No saved quick buttons yet.</div>'}</div></section>`,
+    dates:()=>`<section class="card"><div class="card-h"><div class="ttl">${ico('cal')}<h2>Plan dates</h2></div></div><div class="form"><div class="fgrid">
      ${f('set-startYm','First month of the plan',s.startYm,'month','Savings targets count from this month.')}
      ${f('set-trackFrom','Start tracking bills from',s.trackFrom,'date','Bills before this date never show as past due.')}
      ${f('set-babyDue',"Baby's due date (optional)",s.babyDue,'date','Expecting? Kids bills without their own start date begin on this date.')}
      ${f('set-upcomingDays','Days to show in Coming up',s.upcomingDays,'number','','min="3" max="31"')}
-   </div></div></section>
-   <section class="card"><div class="card-h"><div class="ttl">${ico('map')}<h2>Province and bank holidays</h2></div></div>
+   </div></div></section>`,
+    province:()=>`<section class="card"><div class="card-h"><div class="ttl">${ico('map')}<h2>Province and bank holidays</h2></div></div>
      <div class="fgrid" style="margin-bottom:10px"><div class="field"><label for="set-province">Province or territory</label><select id="set-province" data-set="province" data-type="select" ${dis}>${opts(PROVINCES,s.province||'ON')}</select><span class="hint">Sets the holidays below, and which benefits and assistance programs you can add.</span></div>
      <label class="check" style="align-self:end"><input type="checkbox" data-set="showAllProv" data-type="bool" ${s.showAllProv?'checked':''} ${dis}><span><b>Show programs from all provinces</b><br><span class="small muted">For households that live in one province and get help from another.</span></span></label></div>
      <p class="small muted" style="margin-bottom:10px">Payments due on these days arrive the business day before. Provincial holidays are listed too, but banks still process payments on them.</p>
-     ${[ +todayStr().slice(0,4), +todayStr().slice(0,4)+1].map(y=>`<details ${y===+todayStr().slice(0,4)?'':''}><summary>${y}</summary><div class="list">${C.holidaysOf(y,s.province||'ON').map(x=>`<div class="row"><span class="gdot ${x.bank?'adults':''}"></span><div><div class="nm">${esc(x.name)}</div><div class="meta">${x.bank?'Banks closed':'Provincial holiday · banks open'}</div></div><div class="amt small">${dLabel(x.date)}</div></div>`).join('')}</div></details>`).join('')}</section>
-   ${hasExamples()?`<section class="card"><div class="card-h"><div class="ttl">${ico('sparkle')}<h2>Example data</h2></div></div>
+     ${[ +todayStr().slice(0,4), +todayStr().slice(0,4)+1].map(y=>`<details ${y===+todayStr().slice(0,4)?'':''}><summary>${y}</summary><div class="list">${C.holidaysOf(y,s.province||'ON').map(x=>`<div class="row"><span class="gdot ${x.bank?'adults':''}"></span><div><div class="nm">${esc(x.name)}</div><div class="meta">${x.bank?'Banks closed':'Provincial holiday · banks open'}</div></div><div class="amt small">${dLabel(x.date)}</div></div>`).join('')}</div></details>`).join('')}</section>`,
+    examples:()=>`${hasExamples()?`<section class="card"><div class="card-h"><div class="ttl">${ico('sparkle')}<h2>Example data</h2></div></div>
      <p class="muted">${hasExamples()?'The example bills are there so you can see how it works. Clear them when you are ready to enter your own.':'No example data left.'}</p>
-     ${hasExamples()&&!S.readOnly?`<div style="margin-top:10px"><button class="btn danger" data-act="clear-examples">Clear example data</button></div>`:''}</section>`:''}
-   <section class="card"><div class="card-h"><div class="ttl">${ico('trash','red')}<h2>Reset LoonieMate</h2></div></div><p class="muted">Erase everything LoonieMate keeps in this browser (the budget and every setting) and start from scratch. It can't be undone, so export a backup first if you might want it back.</p>
+     ${hasExamples()&&!S.readOnly?`<div style="margin-top:10px"><button class="btn danger" data-act="clear-examples">Clear example data</button></div>`:''}</section>`:''}`,
+    reset:()=>`<section class="card"><div class="card-h"><div class="ttl">${ico('trash','red')}<h2>Reset LoonieMate</h2></div></div><p class="muted">Erase everything LoonieMate keeps in this browser (the budget and every setting) and start from scratch. It can't be undone, so export a backup first if you might want it back.</p>
      <div class="field" style="max-width:260px;margin-top:10px"><label for="reset-type">Type RESET to confirm</label><input id="reset-type" type="text" autocomplete="off" autocapitalize="characters" maxlength="10"></div>
-     <div style="margin-top:10px"><button class="btn danger" data-act="wipe" id="reset-go" disabled>Erase everything and start over</button></div></section></div>`;
+     <div style="margin-top:10px"><button class="btn danger" data-act="wipe" id="reset-go" disabled>Erase everything and start over</button></div></section>`};
+  const PAGES={household:['household','dates','province','examples'],look:['look'],access:['access'],backup:['backup'],quick:['quick'],reset:['reset']};
+  const pg=S.setPage;
+  if(pg==='food'||pg==='income'||pg==='accounts')return pageHead({food:'Food budget',income:'Income and benefits',accounts:'Accounts'}[pg])+({food:vFood,income:vIncome,accounts:vAccounts}[pg])();
+  if(pg&&PAGES[pg])return pageHead(SETTITLES[pg]||'')+`<div class="view">${PAGES[pg].map(k=>SEC[k]()).join('')}</div>`;
+  if(pg)return pageHead(SETTITLES[pg]||'')+`<div class="view">${androidStub(pg)}</div>`;
+  return settingsList();
 }
 
 /* ---------- sheets ---------- */
@@ -2454,13 +2533,18 @@ const armed=new Map();
 const NOSNAP=new Set(['toast-close','a11y-text','debt-open','d-xadd','d-xdel','mode','copy-csv','ck-save','ck-log','tab','m-prev','m-next','m-now','goto','group','jump','goset','sheet-close','setdate','setdefer','export','import','ovmode','copy-backup','log','log-oneoff','add-bill','edit-bill','defer','skip','transfer','use-fund','ccb-split','checkin','csv']);
 function confirmTap(btn,label){const k=btn.dataset.act+(btn.dataset.id||btn.dataset.ym||'');if(armed.get(k)&&Date.now()-armed.get(k)<4000){armed.delete(k);return true}armed.set(k,Date.now());btn.textContent=label;return false}
 document.addEventListener('click',async ev=>{
+  if(!(ev.target.closest('[data-act="rowmenu"]')))closeRowMenu();
   const btn=ev.target.closest('[data-act]');if(!btn)return;const a=btn.dataset.act,d=btn.dataset;
   if(a==='ios-ok'){try{localStorage.setItem('rs-ios-ok','1')}catch(e){}render();return}
   if(a==='toast-close'){document.getElementById('toast').hidden=true;S.undo=null;return}
   if(a==='a11y-text'){A11Y.text=+d.i;saveA11y();render();return}
   if(a==='undo'){if(!S.undo)return;try{backend.replaceAll(JSON.parse(S.undo))}catch(e){toast('Could not undo that.',true);return}S.undo=null;S.snap=null;document.getElementById('toast').hidden=true;toast('Undone',true);return}
   if(!NOSNAP.has(a))takeSnap();
-  if(a==='tab'){S.tab=d.tab;try{localStorage.setItem('rs-tab',d.tab)}catch(e){}window.scrollTo(0,0);render();return}
+  if(a==='tab'){if(['food','income','accounts'].includes(d.tab)){S.tab='settings';S.setPage=d.tab}else{S.tab=d.tab;S.setPage=d.page||null}try{localStorage.setItem('rs-tab',S.tab)}catch(e){}window.scrollTo(0,0);render();return}
+  if(a==='setback'){S.setPage=null;window.scrollTo(0,0);render();return}
+  if(a==='rowmenu'){showRowMenu(btn);return}
+  if(a==='why'){infoSheet(d.title||'Why this move?',d.why||'');return}
+  if(a==='pause-bill'){const b=S.bills[d.id];if(!b)return;await write('bills/'+d.id,()=>backend.update('bills/'+d.id,{active:false}));toast((b.name||'Bill')+' is paused');return}
   if(a==='export'){exportSheet();return}
   if(a==='import'){importSheet();return}
   if(a==='goset'){S.tab=d.tab||'settings';try{localStorage.setItem('rs-tab',S.tab)}catch(e){}render();setTimeout(()=>{const t=[...main.querySelectorAll('section.card h2')].find(x=>x.textContent.trim().startsWith(d.to));if(t)t.closest('section').scrollIntoView({behavior:FX.on?'smooth':'auto',block:'start'})},50);return}
@@ -2713,7 +2797,12 @@ main.addEventListener('change',async e=>{
     if(el.dataset.accp){const k=el.dataset.accp;
       if(el.checked){if(!t.purposes.includes(k))t.purposes.push(k);if(k!=='savings')list.forEach(o=>{if(o!==t&&o.purposes.includes(k)&&k!=='savings')o.purposes=o.purposes.filter(x=>x!==k)})}
       else t.purposes=t.purposes.filter(x=>x!==k)}
-    else{const f=el.dataset.accf;let v=el.value;if(f==='name'){v=v.trim();if(!v)return}t[f]=v}
+    else{const f=el.dataset.accf;let v=el.value;
+      if(f==='atmLimit'){if(!v.trim())delete t.atmLimit;else{const m=parseMoney(v);if(m==null||Number.isNaN(m)||m<0){toast('Enter the daily limit as a dollar amount, or leave it blank.');return}if(m>0)t.atmLimit=m;else delete t.atmLimit}}
+      else if(f==='atmNotes'){if(v==='20')delete t.atmNotes;else t.atmNotes=+v}
+      else if(f==='tellers'){if(v==='no')t.tellers=false;else delete t.tellers}
+      else if(f==='atmOver'){t.atmOver=v;if(v==='split'&&!t.atmAlso){const o=list.find(x=>x.id!==t.id&&x.type==='chequing');if(o)t.atmAlso=o.id}}
+      else{if(f==='name'){v=v.trim();if(!v)return}t[f]=v}}
     await saveSettings({accounts:list});toast('Saved');return}
   if(el.dataset.ded){const sid=el.dataset.sid,k=el.dataset.ded,s0=settings(),list=C.incomesOf(s0).map(x=>Object.assign({},x));const t=list.find(x=>x.id===sid);if(!t)return;
     const cfg=Object.assign({},C.dedCfg(s0,t));
