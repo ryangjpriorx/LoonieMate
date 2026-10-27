@@ -274,7 +274,7 @@ Each stage from 2 on does the Android app first, then the web version, unless it
 - [x] **Stage 2**: engine, web first then Kotlin, parity tested: Take out cash (dates, one trip a day, food in cash,
   ATM limits with days or a second account, rounding to the ATM's bills, tellers, round-up to avoid coins), and
   `Views.todo(st, today)`: one list of every To do item with its kind, so both versions build To do the same way.
-- [ ] **Stage 3**: shared pieces: the row (tap, long-press or ⋯ menu, TalkBack actions, tick), the action menu, the
+- [x] **Stage 3**: shared pieces: the row (tap, long-press or ⋯ menu, TalkBack actions, tick), the action menu, the
   motion rules, settings pages; navigation (tabs, the floating button, the month switcher in the page); Settings as a
   list; the account page's ATM settings.
 - [ ] **Stage 4**: Today.
@@ -315,6 +315,23 @@ Each stage from 2 on does the Android app first, then the web version, unless it
   ones due today already done (`done: true`, last), money landing today (`kind: "in"`), income reports, the weekly
   balance check, locking last month; sorted done-last, then date, then kind. Parity households `cash-days`,
   `cash-split`; `todo` and `todoChecked` in every household.
+- Stage 3 (done): Android `ui/Actions.kt`: `ActionRow` (round `TickCircle`, tap, long-press `ActionMenu` with a buzz,
+  the tick and every `RowAction` as TalkBack actions, "● Overdue" leading the second line), `MoreButton`, `InfoDialog`,
+  `LocalOpen` (open a page from anywhere). `EventRow` (Rows.kt) uses it with `billActions` (Paid, Pay part later, Give
+  up, Change, Pause via `MainViewModel.setBillActive`) and move / cash actions (`whyText`). Pages stack in `AppUi`
+  (`stack`, `StackSaver`, a `SaveableStateHolder` keeps covered pages' typing); `Sheet.Settings(key)` →
+  `SettingsPage` (MoreScreen.kt) shows the old card content plainly (`LocalPlainCard`), with a back arrow
+  (`Page(back = true)`). Settings is `MoreScreen`'s grouped list (`SettingRow`, tags `set-<key>`). Motion: `enter()` only
+  the first time a tab shows (`Seen`, `LocalEnterKey`), 180 ms; `rememberCountUp`, `GrowBar`, `ProgressRing` animate
+  changes only (300 ms); tab fade 150 ms, page fade 220 ms; still `AccentLine`, no badge pulse; `MotionTest` scans the
+  sources (nothing over 400 ms, nothing infinite). `MonthSwitcher` (Components.kt) on Month and Spending; Bills and
+  Savings models ignore the chosen month. FAB per tab, shrinking on scroll (`nestedScroll` in `AppUi`). Account page:
+  `atmLimit`, `atmNotes`, `tellers`, `atmOver`, `atmAlso` (`MainViewModel.saveAccount(…, atm)`).
+  Web: tabs `today`, `month`, `fixed`, `spending`, `savings`; Food / Income / Accounts are Settings pages
+  (`S.setPage`, `settingsList`, `pageHead`, `SETTITLES`, `androidStub` for reminders, sync, updates, getting on track);
+  `monthSw`; `evRow` with `tick`, `menuBtn` / `showRowMenu` (right-click too), `billItems`, `moveItems`, `whyText`,
+  `infoSheet`; motion CSS trimmed, cards fade once per tab (`S.seen`). `parity/webcheck.js` renders every web tab and
+  Settings page for every parity household with a tiny fake DOM (in the build).
 - Today's To do is built in `MainViewModel.buildToday` from `Core.upcoming`; reminder cards come from `Views.reminders`
   and EI report days from `Views.eiReportDay`. Stage 2 moves the list into `Views.todo` (both engines).
 - Cash today: `Core.moneyMoves` (Engine.kt, "cash bills: withdraw from the account that pays them"; web index.html
