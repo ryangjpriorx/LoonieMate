@@ -127,10 +127,10 @@ fun ActionRow(
                         color = if (tick == true) cs.onSurfaceVariant else cs.onSurface, modifier = Modifier.weight(1f, fill = false))
                     pills?.invoke(this)
                 }
-                if (overdue || subtitle.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (overdue) { Dot(x.bad, 8.dp, round = true); Text("Overdue", style = MaterialTheme.typography.bodySmall, color = x.bad, fontWeight = FontWeight.Bold) }
-                    if (subtitle.isNotEmpty()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
+                /* "● Overdue" leads the second line in the problem colour; the rest wraps under it as one line of text */
+                if (overdue || subtitle.isNotEmpty()) Text(androidx.compose.ui.text.buildAnnotatedString {
+                        if (overdue) { pushStyle(androidx.compose.ui.text.SpanStyle(color = x.bad, fontWeight = FontWeight.Bold)); append("● Overdue"); pop(); if (subtitle.isNotEmpty()) append(" · ") }
+                        append(subtitle) }, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
             if (amount != null) Text(amount, style = MaterialTheme.typography.bodyLarge.merge(Numbers), fontWeight = FontWeight.SemiBold, maxLines = 1,
                 color = if (amountTone.isNotEmpty()) toneColors(amountTone).first else cs.onSurface, modifier = Modifier.padding(end = 4.dp))
