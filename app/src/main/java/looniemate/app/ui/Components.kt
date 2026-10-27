@@ -70,6 +70,8 @@ import looniemate.app.ui.theme.LocalExtra
 import looniemate.app.ui.theme.LocalFx
 import looniemate.app.ui.theme.Numbers
 import looniemate.engine.Fmt
+import androidx.compose.ui.platform.testTag
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import looniemate.engine.*
 
 /* ---------- colours by meaning ---------- */
@@ -86,24 +88,32 @@ fun toneColors(tone: String): Pair<Color, Color> {
     }
 }
 
-/* ---------- motion (only when Visual effects is on) ---------- */
+/* ---------- motion: quick, and only once (docs/plans/overhaul.md); none at all with Less motion ---------- */
 
-/** Fades and lifts something into place, a little later for each item in a list. */
+/** The tabs already shown this session (their cards don't fade in again). */
+object Seen { val tabs: MutableSet<String> = java.util.Collections.synchronizedSet(mutableSetOf()) }
+/** Which tab (or page) the cards belong to. */
+val LocalEnterKey = androidx.compose.runtime.staticCompositionLocalOf { "" }
+/** Shown inside a Settings page: cards draw just their content (the page's top bar has the title). */
+val LocalPlainCard = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/** Fades something in the first time its tab is shown in a session, a little later for each of the first five. */
 @Composable
 fun Modifier.enter(index: Int = 0): Modifier {
-    if (!LocalFx.current) return this
+    val key = LocalEnterKey.current
+    if (!LocalFx.current || key in Seen.tabs) return this
     val a = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { delay(40L * index.coerceAtMost(10)); a.animateTo(1f, tween(420, easing = FastOutSlowInEasing)) }
-    return this.graphicsLayer { alpha = a.value; translationY = (1f - a.value) * 24f }
+    LaunchedEffect(Unit) { delay(20L * index.coerceAtMost(5)); a.animateTo(1f, tween(180, easing = FastOutSlowInEasing)) }
+    return this.graphicsLayer { alpha = a.value }
 }
 
-/** A number that counts up the first time it appears. */
+/** A number that moves to its new value when it changes (a tick, a log); no count-up the first time. */
 @Composable
 fun rememberCountUp(target: Double): Double {
-    if (!LocalFx.current) return target
-    val a = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { a.animateTo(1f, tween(750, easing = FastOutSlowInEasing)) }
-    return if (a.value >= 1f) target else target * a.value
+    val fx = LocalFx.current
+    val a = remember { Animatable(target.toFloat()) }
+    LaunchedEffect(target) { if (fx) a.animateTo(target.toFloat(), tween(300, easing = FastOutSlowInEasing)) else a.snapTo(target.toFloat()) }
+    return if (a.isRunning) a.value.toDouble() else target
 }
 
 @Composable
@@ -136,6 +146,9 @@ fun SectionCard(
     title: String, icon: ImageVector, tone: String = "accent", modifier: Modifier = Modifier, trailing: String? = null,
     trailingContent: (@Composable RowScope.() -> Unit)? = null, index: Int = 0, content: @Composable ColumnScope.() -> Unit,
 ) {
+    if (LocalPlainCard.current) { Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            if (trailing != null) { Text(trailing, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(8.dp)) }
+            content() }; return }
     val (_, bg) = toneColors(tone); val surface = MaterialTheme.colorScheme.surfaceContainerLow; val big = bigText()
     /* Stronger contrast outlines every card */
     val outlined = looniemate.app.ui.theme.LocalAccess.current.contrast
@@ -166,14 +179,11 @@ fun Pill(text: String, tone: String = "") {
     }
 }
 
-/** The status badge: a coloured dot that gently pulses when something needs attention. */
+/** The status badge: an icon, a word and a colour (it no longer pulses; the icon and word already say it). */
 @Composable
 fun StatusBadge(tone: String, label: String, big: Boolean = false) {
     val (fg, bg) = when (tone) { "plan" -> toneColors("accent"); else -> toneColors(tone) }
-    val pulse = if (LocalFx.current && (tone == "bad" || tone == "warn")) {
-        val t = rememberInfiniteTransition(label = "pulse")
-        t.animateFloat(1f, 0.35f, infiniteRepeatable(tween(1100, easing = LinearEasing), RepeatMode.Reverse), label = "a").value
-    } else 1f
+    val pulse = 1f
     Surface(color = bg, shape = CircleShape) {
         Row(Modifier.padding(horizontal = if (big) 14.dp else 10.dp, vertical = if (big) 8.dp else 5.dp), verticalAlignment = Alignment.CenterVertically) {
             /* an icon as well as the colour and the word, so status never depends on colour alone */
@@ -185,16 +195,16 @@ fun StatusBadge(tone: String, label: String, big: Boolean = false) {
     }
 }
 
-/** A rounded progress bar that grows into place; an optional marker shows where you should be by now. */
+/** A rounded progress bar that moves to its new length when it changes; an optional marker shows where you should be by now. */
 @Composable
 fun GrowBar(fraction: Float, color: Color, modifier: Modifier = Modifier, marker: Float? = null, height: Dp = 10.dp, track: Color = MaterialTheme.colorScheme.surfaceContainerHighest) {
-    val fx = LocalFx.current; val a = remember { Animatable(if (fx) 0f else 1f) }
-    LaunchedEffect(fx) { if (fx) a.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) else a.snapTo(1f) }
+    val fx = LocalFx.current; val f0 = fraction.coerceIn(0f, 1f); val v = remember { Animatable(f0) }
+    LaunchedEffect(f0) { if (fx) v.animateTo(f0, tween(300, easing = FastOutSlowInEasing)) else v.snapTo(f0) }
     val ink = MaterialTheme.colorScheme.onSurface
     Canvas(modifier.fillMaxWidth().height(height)) {
         val r = CornerRadius(size.height / 2, size.height / 2)
         drawRoundRect(track, cornerRadius = r)
-        val w = size.width * fraction.coerceIn(0f, 1f) * a.value
+        val w = size.width * v.value
         if (w > 0f) drawRoundRect(Brush.horizontalGradient(listOf(color, lerp(color, Color.White, 0.18f))), size = Size(maxOf(w, size.height), size.height), cornerRadius = r)
         if (marker != null) { val x = size.width * marker.coerceIn(0f, 1f); drawRect(ink.copy(alpha = 0.55f), topLeft = Offset(x - 1.5f, -3f), size = Size(3f, size.height + 6f)) }
     }
@@ -204,13 +214,13 @@ fun GrowBar(fraction: Float, color: Color, modifier: Modifier = Modifier, marker
 @Composable
 fun ProgressRing(percent: Double, modifier: Modifier = Modifier, size: Dp = 58.dp) {
     val x = LocalExtra.current; val track = MaterialTheme.colorScheme.surfaceContainerHighest
-    val fx = LocalFx.current; val a = remember { Animatable(if (fx) 0f else 1f) }
-    LaunchedEffect(fx) { if (fx) { delay(150); a.animateTo(1f, tween(1100, easing = FastOutSlowInEasing)) } else a.snapTo(1f) }
+    val fx = LocalFx.current; val p0 = (percent / 100).toFloat().coerceIn(0f, 1f); val v = remember { Animatable(p0) }
+    LaunchedEffect(p0) { if (fx) v.animateTo(p0, tween(300, easing = FastOutSlowInEasing)) else v.snapTo(p0) }
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(size)) {
             val sw = 6.dp.toPx(); val d = this.size.minDimension - sw; val tl = Offset(sw / 2, sw / 2)
             drawArc(track, 0f, 360f, false, topLeft = tl, size = Size(d, d), style = Stroke(sw))
-            val sweep = (360f * (percent / 100).toFloat().coerceIn(0f, 1f)) * a.value
+            val sweep = 360f * v.value
             if (sweep > 0f) drawArc(Brush.sweepGradient(listOf(x.good, x.pets, x.good)), -90f, sweep, false, topLeft = tl, size = Size(d, d), style = Stroke(sw, cap = StrokeCap.Round))
         }
         Text("${percent.toInt()}%", style = MaterialTheme.typography.labelMedium.merge(Numbers), fontWeight = FontWeight.Bold)
@@ -279,4 +289,25 @@ fun StatTile(label: String, value: Double, note: String, tone: String, modifier:
 fun ClickRow(onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
     Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(onClick = onClick).padding(vertical = rowPad(8.dp), horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), content = content)
+}
+
+/**
+ * The month switcher, at the top of Month and Spending (the only tabs about one month). The chosen month is shared by
+ * the two; "Back to this month" shows whenever another month is open.
+ */
+@Composable
+fun MonthSwitcher(vm: looniemate.app.MainViewModel) {
+    val sel by vm.ym.collectAsStateWithLifecycle()
+    val home = vm.defaultYm(vm.today.value, vm.settings()); val ym = sel ?: home
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.IconButton(onClick = { vm.ym.value = ymAdd(ym, -1).takeIf { it != home } }, modifier = Modifier.testTag("month-prev")) {
+                Icon(androidx.compose.material.icons.Icons.Rounded.ChevronLeft, "Previous month") }
+            Text(Fmt.monthName(ym), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
+            androidx.compose.material3.IconButton(onClick = { vm.ym.value = ymAdd(ym, 1).takeIf { it != home } }, modifier = Modifier.testTag("month-next")) {
+                Icon(androidx.compose.material.icons.Icons.Rounded.ChevronRight, "Next month") }
+        }
+        if (ym != home) androidx.compose.material3.AssistChip(onClick = { vm.ym.value = null }, label = { Text("Back to ${Fmt.monthOnly(home)}") },
+            modifier = Modifier.testTag("month-home"))
+    }
 }

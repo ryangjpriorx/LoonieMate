@@ -121,13 +121,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         .mapLatest { (d, t, y) -> buildMonth(d, t, y) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val billsModel: StateFlow<BillsModel?> = combine(repo.docs, today, ym) { d, t, y -> Triple(d, t, y) }
-        .mapLatest { (d, t, y) -> buildBills(d, t, y) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+        .mapLatest { (d, t, _) -> buildBills(d, t, null) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val spendingModel: StateFlow<SpendingModel?> = combine(repo.docs, today, ym) { d, t, y -> Triple(d, t, y) }
         .mapLatest { (d, t, y) -> buildSpending(d, t, y) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val savingsModel: StateFlow<SavingsModel?> = combine(repo.docs, today, ym) { d, t, y -> Triple(d, t, y) }
-        .mapLatest { (d, t, y) -> buildSavings(d, t, y) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+        .mapLatest { (d, t, _) -> buildSavings(d, t, null) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private fun buildSavings(d: Map<String, J>, t: String, y: String?): SavingsModel {
         val st = store(d, t); val s = st.settings; val ym = y ?: defaultYm(t, s); val c = Core.monthCalc(ym, st, t)
@@ -280,16 +280,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun saveBill(id: String?, doc: Obj) { val bid = id ?: repo.newId(); val p = "bills/$bid"
         change(if (id != null) "Bill updated" else "Bill added", listOf(p)) { repo.set(p, doc) } }
 
+    /** Pause or resume a bill (bills/<id>.active). */
+    fun setBillActive(id: String, active: Boolean) { val b = repo.get("bills/$id") ?: return
+        change(if (active) "${b.s("name")} is back on" else "${b.s("name")} is paused", listOf("bills/$id")) { repo.update("bills/$id", J.obj("active" to active)) } }
+
     fun deleteBill(id: String) { val p = "bills/$id"; change("Bill deleted", listOf(p, "meta/tombstones")) { repo.delete(p) } }
 
     /* ---------- accounts (settings.accounts, the same list the web version's Accounts tab edits) ---------- */
 
     /** Saves an account. Returns an error message, or null when it worked. */
-    fun saveAccount(id: String?, name: String, type: String, kind: String, purposes: List<String>): String? {
+    fun saveAccount(id: String?, name: String, type: String, kind: String, purposes: List<String>, atm: Obj? = null): String? {
         if (name.isBlank()) return "Give the account a name."
         val s = settings()
         if (Core.accountsOf(s).any { it.s("id") != id && it.s("name").equals(name.trim(), ignoreCase = true) }) return "You already have an account called ${name.trim()}."
-        val list = Accounts.saved(s, id ?: ("a" + repo.newId()), name, type, kind, purposes)
+        val aid = id ?: ("a" + repo.newId())
+        val list = Accounts.saved(s, aid, name, type, kind, purposes)
+        /* what the bank and its ATM can do (docs/plans/overhaul.md, Cash and the ATM); J.Null removes a field */
+        if (atm != null) list.find { it is Obj && it.s("id") == aid }?.let { a -> atm.map.forEach { (k, v) -> (a as Obj)[k] = if (v == J.Null) null else v } }
         change(if (id != null) "Saved ${name.trim()}" else "Added ${name.trim()}", listOf("settings/main")) { saveSettings(J.obj("accounts" to list)) }
         return null
     }

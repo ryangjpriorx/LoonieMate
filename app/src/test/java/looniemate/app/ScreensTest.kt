@@ -85,6 +85,11 @@ class ScreensTest {
 
     /* Settings opens from the gear in the top bar, which isn't there while Settings is already open */
     private fun tab(name: String) { if (rule.onAllNodesWithTag("tab-$name").fetchSemanticsNodes().isNotEmpty()) { rule.onNodeWithTag("tab-$name").performClick(); settle() } }
+    /** Opens a Settings page from the Settings list. */
+    private fun setting(key: String) { tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("set-$key")); settle()
+        rule.onNodeWithTag("set-$key").performClick(); settle() }
+    /** Closes every open page. */
+    private fun closeAll() { repeat(4) { closePage() } }
     private fun back() { rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }; settle() }
     /** Closes the open page with its ✕, answering "Leave" if it asks. */
     private fun closePage() {
@@ -109,10 +114,8 @@ class ScreensTest {
         rule.onNodeWithTag("fab").performClick(); settle(); back()
         if (rule.onAllNodesWithTag("page").fetchSemanticsNodes().isNotEmpty()) { problems.add("$theme: an untouched page didn't close on back"); closePage() }
         tab("Bills"); rule.onNodeWithTag("fab").performClick(); shot("$theme-sheet-bill", sheet = true); closePage()
-        tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("account-0")); settle()
-        rule.onNodeWithTag("account-0").performClick(); shot("$theme-sheet-account", sheet = true); closePage()
-        tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("food-settings")); settle()
-        rule.onNodeWithTag("food-settings").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); shot("$theme-sheet-food", sheet = true); closePage()
+        setting("accounts"); shot("$theme-settings-accounts", sheet = true); rule.onNodeWithTag("account-0").performScrollTo().performClick(); shot("$theme-sheet-account", sheet = true); closeAll()
+        setting("food"); rule.onNodeWithTag("food-settings").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); shot("$theme-sheet-food", sheet = true); closeAll()
         /* Personal Expenses: the card on the Spending tab (logging one item with a tap), the list page, and the card on Today */
         tab("Spending"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("self-edit")); settle()
         shot("$theme-Spending-self")
@@ -126,11 +129,10 @@ class ScreensTest {
         tab("Today"); if (runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("self-open")) }.isSuccess) shot("$theme-Today-self")
         else problems.add("$theme: no Personal Expenses card on Today")
         /* these sit further down a scrolling list, so they're drawn only when they're on screen */
-        tab("More")
-        if (runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("test-reminder")) }.isSuccess) shot("$theme-More-reminders")
-        tab("Today"); tab("More")
-        rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("sync-create")); settle(); shot("$theme-More-sync")
-        tab("Today"); tab("More"); if (runCatching { rule.onNodeWithTag("add-income").performScrollTo().performClick() }.isSuccess) { shot("$theme-sheet-income", sheet = true); closePage() }
+        setting("reminders"); shot("$theme-More-reminders", sheet = true); closeAll()
+        setting("sync"); shot("$theme-More-sync", sheet = true); closeAll()
+        setting("income"); shot("$theme-settings-income", sheet = true)
+        if (runCatching { rule.onNodeWithTag("add-income").performScrollTo().performClick() }.isSuccess) { shot("$theme-sheet-income", sheet = true) }; closeAll()
         tab("Month")
         rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("month-income")); settle()
         rule.onNodeWithTag("month-income").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle()
@@ -138,8 +140,8 @@ class ScreensTest {
         shot("$theme-sheet-month-income", sheet = true); closePage()
         /* getting on track: fill in balances, step through to Where you stand */
         tab("More")
-        rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("get-on-track")); settle()
-        rule.onNodeWithTag("get-on-track").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle(); shot("$theme-catchup-1", sheet = true)
+        rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("set-ontrack")); settle()
+        rule.onNodeWithTag("set-ontrack").performClick(); settle(); shot("$theme-catchup-1", sheet = true)
         rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction()).fetchSemanticsNodes().indices.forEach { i -> rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[i].performScrollTo().performTextInput("${200 + i * 150}") }
         repeat(3) { k -> rule.onNodeWithTag("cu-next").performScrollTo().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick); settle(); shot("$theme-catchup-${k + 2}", sheet = true) }
         /* step 4 is Personal Expenses, saved with its own button; step 5 checks what's left for food (worked out from the balance) */
@@ -150,14 +152,13 @@ class ScreensTest {
         back(); if (rule.onAllNodesWithTag("cu-change").fetchSemanticsNodes().isEmpty()) problems.add("$theme: back didn't go to the previous step")
         closePage()
         /* balance check: only the first account typed in; the rest count as $0 after one question */
-        tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("checkin-more")); settle()
-        rule.onNodeWithTag("checkin-more").performClick(); settle()
+        setting("accounts"); rule.onNodeWithTag("checkin-more").performScrollTo().performClick(); settle()
         rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[0].performScrollTo().performTextInput("100")
         rule.onNodeWithTag("compare").performScrollTo().performClick(); settle()
         if (rule.onAllNodesWithTag("blank-zero").fetchSemanticsNodes().isEmpty()) problems.add("$theme: blank balances didn't ask once to count them as $0")
         else { shot("$theme-blank-zero", dialog = true); rule.onNodeWithTag("blank-zero").performClick(); settle()
             if (rule.onAllNodesWithTag("compare").fetchSemanticsNodes().isNotEmpty()) problems.add("$theme: counting blanks as $0 didn't go on to the result") }
-        shot("$theme-sheet-checkin", sheet = true); closePage()
+        shot("$theme-sheet-checkin", sheet = true); closeAll()
         assertTrue(problems.joinToString("\n"), problems.isEmpty())
     }
 
@@ -168,10 +169,11 @@ class ScreensTest {
     @Test fun householdProvinceAndQuickButtons() {
         seed(dark = false, effects = false)
         val vm = androidx.lifecycle.ViewModelProvider(rule.activity)[MainViewModel::class.java]
-        tab("More"); rule.onNodeWithTag("household-open").performScrollTo().performClick(); settle(); shot("sheet-household", sheet = true)
+        setting("household"); rule.onNodeWithTag("household-open").performScrollTo().performClick(); settle(); shot("sheet-household", sheet = true)
         rule.onNodeWithTag("hh-people").performTextClearance(); rule.onNodeWithTag("hh-people").performTextInput("Sam, Alex, Sam")
         rule.onNodeWithText("Ontario").performClick(); settle(); rule.onNodeWithText("Quebec").performClick(); settle()
         rule.onNodeWithTag("hh-save").performScrollTo().performClick(); settle()
+        closeAll()
         val s = vm.settings()
         org.junit.Assert.assertEquals("QC", s.s("province"))
         org.junit.Assert.assertEquals(listOf("Sam", "Alex"), s.strList("people"))
@@ -180,7 +182,7 @@ class ScreensTest {
         assertTrue("Who paid lists the people", rule.onAllNodesWithText("Alex").fetchSemanticsNodes().isNotEmpty())
         closePage()
         /* the test household has one saved quick button; it can be removed */
-        tab("More"); rule.onAllNodes(androidx.compose.ui.test.hasScrollToNodeAction())[0].performScrollToNode(androidx.compose.ui.test.hasTestTag("quick-del-0")); settle()
+        closeAll(); setting("quick")
         shot("More-quick")
         rule.onNodeWithTag("quick-del-0").performClick(); settle()
         assertTrue("the quick button is gone", vm.settings()["quick"].arr().isEmpty())
@@ -191,11 +193,11 @@ class ScreensTest {
     @Test fun assistanceAndEi() {
         seed(dark = false, effects = false)
         val vm = androidx.lifecycle.ViewModelProvider(rule.activity)[MainViewModel::class.java]
-        tab("More"); rule.onNodeWithTag("income-i-odsp").performScrollTo().performClick(); settle(); shot("sheet-odsp", sheet = true)
+        setting("income"); rule.onNodeWithTag("income-i-odsp").performScrollTo().performClick(); settle(); shot("sheet-odsp", sheet = true)
         assertTrue("no lag question", rule.onAllNodesWithText("Which payment a month's pay reduces").fetchSemanticsNodes().isEmpty())
         assertTrue("the rule as a sentence", rule.onAllNodes(androidx.compose.ui.test.hasText("lowers the", substring = true)).fetchSemanticsNodes().isNotEmpty())
         closePage()
-        tab("Today"); tab("More"); rule.onNodeWithTag("add-ei").performScrollTo().performClick(); settle()
+        rule.onNodeWithTag("add-ei").performScrollTo().performClick(); settle()
         rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[1].performScrollTo().performTextInput("455")
         shot("sheet-ei", sheet = true)
         rule.onNodeWithText("Add").performScrollTo().performClick(); settle()

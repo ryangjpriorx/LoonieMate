@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -67,7 +68,7 @@ val LocalPage = staticCompositionLocalOf<PageState?> { null }
  * flow going back a step) come first because they're registered after this one.
  */
 @Composable
-fun Page(onClose: () -> Unit, content: @Composable () -> Unit) {
+fun Page(onClose: () -> Unit, back: Boolean = false, content: @Composable () -> Unit) {
     val page = rememberSaveable(saver = PageState.Saver) { PageState() }
     var asking by rememberSaveable { mutableStateOf(false) }
     val tryClose: () -> Unit = { if (page.edited) asking = true else onClose() }
@@ -78,7 +79,7 @@ fun Page(onClose: () -> Unit, content: @Composable () -> Unit) {
             topBar = {
                 TopAppBar(
                     title = { Text(page.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() }) },
-                    navigationIcon = { IconButton(onClick = tryClose, modifier = Modifier.testTag("page-close")) { Icon(Icons.Rounded.Close, "Close") } },
+                    navigationIcon = { IconButton(onClick = tryClose, modifier = Modifier.testTag("page-close")) { if (back) Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") else Icon(Icons.Rounded.Close, "Close") } },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
                 )
             },

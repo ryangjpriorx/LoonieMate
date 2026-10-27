@@ -49,6 +49,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -114,6 +117,8 @@ sealed class Sheet {
     /** Settings → Reset LoonieMate: type RESET to erase everything on this phone. */
     data object Reset : Sheet()
     data object Import : Sheet()
+    /** A Settings page: household, accounts, income, food, quick, reminders, look, access, backup, sync, updates, about. */
+    data class Settings(val key: String) : Sheet()
 }
 
 /** Saves which page is open as plain values (polish-and-audit S1). */
@@ -124,6 +129,7 @@ private fun sheetToList(s: Sheet): ArrayList<Any?> = when (s) {
     is Sheet.Income -> arrayListOf("Income", s.id, s.assist); is Sheet.Credit -> arrayListOf("Credit", s.id, s.type); is Sheet.MonthIncome -> arrayListOf("MonthIncome", s.ym)
     Sheet.Update -> arrayListOf("Update"); is Sheet.CatchUp -> arrayListOf("CatchUp", s.first); is Sheet.Access -> arrayListOf("Access", s.next?.let { sheetToList(it) })
     Sheet.Self -> arrayListOf("Self"); Sheet.Export -> arrayListOf("Export"); Sheet.Import -> arrayListOf("Import"); Sheet.Reset -> arrayListOf("Reset"); Sheet.Household -> arrayListOf("Household")
+    is Sheet.Settings -> arrayListOf("Settings", s.key)
 }
 private fun listToSheet(l: List<Any?>): Sheet? = try { when (l[0]) {
     "Log" -> Sheet.Log(l[1] as Boolean, l[2] as String); "Food" -> Sheet.Food(l[1] as String); "Bill" -> Sheet.Bill(l[1] as String?, l[2] as String)
@@ -131,17 +137,21 @@ private fun listToSheet(l: List<Any?>): Sheet? = try { when (l[0]) {
     "Checkin" -> Sheet.Checkin; "Fund" -> Sheet.Fund(l[1] as String?); "UseFund" -> Sheet.UseFund(l[1] as String); "Ccb" -> Sheet.Ccb(l[1] as String)
     "Income" -> Sheet.Income(l[1] as String?, l[2] as String?); "Credit" -> Sheet.Credit(l[1] as String?, l[2] as String?); "MonthIncome" -> Sheet.MonthIncome(l[1] as String)
     "Update" -> Sheet.Update; "CatchUp" -> Sheet.CatchUp(l[1] as Boolean); "Access" -> Sheet.Access((l[1] as List<*>?)?.let { listToSheet(it) })
-    "Self" -> Sheet.Self; "Export" -> Sheet.Export; "Import" -> Sheet.Import; "Reset" -> Sheet.Reset; "Household" -> Sheet.Household; else -> null
+    "Self" -> Sheet.Self; "Export" -> Sheet.Export; "Import" -> Sheet.Import; "Reset" -> Sheet.Reset; "Household" -> Sheet.Household; "Settings" -> Sheet.Settings(l[1] as String); else -> null
 } } catch (_: Exception) { null }
-private val SheetSaver = androidx.compose.runtime.saveable.Saver<Sheet?, ArrayList<Any?>>(save = { it?.let(::sheetToList) }, restore = { listToSheet(it) })
+/* the open pages, one on top of another (a Settings page, then a form from it); only the top one is shown */
+private val StackSaver = androidx.compose.runtime.saveable.Saver<List<Sheet>, ArrayList<Any?>>(save = { st -> ArrayList(st.map(::sheetToList)) },
+    restore = { l -> l.mapNotNull { (it as? List<*>)?.let(::listToSheet) } })
+private fun pageKey(depth: Int, s: Sheet) = "$depth:" + sheetToList(s).joinToString("|")
 
 @Composable
 fun LoonieMateApp(vm: MainViewModel) {
     var tab by rememberSaveable { mutableStateOf(Tab.Today) }
-    var sheet by rememberSaveable(stateSaver = SheetSaver) { mutableStateOf<Sheet?>(null) }
+    var stack by rememberSaveable(stateSaver = StackSaver) { mutableStateOf(listOf<Sheet>()) }
+    val sheet = stack.lastOrNull()
+    val pages = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
     val snackbar = remember { SnackbarHostState() }
     val today by vm.today.collectAsStateWithLifecycle()
-    val ymSel by vm.ym.collectAsStateWithLifecycle()
     val todayModel by vm.todayModel.collectAsStateWithLifecycle()
     val lastBackup by vm.prefs.lastBackupFlow.collectAsStateWithLifecycle()
 
@@ -157,16 +167,21 @@ fun LoonieMateApp(vm: MainViewModel) {
     BackHandler(enabled = tab != Tab.Today) { tab = Tab.Today }
     val openUpdate by vm.openUpdate.collectAsStateWithLifecycle()
     /* first launch with an empty budget: the accessibility choices come first (docs/plans/accessibility.md) */
-    LaunchedEffect(todayModel?.isNew) { if (todayModel?.isNew == true && !vm.prefs.a11yAsked && sheet == null) sheet = Sheet.Access() }
+    LaunchedEffect(todayModel?.isNew) { if (todayModel?.isNew == true && !vm.prefs.a11yAsked && stack.isEmpty()) stack = listOf(Sheet.Access()) }
     /* after Reset LoonieMate: back to Today, where first-time setup starts again */
     val resets by vm.resets.collectAsStateWithLifecycle()
     LaunchedEffect(resets) { if (resets > 0) tab = Tab.Today }
-    LaunchedEffect(openUpdate) { openUpdate?.let { w -> vm.openUpdate.value = null; sheet = Sheet.Update; vm.openedForUpdate(w == "install") } }
+    LaunchedEffect(openUpdate) { openUpdate?.let { w -> vm.openUpdate.value = null; stack = stack + Sheet.Update; vm.openedForUpdate(w == "install") } }
 
-    val open: (Sheet) -> Unit = { sheet = it }
-    val monthTabs = tab == Tab.Month || tab == Tab.Bills || tab == Tab.Spending || tab == Tab.Savings
-    val shownYm = ymSel ?: vm.shownYm()
+    val open: (Sheet) -> Unit = { stack = stack + it }
+    val dismiss: () -> Unit = { stack.lastOrNull()?.let { pages.removeState(pageKey(stack.size, it)) }; stack = stack.dropLast(1) }
     val big = bigText()
+    /* the floating button shrinks to just the + while scrolling down, so it doesn't sit on top of rows */
+    var fabWide by remember { mutableStateOf(true) }
+    val scrollWatch = remember { object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+        override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
+            if (available.y < -4f) fabWide = false else if (available.y > 4f) fabWide = true; return androidx.compose.ui.geometry.Offset.Zero } } }
+    LaunchedEffect(tab) { fabWide = true }
     val syncState by vm.sync.state.collectAsStateWithLifecycle()
     val syncLine = when (val s = syncState) { is looniemate.app.sync.SyncManager.State.Syncing -> "Syncing…"
         is looniemate.app.sync.SyncManager.State.Error -> "Sync needs attention · see Settings"
@@ -180,16 +195,15 @@ fun LoonieMateApp(vm: MainViewModel) {
             Column {
                 CenterAlignedTopAppBar(
                     title = {
-                        if (monthTabs) Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { vm.ym.value = ymAdd(shownYm, -1) }) { Icon(Icons.Rounded.ChevronLeft, "Previous month") }
-                            TextButton(onClick = { vm.ym.value = null }) { Text(Fmt.monthName(shownYm), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
-                            IconButton(onClick = { vm.ym.value = ymAdd(shownYm, 1) }) { Icon(Icons.Rounded.ChevronRight, "Next month") }
-                        } else Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(if (tab == Tab.More) "Settings" else todayModel?.title ?: "LoonieMate", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(if (tab == Tab.More) "Settings" else if (tab == Tab.Today) todayModel?.title ?: "LoonieMate" else tab.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
                                 maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                            if (tab == Tab.Today && !big) { val days = lastBackup?.let { diffDays(it.take(10), today) }
-                                Text(if (vm.sync.on) syncLine else "Saved on this phone · " + when (days) { null -> "not backed up yet"; 0 -> "backed up today"; 1 -> "backed up yesterday"; else -> "backed up $days days ago" },
-                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            /* only when there's something to say: an old backup, or sync needing attention */
+                            val days = lastBackup?.let { diffDays(it.take(10), today) }
+                            val note = when { vm.sync.on && syncState is looniemate.app.sync.SyncManager.State.Error -> syncLine
+                                !vm.sync.on && (days == null || days > 14) -> if (days == null) "Not backed up yet" else "Last backup $days days ago"; else -> "" }
+                            if (tab == Tab.Today && !big && note.isNotEmpty() && todayModel?.isNew != true)
+                                Text(note, style = MaterialTheme.typography.labelSmall, color = toneColors("warn").first)
                         }
                     },
                     navigationIcon = { if (tab == Tab.More) IconButton(onClick = { tab = Tab.Today }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
@@ -210,50 +224,50 @@ fun LoonieMateApp(vm: MainViewModel) {
         },
         floatingActionButton = {
             when (tab) {
-                Tab.Today, Tab.Month, Tab.Spending -> ExtendedFloatingActionButton(onClick = { open(Sheet.Log()) }, modifier = Modifier.testTag("fab"), icon = { Icon(Icons.Rounded.Add, null) }, text = { Text("Log spending") })
-                Tab.Bills -> ExtendedFloatingActionButton(onClick = { open(Sheet.Bill(null, vm.prefs.group)) }, modifier = Modifier.testTag("fab"), icon = { Icon(Icons.Rounded.Add, null) }, text = { Text("Add bill") })
+                Tab.Today, Tab.Spending -> ExtendedFloatingActionButton(onClick = { open(Sheet.Log()) }, expanded = fabWide, modifier = Modifier.testTag("fab"), icon = { Icon(Icons.Rounded.Add, "Log spending") }, text = { Text("Log spending") })
+                Tab.Bills -> ExtendedFloatingActionButton(onClick = { open(Sheet.Bill(null, vm.prefs.group)) }, expanded = fabWide, modifier = Modifier.testTag("fab"), icon = { Icon(Icons.Rounded.Add, "Add a bill") }, text = { Text("Add a bill") })
                 else -> {}
             }
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { pad ->
         val content = PaddingValues(start = 16.dp, end = 16.dp, top = pad.calculateTopPadding() + 12.dp, bottom = pad.calculateBottomPadding() + 96.dp)
-        Box(Modifier.fillMaxSize()) {
-            if (LocalFx.current) AnimatedContent(tab, transitionSpec = {
-                val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
-                (fadeIn() + slideInHorizontally { it / 12 * dir }) togetherWith (fadeOut() + slideOutHorizontally { -it / 12 * dir })
-            }, label = "tab") { t -> Screen(t, vm, content, open) { tab = it } }
+        Box(Modifier.fillMaxSize().nestedScroll(scrollWatch)) {
+            /* a short fade between tabs, no sliding (docs/plans/overhaul.md, Motion) */
+            if (LocalFx.current) AnimatedContent(tab, transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) }, label = "tab") { t -> Screen(t, vm, content, open) { tab = it } }
             else Screen(tab, vm, content, open) { tab = it }
         }
     }
-    /* the page slides up a little and fades in (just appears with Less motion); "last" keeps it drawn while it fades out */
-    val last = remember { arrayOfNulls<Sheet>(1) }; sheet?.let { last[0] = it }
-    if (LocalFx.current) AnimatedVisibility(sheet != null, enter = fadeIn() + slideInVertically { it / 16 }, exit = fadeOut()) {
-        last[0]?.let { s -> Sheets(s, vm, onDismiss = { sheet = null }, open = open) } }
-    else sheet?.let { s -> Sheets(s, vm, onDismiss = { sheet = null }, open = open) }
+    /* the top page fades in and out (just appears with Less motion); "last" keeps it drawn while it fades out; pages
+       underneath keep what was typed (the holder) until they're closed */
+    val last = remember { arrayOfNulls<Pair<Int, Sheet>>(1) }; sheet?.let { last[0] = stack.size to it }
+    val fx = LocalFx.current
+    CompositionLocalProvider(LocalOpen provides open) {
+        if (fx) AnimatedVisibility(sheet != null, enter = fadeIn(tween(220)), exit = fadeOut(tween(180))) {
+            last[0]?.let { (d, s) -> androidx.compose.animation.AnimatedContent(d to s, transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(120)) }, label = "page") { (dd, ss) ->
+                pages.SaveableStateProvider(pageKey(dd, ss)) { Sheets(ss, vm, onDismiss = dismiss, open = open) } } } }
+        else sheet?.let { s -> pages.SaveableStateProvider(pageKey(stack.size, s)) { Sheets(s, vm, onDismiss = dismiss, open = open) } }
+    }
     }
 }
 
 @Composable
 private fun Screen(t: Tab, vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit, go: (Tab) -> Unit) {
-    when (t) {
+    /* cards fade in only the first time each tab is shown in a session */
+    LaunchedEffect(t) { kotlinx.coroutines.delay(400); Seen.tabs.add(t.name) }
+    CompositionLocalProvider(LocalOpen provides open, LocalEnterKey provides t.name) { when (t) {
         Tab.Today -> TodayScreen(vm, pad, open, go)
         Tab.Month -> MonthScreen(vm, pad, open)
         Tab.Bills -> BillsScreen(vm, pad, open)
         Tab.Spending -> SpendingScreen(vm, pad, open)
         Tab.Savings -> SavingsScreen(vm, pad, open)
         Tab.More -> MoreScreen(vm, pad, open)
-    }
+    } }
 }
 
-/** The thin colour line under the top bar; it slowly shifts colour when Visual effects is on. */
+/** The thin colour line under the top bar: a still gradient. */
 @Composable
 private fun AccentLine() {
     val cs = MaterialTheme.colorScheme; val x = LocalExtra.current
-    val colors = listOf(cs.primary, cs.tertiary, x.baby, x.pets, cs.primary)
-    if (LocalFx.current) {
-        val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "line")
-        val shift by t.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(14000, easing = androidx.compose.animation.core.LinearEasing)), label = "shift")
-        Box(Modifier.fillMaxWidth().height(3.dp).background(Brush.horizontalGradient(colors, startX = -2000f * shift, endX = 3000f - 2000f * shift, tileMode = androidx.compose.ui.graphics.TileMode.Mirror)))
-    } else Box(Modifier.fillMaxWidth().height(3.dp).background(Brush.horizontalGradient(colors)))
+    Box(Modifier.fillMaxWidth().height(3.dp).background(Brush.horizontalGradient(listOf(cs.primary, cs.tertiary, x.baby, x.pets, cs.primary))))
 }

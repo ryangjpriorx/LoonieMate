@@ -68,6 +68,7 @@ fun MonthScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
     val m = mm ?: return
     val s = vm.settings(); val c = m.c
     LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { looniemate.app.ui.MonthSwitcher(vm) }
         if (m.examples) item {
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
                 /* the note on its own line, so it never gets squeezed at large text sizes */

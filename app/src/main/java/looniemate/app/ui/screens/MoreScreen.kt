@@ -2,6 +2,13 @@
 
 package looniemate.app.ui.screens
 
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
+import looniemate.app.ui.enter
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -85,100 +92,159 @@ import looniemate.engine.Fmt
 import looniemate.engine.diffDays
 import looniemate.engine.*
 
+/** One row of the Settings list: an icon, the page's name and a one-line summary. */
+@Composable
+private fun SettingRow(key: String, title: String, summary: String, icon: androidx.compose.ui.graphics.vector.ImageVector, tone: String, onClick: () -> Unit) {
+    Box(Modifier.testTag("set-$key")) { ClickRow(onClick) {
+        IconBadge(icon, tone, 36.dp)
+        Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.SemiBold)
+            if (summary.isNotEmpty()) Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2) }
+        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } }
+}
+
+@Composable
+private fun Group(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().enter(0)) {
+        Text(title.uppercase(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp).semantics { heading() })
+        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), content = content) }
+    }
+}
+
+private fun minutes(m: Int): String { val h = m / 60; val mm = m % 60; val h12 = if (h % 12 == 0) 12 else h % 12
+    return "$h12" + (if (mm > 0) ":" + (if (mm < 10) "0$mm" else "$mm") else "") + if (h < 12) " a.m." else " p.m." }
+
+/** Settings: a short list of pages, grouped (docs/plans/overhaul.md). */
 @Composable
 fun MoreScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit) {
     val look by vm.prefs.look.collectAsStateWithLifecycle()
-    val upd by vm.updater.state.collectAsStateWithLifecycle()
+    val acc by vm.prefs.access.collectAsStateWithLifecycle()
     val lastBackup by vm.prefs.lastBackupFlow.collectAsStateWithLifecycle()
     val today by vm.today.collectAsStateWithLifecycle()
-    val ctx = LocalContext.current
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { HouseholdCard(vm, open) }
-        item { AccountsCard(vm, open) }
-        item { IncomeCard(vm, open) }
-        item { FoodCard(vm, open) }
-        item { QuickButtonsCard(vm) }
-        item { RemindersCard(vm) }
-        item {
-            SectionCard("Appearance", Icons.Rounded.Palette, trailing = "Only this phone", index = 0) {
-                Text("Light or dark", fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(6.dp))
-                val modes = listOf("system" to "Match phone", "light" to "Light", "dark" to "Dark")
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    modes.forEachIndexed { i, (k, l) -> SegmentedButton(selected = look.themeMode == k, onClick = { vm.prefs.setLook(look.copy(themeMode = k)) }, shape = SegmentedButtonDefaults.itemShape(i, modes.size)) { Text(l) } }
-                }
-                Spacer(Modifier.height(14.dp))
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    SwitchRow("Colours from my wallpaper", "Material You: LoonieMate picks up the colours of your home screen.", look.dynamicColor) { vm.prefs.setLook(look.copy(dynamicColor = it)) }
-                    Spacer(Modifier.height(10.dp))
-                }
-                if (!look.dynamicColor || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                    Text("Colour theme", fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(8.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        PALETTES.forEach { p -> val sel = look.palette == p.key
-                            Surface(onClick = { vm.prefs.setLook(look.copy(palette = p.key)) }, shape = MaterialTheme.shapes.medium,
-                                color = if (sel) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
-                                border = if (sel) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null) {
-                                Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Box(Modifier.size(34.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Color(p.l[0]), Color(p.l[1])))))
-                                    Spacer(Modifier.height(4.dp)); Text(p.name, style = MaterialTheme.typography.labelMedium)
-                                }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                }
-            }
-        }
-        item { AccessibilityCard(vm) }
-        item {
-            SectionCard("Backup and moving to another phone", Icons.Rounded.Backup, "green", index = 1) {
-                val days = lastBackup?.let { diffDays(it.take(10), today) }
-                Text(when (days) { null -> "No backup yet. If this phone is lost, reset or the app is removed, the budget is gone."; 0 -> "Last backup: today."; 1 -> "Last backup: yesterday."; else -> "Last backup: $days days ago." },
-                    fontWeight = if (days == null || days > 14) FontWeight.Bold else null, color = if (days == null || days > 14) toneColors("warn").first else MaterialTheme.colorScheme.onSurface)
-                Spacer(Modifier.height(6.dp))
-                Text("Backups are locked with a password you choose and saved as a file. The same file works in the web version and on another phone. If you lose the password, the file can't be opened by anyone.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Button(onClick = { open(Sheet.Export) }) { Text("Export a backup") }; OutlinedButton(onClick = { open(Sheet.Import) }) { Text("Import a backup") } }
-            }
-        }
-        item { SyncCard(vm) }
-        item {
-            SectionCard("Updates", Icons.Rounded.SystemUpdate, "sky", trailing = "Version " + BuildConfig.VERSION_NAME, index = 2) { UpdatePanel(upd, vm) }
-        }
-        item {
-            SectionCard("Need a fresh start?", Icons.Rounded.Refresh, "teal", index = 4) {
-                Text("A missed paycheque or a surprise bill? Start again from today: what's in your accounts, what's paid, what you're behind on, and how to get to the next payday.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = { open(Sheet.CatchUp(first = false)) }, modifier = Modifier.testTag("get-on-track")) { Text("Get back on track") }
-            }
-        }
-        item {
-            SectionCard("About LoonieMate", Icons.Rounded.Info, index = 4) {
-                Text("A budget planner for families on a tight budget in Canada. No account, no ads, nothing sent anywhere: your budget stays on this phone unless you export it. iPhone users can use the web version.",
-                    style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(8.dp))
-                TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(vm.updater.repoUrl))) }) { Text("LoonieMate on GitHub") }
-            }
-        }
-        /* for testing: runs the getting-on-track steps as if for the first time (docs/plans/getting-on-track.md) */
+    val docs by vm.repo.docs.collectAsStateWithLifecycle()
+    val syncState by vm.sync.state.collectAsStateWithLifecycle()
+    val s = Docs.settings(docs["settings/main"], today)
+    val ppl = s.strList("people"); val prov = looniemate.engine.Labels.PROVINCES.find { it.first == s.or("province", "ON") }?.second ?: "Ontario"
+    val accts = Core.accountsOf(s).size; val inc = Core.incomesOf(s).size; val cr = Core.creditsOf(s).size
+    val quick = s["quick"].arr().count { it.t("category") && it.n("amount") > 0 }
+    val days = lastBackup?.let { diffDays(it.take(10), today) }
+    fun count(n: Int, one: String, many: String) = if (n == 1) "1 $one" else "$n $many"
+    val accessOn = listOfNotNull(listOf("", "Large text", "Larger text", "Largest text")[acc.textSize.coerceIn(0, 3)].ifEmpty { null }, "Bold".takeIf { acc.bold },
+        "Easier font".takeIf { acc.font }, "Stronger contrast".takeIf { acc.contrast }, "Colour-blind colours".takeIf { acc.colorBlind }, "Less motion".takeIf { !look.effects },
+        "More time".takeIf { acc.moreTime }, "Bigger buttons".takeIf { acc.bigButtons })
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item { Group("Your budget") {
+            SettingRow("household", "Household and province", listOf(prov, ppl.joinToString(", ")).filter { it.isNotEmpty() }.joinToString(" · "), Icons.Rounded.Home, "teal") { open(Sheet.Settings("household")) }
+            SettingRow("accounts", "Accounts", if (accts == 0) "None yet" else count(accts, "account", "accounts"), Icons.Rounded.AccountBalance, "gold") { open(Sheet.Settings("accounts")) }
+            SettingRow("income", "Income and benefits", if (inc + cr == 0) "None yet" else listOf(count(inc, "income", "incomes"), count(cr, "benefit", "benefits")).joinToString(" · "), Icons.Rounded.Payments, "teal") { open(Sheet.Settings("income")) }
+            SettingRow("food", "Food budget", "${Math.round(s.n("foodPct"))}% · at least ${Fmt.money(s.n("foodMin"))} a month", Icons.Rounded.Restaurant, "green") { open(Sheet.Settings("food")) }
+            SettingRow("quick", "Quick buttons", if (quick == 0) "None saved" else count(quick, "button", "buttons"), Icons.Rounded.Bolt, "amber") { open(Sheet.Settings("quick")) }
+        } }
+        item { Group("This phone") {
+            SettingRow("reminders", "Reminders", if (!vm.prefs.remindersOn) "Off" else vm.prefs.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.joinToString(" and ") { minutes(it) },
+                Icons.Rounded.Notifications, "sky") { open(Sheet.Settings("reminders")) }
+            SettingRow("look", "Look", listOf(when (look.themeMode) { "light" -> "Light"; "dark" -> "Dark"; else -> "Matches the phone" },
+                if (look.dynamicColor) "wallpaper colours" else looniemate.app.ui.theme.PALETTES.find { it.key == look.palette }?.name ?: "").filter { it.isNotEmpty() }.joinToString(" · "),
+                Icons.Rounded.Palette, "accent") { open(Sheet.Settings("look")) }
+            SettingRow("access", "Accessibility", if (accessOn.isEmpty()) "Standard" else accessOn.joinToString(", "), Icons.Rounded.Accessibility, "accent") { open(Sheet.Settings("access")) }
+        } }
+        item { Group("Keeping it safe") {
+            SettingRow("backup", "Backup", when (days) { null -> "Not backed up yet"; 0 -> "Backed up today"; 1 -> "Backed up yesterday"; else -> "Backed up $days days ago" }, Icons.Rounded.Backup, if (days == null || days > 14) "warn" else "green") { open(Sheet.Settings("backup")) }
+            SettingRow("sync", "Sync between phones", if (!vm.sync.on) "Off" else when (val st = syncState) { is looniemate.app.sync.SyncManager.State.Ok -> syncedAgo(st.at)
+                is looniemate.app.sync.SyncManager.State.Error -> "Needs attention"; else -> "On" }, Icons.Rounded.Sync, "sky") { open(Sheet.Settings("sync")) }
+            SettingRow("updates", "Updates", "Version " + BuildConfig.VERSION_NAME, Icons.Rounded.SystemUpdate, "sky") { open(Sheet.Settings("updates")) }
+        } }
+        item { Group("Help") {
+            Box(Modifier.testTag("get-on-track")) { SettingRow("ontrack", "Get back on track", "Start again from today after a missed paycheque or a surprise bill", Icons.Rounded.Refresh, "teal") { open(Sheet.CatchUp(first = false)) } }
+            SettingRow("about", "About LoonieMate", "No account, no ads, nothing sent anywhere", Icons.Rounded.Info, "accent") { open(Sheet.Settings("about")) }
+        } }
+        /* for testing: runs first-time setup again (docs/plans/getting-on-track.md); at the very bottom, erase everything */
         item {
             Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("For testing", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = { vm.prefs.onboarded = false; vm.prefs.a11yAsked = false; open(Sheet.Access(next = Sheet.CatchUp(first = true))) }, modifier = Modifier.testTag("redo-setup")) {
                     Text("Redo first-time setup", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                TextButton(onClick = { open(Sheet.Reset) }, modifier = Modifier.testTag("reset-open")) { Text("Reset LoonieMate", color = toneColors("bad").first) }
             }
         }
-        /* the very bottom: erase everything and start from scratch (asks to type RESET) */
-        item {
-            SectionCard("Reset LoonieMate", Icons.Rounded.DeleteForever, "bad", index = 5) {
-                Text("Erase everything on this phone and start from scratch, as if LoonieMate was just installed. You'll be asked to type RESET first.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = { open(Sheet.Reset) }, modifier = Modifier.testTag("reset-open")) { Text("Reset LoonieMate", color = toneColors("bad").first) }
+    }
+}
+
+/** A Settings page: the card's content on a page of its own. */
+@Composable
+fun SettingsPage(key: String, vm: MainViewModel, open: (Sheet) -> Unit) {
+    looniemate.app.ui.sheets.SheetTitle(when (key) { "household" -> "Household and province"; "accounts" -> "Accounts"; "income" -> "Income and benefits"; "food" -> "Food budget"
+        "quick" -> "Quick buttons"; "reminders" -> "Reminders"; "look" -> "Look"; "access" -> "Accessibility"; "backup" -> "Backup"; "sync" -> "Sync between phones"
+        "updates" -> "Updates"; else -> "About LoonieMate" })
+    androidx.compose.runtime.CompositionLocalProvider(looniemate.app.ui.LocalPlainCard provides true) {
+        when (key) {
+            "household" -> HouseholdCard(vm, open); "accounts" -> AccountsCard(vm, open); "income" -> IncomeCard(vm, open); "food" -> FoodCard(vm, open)
+            "quick" -> QuickButtonsCard(vm); "reminders" -> RemindersCard(vm); "look" -> LookCard(vm); "access" -> AccessibilityCard(vm); "backup" -> BackupCard(vm, open)
+            "sync" -> SyncCard(vm); "updates" -> { val upd by vm.updater.state.collectAsStateWithLifecycle()
+                SectionCard("Updates", Icons.Rounded.SystemUpdate, "sky", trailing = "Version " + BuildConfig.VERSION_NAME) { UpdatePanel(upd, vm) } }
+            else -> AboutCard(vm)
+        }
+    }
+}
+
+@Composable
+private fun LookCard(vm: MainViewModel) {
+    val look by vm.prefs.look.collectAsStateWithLifecycle()
+    SectionCard("Appearance", Icons.Rounded.Palette, trailing = "Only this phone", index = 0) {
+        Text("Light or dark", fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(6.dp))
+        val modes = listOf("system" to "Match phone", "light" to "Light", "dark" to "Dark")
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            modes.forEachIndexed { i, (k, l) -> SegmentedButton(selected = look.themeMode == k, onClick = { vm.prefs.setLook(look.copy(themeMode = k)) }, shape = SegmentedButtonDefaults.itemShape(i, modes.size)) { Text(l) } }
+        }
+        Spacer(Modifier.height(14.dp))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            SwitchRow("Colours from my wallpaper", "Material You: LoonieMate picks up the colours of your home screen.", look.dynamicColor) { vm.prefs.setLook(look.copy(dynamicColor = it)) }
+            Spacer(Modifier.height(10.dp))
+        }
+        if (!look.dynamicColor || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            Text("Colour theme", fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(8.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                PALETTES.forEach { p -> val sel = look.palette == p.key
+                    Surface(onClick = { vm.prefs.setLook(look.copy(palette = p.key)) }, shape = MaterialTheme.shapes.medium,
+                        color = if (sel) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                        border = if (sel) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null) {
+                        Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(Modifier.size(34.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Color(p.l[0]), Color(p.l[1])))))
+                            Spacer(Modifier.height(4.dp)); Text(p.name, style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun BackupCard(vm: MainViewModel, open: (Sheet) -> Unit) {
+    val lastBackup by vm.prefs.lastBackupFlow.collectAsStateWithLifecycle()
+    val today by vm.today.collectAsStateWithLifecycle()
+    SectionCard("Backup and moving to another phone", Icons.Rounded.Backup, "green", index = 1) {
+        val days = lastBackup?.let { diffDays(it.take(10), today) }
+        Text(when (days) { null -> "No backup yet. If this phone is lost, reset or the app is removed, the budget is gone."; 0 -> "Last backup: today."; 1 -> "Last backup: yesterday."; else -> "Last backup: $days days ago." },
+            fontWeight = if (days == null || days > 14) FontWeight.Bold else null, color = if (days == null || days > 14) toneColors("warn").first else MaterialTheme.colorScheme.onSurface)
+        Spacer(Modifier.height(6.dp))
+        Text("Backups are locked with a password you choose and saved as a file. The same file works in the web version and on another phone. If you lose the password, the file can't be opened by anyone.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { Button(onClick = { open(Sheet.Export) }) { Text("Export a backup") }; OutlinedButton(onClick = { open(Sheet.Import) }) { Text("Import a backup") } }
+    }
+}
+
+@Composable
+private fun AboutCard(vm: MainViewModel) {
+    val ctx = LocalContext.current
+    SectionCard("About LoonieMate", Icons.Rounded.Info, index = 4) {
+        Text("A budget planner for families on a tight budget in Canada. No account, no ads, nothing sent anywhere: your budget stays on this phone unless you export it. iPhone users can use the web version.",
+            style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(8.dp))
+        Text("Version " + BuildConfig.VERSION_NAME, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(vm.updater.repoUrl))) }) { Text("LoonieMate on GitHub") }
     }
 }
 

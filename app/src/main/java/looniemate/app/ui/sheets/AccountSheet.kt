@@ -51,6 +51,12 @@ fun AccountSheet(vm: MainViewModel, id: String?, close: () -> Unit) {
     val purposes = rememberSaveable(saver = stringListSaver()) { mutableStateListOf<String>().apply {
         if (a != null) addAll(a["purposes"].arr().map { str(it) }) else if (Core.acctFor(s, "main") == null) add("main") } }
     var err by rememberSaveable { mutableStateOf<String?>(null) }; var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    /* what the bank and its ATM can do (chequing accounts) */
+    var limit by rememberSaveable { mutableStateOf(a?.get("atmLimit")?.let { if (num(it) > 0) money2(num(it)) else "" } ?: "") }
+    var notes by rememberSaveable { mutableStateOf(a?.n("atmNotes")?.toInt()?.takeIf { it == 5 || it == 10 } ?: 20) }
+    var tellers by rememberSaveable { mutableStateOf(!(a?.get("tellers").isFalse())) }
+    var over by rememberSaveable { mutableStateOf(a?.s("atmOver") ?: "") }
+    var also by rememberSaveable { mutableStateOf(a?.s("atmAlso") ?: "") }
     val used = if (id != null) Accounts.billsUsing(s, vm.repo.docs.value.filterKeys { it.startsWith("bills/") }.values, id) else 0
 
     SheetTitle(if (a != null) "Edit account" else "Add an account")
@@ -86,10 +92,40 @@ fun AccountSheet(vm: MainViewModel, id: String?, close: () -> Unit) {
         }
     }
 
+    if (type == "chequing") {
+        Text("What the bank and its ATM can do", fontWeight = FontWeight.SemiBold)
+        Hint("Used when LoonieMate tells you to take out cash. All optional.")
+        MoneyField(limit, { limit = it }, "Daily ATM limit (optional)", hint = "Check your banking app; it's often \$500 or \$1,000. Blank means no limit.")
+        Text("Bills the ATM gives out", style = MaterialTheme.typography.bodyMedium)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(20 to "\$20s", 10 to "\$10s and \$20s", 5 to "\$5s and up").forEach { (k, l) -> FilterChip(notes == k, { notes = k }, label = { Text(l) }) } }
+        Text("Branches with tellers", style = MaterialTheme.typography.bodyMedium)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(tellers, { tellers = true }, label = { Text("Yes") })
+            FilterChip(!tellers, { tellers = false }, label = { Text("No, it's an online bank") }) }
+        if (Views.parseMoney(limit)?.let { it > 0 } == true) {
+            Text("When the cash is more than the daily limit", style = MaterialTheme.typography.bodyMedium)
+            val second = others.filter { it.s("type") == "chequing" }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(over == "days" || over.isEmpty(), { over = "days" }, label = { Text("Go back each day") })
+                if (second.isNotEmpty()) FilterChip(over == "split", { over = "split"; if (also.isEmpty()) also = second.first().s("id") }, label = { Text("Use another account too") }) }
+            if (over == "split" && second.isNotEmpty()) SelectField(also.ifEmpty { second.first().s("id") }, second.map { it.s("id") to it.s("name") }, { also = it }, "The other account's card")
+            Hint(if (over == "split") "Take the rest from that account's card the same day; LoonieMate moves the money into it first."
+                else "Take part of it out on each of the days before, starting early enough.")
+        }
+    }
+
     if (id != null) Hint(if (used > 0) "Used by $used bill${if (used > 1) "s" else ""}." else "Not used by any bills.")
     ErrorText(err)
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Button(onClick = { err = vm.saveAccount(id, name, type, kind, purposes.toList()); if (err == null) close() }, modifier = Modifier.testTag("save-account")) {
+        Button(onClick = {
+            val lim = Views.parseMoney(limit)
+            err = if (limit.isNotBlank() && (lim == null || lim.isNaN() || lim < 0)) "Enter the daily limit as a dollar amount, or leave it blank." else {
+                val atm = if (type != "chequing") null else J.obj("atmLimit" to (if (lim != null && lim > 0) lim else null), "atmNotes" to (if (notes == 20) null else notes),
+                    "tellers" to (if (tellers) null else false), "atmOver" to (if (lim != null && lim > 0 && over.isNotEmpty()) over else null),
+                    "atmAlso" to (if (lim != null && lim > 0 && over == "split") also else null))
+                vm.saveAccount(id, name, type, kind, purposes.toList(), atm) }
+            if (err == null) close() }, modifier = Modifier.testTag("save-account")) {
             Text(if (a != null) "Save account" else "Add account") }
         Spacer(Modifier.weight(1f))
         if (a != null && id != null) {

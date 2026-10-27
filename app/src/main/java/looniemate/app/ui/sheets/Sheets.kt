@@ -70,8 +70,8 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
     val close: () -> Unit = onDismiss
     /* a new page for each form, so one form's typing or scroll never carries into the next (setup chains forms) */
     /* closing "Make LoonieMate easier to use?" during first-time setup carries on to getting on track, like Skip (N7) */
-    val onClose: () -> Unit = (sheet as? Sheet.Access)?.next?.let { n -> { open(n) } } ?: onDismiss
-    key(sheet) { Page(onClose = onClose) {
+    val onClose: () -> Unit = (sheet as? Sheet.Access)?.next?.let { n -> { onDismiss(); open(n) } } ?: onDismiss
+    key(sheet) { Page(onClose = onClose, back = sheet is Sheet.Settings) {
             when (sheet) {
                 is Sheet.Log -> LogSheet(vm, sheet.oneTime, close, sheet.category)
                 is Sheet.Food -> FoodSheet(vm, sheet.ym, close, open)
@@ -87,7 +87,7 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
                 is Sheet.Credit -> CreditSheet(vm, sheet.id, sheet.type, close)
                 is Sheet.MonthIncome -> MonthIncomeSheet(vm, sheet.ym, close)
                 is Sheet.CatchUp -> CatchUpSheet(vm, sheet.first, close)
-                is Sheet.Access -> AccessSheet(vm) { val n = sheet.next; if (n != null) open(n) else close() }
+                is Sheet.Access -> AccessSheet(vm) { val n = sheet.next; close(); if (n != null) open(n) }
                 is Sheet.Update -> { SheetTitle("Update LoonieMate")
                     val st by vm.updater.state.collectAsStateWithLifecycle(); looniemate.app.ui.screens.UpdatePanel(st, vm, inSheet = true) }
                 is Sheet.Self -> SelfSheet(vm, close, open)
@@ -95,6 +95,7 @@ fun Sheets(sheet: Sheet, vm: MainViewModel, onDismiss: () -> Unit, open: (Sheet)
                 is Sheet.Reset -> ResetSheet(vm, close, open)
                 is Sheet.Household -> HouseholdSheet(vm, close)
                 is Sheet.Import -> ImportSheet(vm, close)
+                is Sheet.Settings -> looniemate.app.ui.screens.SettingsPage(sheet.key, vm, open)
             }
     } }
 }

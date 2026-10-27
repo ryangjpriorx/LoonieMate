@@ -154,6 +154,7 @@ fun SpendingScreen(vm: MainViewModel, pad: PaddingValues, open: (Sheet) -> Unit)
     val m = sm ?: return
     val people = vm.settings()["people"]
     LazyColumn(Modifier.fillMaxSize(), contentPadding = pad, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { looniemate.app.ui.MonthSwitcher(vm) }
         item { CategoryCard(m.ym, m.byCat, 0) }
         item { SelfSpendingCard(m, vm, open) }
         item {
